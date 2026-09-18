@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "diagnostics-policy.v1.schema.json",
+  "title": "Diagnostics Policy v1",
+  "type": "object",
+  "required": [
+    "meta",
+    "display",
+    "channels",
+    "safety",
+    "storage"
+  ],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "configVersion"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "string"
+        },
+        "configVersion": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "display": {
+      "type": "object",
+      "required": [
+        "sectionKey",
+        "defaultVisibility",
+        "allowKeyboardToggle",
+        "allowUiToggle"
+      ],
+      "properties": {
+        "sectionKey": {
+          "type": "string"
+        },
+        "defaultVisibility": {
+          "type": "string",
+          "enum": [
+            "open",
+            "closed"
+          ]
+        },
+        "allowKeyboardToggle": {
+          "type": "boolean"
+        },
+        "allowUiToggle": {
+          "type": "boolean"
+        },
+        "persistUserOpenState": {
+          "type": "boolean"
+        },
+        "immersiveOverride": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "channels": {
+      "type": "object",
+      "required": [
+        "alwaysAvailable",
+        "capabilityScoped"
+      ],
+      "properties": {
+        "alwaysAvailable": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "capabilityScoped": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "safety": {
+      "type": "object",
+      "required": [
+        "redactCredentialMaterial",
+        "defaultVerbosity",
+        "allowExpandableDetail"
+      ],
+      "properties": {
+        "redactCredentialMaterial": {
+          "type": "boolean"
+        },
+        "defaultVerbosity": {
+          "type": "string",
+          "enum": [
+            "concise",
+            "detailed"
+          ]
+        },
+        "allowExpandableDetail": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "storage": {
+      "type": "object",
+      "required": [
+        "backend",
+        "serverPersistenceRequired"
+      ],
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "consoleMirrorInDev": {
+          "type": "boolean"
+        },
+        "serverPersistenceRequired": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

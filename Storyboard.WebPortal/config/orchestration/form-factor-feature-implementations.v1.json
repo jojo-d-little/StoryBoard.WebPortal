@@ -1,0 +1,73 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "configVersion": "1.0.0"
+  },
+  "defaultFormFactorKey": "desktop",
+  "formFactors": {
+    "desktop": {
+      "implementationByFeature": {
+        "topBarMenu": "topBarDesktopV1",
+        "identityBootstrapStatus": "identityBootstrapStatusDesktopV1",
+        "authSignIn": {
+          "implementationKey": "authSignInV1",
+          "orientation": "horizontal",
+          "density": "regular"
+        },
+        "gameDiscovery": {
+          "implementationKey": "gameDiscoveryV1",
+          "orientation": "horizontal",
+          "density": "regular"
+        },
+        "gameDetails": "gameDetailsDesktopV1",
+        "commandHandler": {
+          "implementationKey": "commandHandlerV1",
+          "orientation": "vertical",
+          "density": "regular"
+        },
+        "inGameToolsMenu": {
+          "implementationKey": "inGameToolsMenuV1",
+          "orientation": "horizontal",
+          "density": "regular"
+        },
+        "sessionPlaySurface": "sessionPlaySurfaceDesktopV1",
+        "interruptionRecovery": "interruptionRecoveryDesktopV1",
+        "globalStatus": "statusBarInfoV1",
+        "diagnosticsConsole": "DiagnosticsConsole",
+        "devToolsPanel": "DevToolsPanel"
+      }
+    },
+    "mobileLandscape": {
+      "implementationByFeature": {
+        "topBarMenu": "topBarMobileLandscapeV1",
+        "identityBootstrapStatus": "identityBootstrapStatusMobileLandscapeV1",
+        "authSignIn": {
+          "implementationKey": "authSignInV1",
+          "orientation": "horizontal",
+          "density": "compact"
+        },
+        "gameDiscovery": {
+          "implementationKey": "gameDiscoveryV1",
+          "orientation": "horizontal",
+          "density": "compact"
+        },
+        "gameDetails": "gameDetailsMobileLandscapeV1",
+        "commandHandler": {
+          "implementationKey": "commandHandlerV1",
+          "orientation": "horizontal",
+          "density": "compact"
+        },
+        "inGameToolsMenu": {
+          "implementationKey": "inGameToolsMenuV1",
+          "orientation": "horizontal",
+          "density": "compact"
+        },
+        "sessionPlaySurface": "sessionPlaySurfaceMobileLandscapeV1",
+        "interruptionRecovery": "interruptionRecoveryMobileLandscapeV1",
+        "globalStatus": "statusBarInfoV1",
+        "diagnosticsConsole": "DiagnosticsConsole",
+        "devToolsPanel": "DevToolsPanel"
+      }
+    }
+  }
+}

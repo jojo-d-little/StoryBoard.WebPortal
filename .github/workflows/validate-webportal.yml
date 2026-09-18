@@ -1,0 +1,50 @@
+name: Validate WebPortal
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: read
+
+defaults:
+  run:
+    working-directory: Storyboard.WebPortal
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Storyboard.WebPortal/package-lock.json
+          registry-url: https://npm.pkg.github.com
+
+      - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: npm run verify:contracts
+      - run: npm test
+      - run: npm run build
+
+      - name: Package built web content
+        id: package
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          archive="storyboard-webportal-${version}.tar.gz"
+          tar -czf "$archive" -C dist .
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: storyboard-webportal-${{ steps.package.outputs.version }}
+          path: storyboard-webportal-*.tar.gz
+          if-no-files-found: error

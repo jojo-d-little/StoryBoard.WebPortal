@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "form-factor-feature-implementations.v1.schema.json",
+  "title": "Form Factor Feature Implementations v1",
+  "type": "object",
+  "required": [
+    "meta",
+    "defaultFormFactorKey",
+    "formFactors"
+  ],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "configVersion"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "string"
+        },
+        "configVersion": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaultFormFactorKey": {
+      "type": "string"
+    },
+    "formFactors": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "implementationByFeature"
+        ],
+        "properties": {
+          "implementationByFeature": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "implementationKey",
+                    "orientation",
+                    "density"
+                  ],
+                  "properties": {
+                    "implementationKey": {
+                      "type": "string"
+                    },
+                    "orientation": {
+                      "type": "string",
+                      "enum": [
+                        "horizontal",
+                        "vertical"
+                      ]
+                    },
+                    "density": {
+                      "type": "string",
+                      "enum": [
+                        "regular",
+                        "compact"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

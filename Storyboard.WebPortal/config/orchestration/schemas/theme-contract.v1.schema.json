@@ -1,0 +1,282 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "theme-contract.v1.schema.json",
+  "title": "Theme Contract v1",
+  "type": "object",
+  "required": [
+    "meta",
+    "tokens",
+    "fallbackPolicy"
+  ],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "configVersion"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "string"
+        },
+        "configVersion": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "tokens": {
+      "type": "object",
+      "required": [
+        "color",
+        "typography",
+        "shape",
+        "spacing"
+      ],
+      "description": "Theme tokens intentionally kept compact for v1 while allowing meaningful visual tuning.",
+      "properties": {
+        "color": {
+          "type": "object",
+          "required": [
+            "chromePrimary",
+            "accentPrimary",
+            "primaryText",
+            "surfaceBackground",
+            "panelBackground",
+            "borderPrimary",
+            "controlBackground",
+            "controlBackgroundActive",
+            "controlText",
+            "surfaceMuted",
+            "collapsedOutlineColor",
+            "collapsedFillColor",
+            "secondaryText",
+            "statusSuccessText",
+            "statusWarningText",
+            "statusErrorText",
+            "echoMessageTextColor",
+            "echoMessageBackgroundColor",
+            "hudOutlineColor",
+            "hudBackgroundColor",
+            "hudTextColor",
+            "hudManualDismissButtonColor"
+          ],
+          "description": "Core color controls for shell chrome, content surfaces, text hierarchy, borders, and status messaging.",
+          "properties": {
+            "chromePrimary": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "Primary shell/chrome color used for frame-oriented UI elements such as app bars and major shell accents."
+            },
+            "accentPrimary": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "Primary accent color for emphasis and calls to action."
+            },
+            "primaryText": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "Default high-legibility text color for primary content."
+            },
+            "surfaceBackground": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "Global page/shell background color that establishes baseline visual mood."
+            },
+            "panelBackground": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "Panel/card background color to visually separate sectional content from the overall surface."
+            },
+            "borderPrimary": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "Primary boundary/separator color for section delineation and subtle structure."
+            },
+            "controlBackground": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "Default background for interactive controls such as buttons, inputs, and selector chips."
+            },
+            "controlBackgroundActive": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "Active/highlighted background for selected controls and control affordances."
+            },
+            "controlText": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "Text color rendered on control backgrounds for high readability."
+            },
+            "surfaceMuted": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "Muted supporting surface used for helper panels, placeholders, and collapsed blocks."
+            },
+            "collapsedOutlineColor": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "Outline color for collapsed slot indicators."
+            },
+            "collapsedFillColor": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "Fill color for collapsed slot indicators."
+            },
+            "secondaryText": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "Secondary/supporting text color for metadata, helper text, and lower-priority labels."
+            },
+            "statusSuccessText": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "Success-state text color for positive status messages and indicators."
+            },
+            "statusWarningText": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "Warning-state text color for recoverable caution and degraded-state indicators."
+            },
+            "statusErrorText": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "Error-state text color for failures and blocking problems."
+            },
+            "echoMessageTextColor": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "Text color for the command handler echo/output message list."
+            },
+            "echoMessageBackgroundColor": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "Background color for the command handler echo/output panel."
+            },
+            "hudOutlineColor": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "HUD card outline color for in-scene presentation overlays."
+            },
+            "hudBackgroundColor": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "HUD card background color for in-scene presentation overlays."
+            },
+            "hudTextColor": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "HUD message text color for in-scene presentation overlays."
+            },
+            "hudManualDismissButtonColor": {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{6})$",
+              "description": "Manual-dismiss CTA color for HUD overlays that require a click to continue."
+            }
+          },
+          "additionalProperties": false
+        },
+        "typography": {
+          "type": "object",
+          "required": [
+            "textFontFamilyPrimary",
+            "hudFontFamilyHeader",
+            "hudFontFamilyBody"
+          ],
+          "description": "Typography tokens for readable baseline text plus optional display style character.",
+          "properties": {
+            "textFontFamilyPrimary": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Primary UI text font stack used across most interface content."
+            },
+            "textFontFamilyDisplay": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Optional display/headline font stack used for branded or expressive headings."
+            },
+            "hudFontFamilyHeader": {
+              "type": "string",
+              "minLength": 1,
+              "description": "HUD header/action font stack used for dismissal hint text and compact HUD labels."
+            },
+            "hudFontFamilyBody": {
+              "type": "string",
+              "minLength": 1,
+              "description": "HUD body font stack used for in-scene narrative/message text."
+            }
+          },
+          "additionalProperties": false
+        },
+        "shape": {
+          "type": "object",
+          "required": [
+            "borderRadiusBase",
+            "borderThickness",
+            "collapsedComponentThickness"
+          ],
+          "description": "Shape token(s) that define the default curvature personality of UI components.",
+          "properties": {
+            "borderRadiusBase": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Default border radius in CSS pixels for cards, panels, and controls."
+            },
+            "borderThickness": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Primary border stroke thickness in CSS pixels for themed borderPrimary outlines."
+            },
+            "collapsedComponentThickness": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Collapsed slot indicator thickness in CSS pixels, used across collapse axes."
+            }
+          },
+          "additionalProperties": false
+        },
+        "spacing": {
+          "type": "object",
+          "required": [
+            "baseUnit"
+          ],
+          "description": "Spacing token(s) used as a rhythm base for margins, gaps, and paddings.",
+          "properties": {
+            "baseUnit": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Base spacing unit in CSS pixels used as a multiplier for layout spacing rhythm."
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "fallbackPolicy": {
+      "type": "object",
+      "required": [
+        "missingToken",
+        "invalidToken",
+        "unsupportedFont",
+        "blockStartupOnThemeError"
+      ],
+      "properties": {
+        "missingToken": {
+          "type": "string"
+        },
+        "invalidToken": {
+          "type": "string"
+        },
+        "unsupportedFont": {
+          "type": "string"
+        },
+        "blockStartupOnThemeError": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

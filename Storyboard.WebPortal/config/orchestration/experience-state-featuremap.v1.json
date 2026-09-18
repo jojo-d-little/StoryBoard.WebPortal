@@ -1,0 +1,92 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "configVersion": "1.0.0",
+    "lastUpdatedUtc": "2026-08-26T00:00:00Z"
+  },
+  "initialExperienceState": "Bootstrapping",
+  "experienceStates": {
+    "Bootstrapping": {},
+    "SignedOut": {},
+    "SignedIn": {},
+    "SessionActive": {},
+    "SessionDisconnected": {}
+  },
+  "operationModel": {
+    "statuses": [
+      "None",
+      "SigningIn",
+      "DiscoveringGames",
+      "StartingSession",
+      "JoiningSession",
+      "LeavingSession",
+      "Reconnecting"
+    ],
+    "phases": [
+      "Idle",
+      "Running",
+      "Failed"
+    ]
+  },
+  "transitions": [
+    {
+      "from": "Bootstrapping",
+      "event": "BootstrapComplete",
+      "to": "SignedOut"
+    },
+    {
+      "from": "SignedOut",
+      "event": "SignInSucceeded",
+      "to": "SignedIn",
+      "actionRef": "identity.onSignInSucceeded"
+    },
+    {
+      "from": "SignedIn",
+      "event": "StartSessionSucceeded",
+      "to": "SessionActive",
+      "guardRef": "session.canStartSelectedGame"
+    },
+    {
+      "from": "SignedIn",
+      "event": "JoinSessionSucceeded",
+      "to": "SessionActive",
+      "guardRef": "session.canJoinSelectedSession"
+    },
+    {
+      "from": "SessionActive",
+      "event": "LeaveSessionSucceeded",
+      "to": "SignedIn"
+    },
+    {
+      "from": "SessionActive",
+      "event": "SessionInterruptedDetected",
+      "to": "SessionDisconnected"
+    },
+    {
+      "from": "SessionDisconnected",
+      "event": "ReconnectSucceeded",
+      "to": "SessionActive"
+    },
+    {
+      "from": "SessionDisconnected",
+      "event": "ReconnectFailed",
+      "to": "SessionDisconnected"
+    },
+    {
+      "from": "SessionDisconnected",
+      "event": "ReturnToLobbyRequested",
+      "to": "SignedIn"
+    },
+    {
+      "from": "SignedIn",
+      "event": "SignOutRequested",
+      "to": "SignedOut",
+      "actionRef": "identity.signOut"
+    }
+  ],
+  "resolutionDefaults": {
+    "defaultSkeletonLayoutKey": "desktopStandard",
+    "defaultFormFactorKey": "desktop",
+    "defaultCompositionProfileKey": "standard"
+  }
+}

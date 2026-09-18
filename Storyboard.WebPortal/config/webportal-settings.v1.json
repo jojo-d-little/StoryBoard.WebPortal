@@ -1,0 +1,42 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "configVersion": "1.0.0"
+  },
+  "devToolsDefaults": {
+    "pollIntervalMs": 750,
+    "heartbeatEveryNPolls": 100,
+    "echoOutputRetentionLines": 400
+  },
+  "audioDefaults": {
+    "requireUserGestureToUnlock": true,
+    "lanes": {
+      "sfx": {
+        "muted": false,
+        "volumePercent": 100
+      },
+      "ambient": {
+        "muted": false,
+        "volumePercent": 100
+      }
+    }
+  },
+  "roomTransitionDefaults": {
+    "enabled": true,
+    "cueCategory": "RoomTransition",
+    "cueEffectKeyOverridesByTravelDirection": {
+      "Up": "room.transition.fade.cross.medium",
+      "Down": "room.transition.fade.cross.medium"
+    },
+    "cueEffectKey": "room.transition.slide.directional.slow",
+    "respectTravelDirection": true,
+    "fallbackDurationMs": 840
+  },
+  "waypointDefaults": {
+    "pointPlacementCueEffectKey": "waypoint.point.place.rings.medium"
+  },
+  "uiCommandVerbs": {
+    "waypointSubmit": "submitwaypoints",
+    "pointClicked": "pointclicked"
+  }
+}

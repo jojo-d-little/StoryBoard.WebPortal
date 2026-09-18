@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Directional Layout Baseline</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Segoe UI, sans-serif;
+      background: #0b1220;
+      color: #e2e8f0;
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+    }
+
+    .frame {
+      border: 1px solid #334155;
+      padding: 12px;
+      background: #111827;
+      border-radius: 8px;
+    }
+
+    #mount {
+      width: 800px;
+      height: 600px;
+      background: #0f172a;
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <div id="mount"></div>
+  </div>
+  <script type="module" src="/src/gameRenderer/testing/visualBaselineHarness.ts"></script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "configVersion": "1.0.0"
+  },
+  "tokens": {
+    "color": {
+      "chromePrimary": "#000000",
+      "accentPrimary": "#0affe2",
+      "surfaceBackground": "#000000",
+      "panelBackground": "#4c4a38",
+      "borderPrimary": "#ffc800",
+      "controlBackground": "#d5d8e2",
+      "controlBackgroundActive": "#98b2e2",
+      "surfaceMuted": "#b3b3b3",
+      "collapsedOutlineColor": "#ffc800",
+      "collapsedFillColor": "#615400",
+      "primaryText": "#000000",
+      "controlText": "#003380",
+      "secondaryText": "#ddd5b1",
+      "statusSuccessText": "#1F8A4C",
+      "statusWarningText": "#B7791F",
+      "statusErrorText": "#B83232",
+      "echoMessageTextColor": "#000000",
+      "echoMessageBackgroundColor": "#9ba6bb",
+      "hudOutlineColor": "#94A3B8",
+      "hudBackgroundColor": "#0F172A",
+      "hudTextColor": "#F9FAFB",
+      "hudManualDismissButtonColor": "#1D4ED8"
+    },
+    "typography": {
+      "textFontFamilyPrimary": "\"Source Sans 3\", \"Segoe UI\", sans-serif",
+      "textFontFamilyDisplay": "\"Merriweather\", Georgia, serif",
+      "hudFontFamilyHeader": "\"Cascadia Mono\", \"Consolas\", \"Courier New\", monospace",
+      "hudFontFamilyBody": "\"Source Sans 3\", \"Segoe UI\", sans-serif"
+    },
+    "shape": {
+      "borderRadiusBase": 16,
+      "borderThickness": 2,
+      "collapsedComponentThickness": 10
+    },
+    "spacing": {
+      "baseUnit": 8
+    }
+  },
+  "fallbackPolicy": {
+    "missingToken": "use-default",
+    "invalidToken": "warn-and-use-default",
+    "unsupportedFont": "use-approved-safe-stack",
+    "blockStartupOnThemeError": false
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "configVersion": "1.0.0"
+  },
+  "display": {
+    "sectionKey": "diagnosticsDrawer",
+    "defaultVisibility": "closed",
+    "allowKeyboardToggle": true,
+    "allowUiToggle": true,
+    "persistUserOpenState": true,
+    "immersiveOverride": "entry-minimized-not-removed"
+  },
+  "channels": {
+    "alwaysAvailable": [
+      "stateTransitions",
+      "authLifecycle",
+      "sessionLifecycle",
+      "transportSummary",
+      "warningsAndErrors"
+    ],
+    "capabilityScoped": [
+      "sessionDeltaDetail",
+      "reconnectTimeline",
+      "performanceTiming"
+    ]
+  },
+  "safety": {
+    "redactCredentialMaterial": true,
+    "defaultVerbosity": "concise",
+    "allowExpandableDetail": true
+  },
+  "storage": {
+    "backend": "in-memory-ring-buffer",
+    "consoleMirrorInDev": true,
+    "serverPersistenceRequired": false
+  }
+}

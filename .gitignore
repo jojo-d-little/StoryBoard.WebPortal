@@ -1,0 +1,29 @@
+# Node dependencies and build output
+Storyboard.WebPortal/node_modules/
+Storyboard.WebPortal/dist/
+Storyboard.WebPortal/test-results/
+
+# .NET build output
+**/bin/
+**/obj/
+TestResults/
+**/TestResults/
+
+# TypeScript and Vite generated metadata
+Storyboard.WebPortal/*.tsbuildinfo
+Storyboard.WebPortal/vite.config.js
+Storyboard.WebPortal/vite.config.d.ts
+
+# Local tooling and editor files
+Storyboard.WebPortal/tools/node-*
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Local environment and credentials
+/package-lock.json
+*.local
+.env
+.env.*
+!.env.example

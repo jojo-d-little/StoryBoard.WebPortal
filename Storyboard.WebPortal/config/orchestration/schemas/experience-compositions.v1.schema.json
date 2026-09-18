@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "experience-compositions.v1.schema.json",
+  "title": "Experience Compositions v1",
+  "type": "object",
+  "required": [
+    "meta",
+    "stateDefaults",
+    "compositionProfiles"
+  ],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "configVersion"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "string"
+        },
+        "configVersion": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "stateDefaults": {
+      "type": "object",
+      "required": [
+        "Bootstrapping",
+        "SignedOut",
+        "SignedIn",
+        "SessionActive",
+        "SessionDisconnected"
+      ],
+      "additionalProperties": false,
+      "patternProperties": {
+        "^(Bootstrapping|SignedOut|SignedIn|SessionActive|SessionDisconnected)$": {
+          "type": "string"
+        }
+      }
+    },
+    "compositionProfiles": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "profile",
+          "slotAssignments"
+        ],
+        "properties": {
+          "profile": {
+            "type": "string"
+          },
+          "slotAssignments": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "slotKey",
+                "mode"
+              ],
+              "properties": {
+                "slotKey": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
+                },
+                "featureKey": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
+                },
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "visible",
+                    "hidden",
+                    "collapsed",
+                    "disabled",
+                    "readonly"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

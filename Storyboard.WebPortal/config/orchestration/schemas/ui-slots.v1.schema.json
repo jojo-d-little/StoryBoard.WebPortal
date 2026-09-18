@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ui-slots.v1.schema.json",
+  "title": "UI Slots v1",
+  "type": "object",
+  "required": [
+    "meta",
+    "slots",
+    "allowedSlotModes"
+  ],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "configVersion"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "string"
+        },
+        "configVersion": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "slots": {
+      "type": "object",
+      "required": [
+        "topBar",
+        "primarySurface",
+        "secondaryPanel",
+        "utilityPanel",
+        "diagnosticsDrawer",
+        "devToolsDrawer",
+        "modalLayer",
+        "toastLayer",
+        "statusStrip"
+      ],
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[a-zA-Z][a-zA-Z0-9]*$": {
+          "type": "object",
+          "required": [
+            "kind",
+            "infrastructure",
+            "collapsible",
+            "hideable"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "infrastructure": {
+              "type": "boolean"
+            },
+            "collapsible": {
+              "type": "boolean"
+            },
+            "hideable": {
+              "type": "boolean"
+            },
+            "behaviorHints": {
+              "type": "object",
+              "properties": {
+                "collapseToEdge": {
+                  "type": "string",
+                  "enum": [
+                    "left",
+                    "right",
+                    "top",
+                    "bottom"
+                  ]
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "dialog-layer",
+                    "toast-layer",
+                    "nonmodal-layer",
+                    "drawer-layer",
+                    "chrome-layer"
+                  ]
+                },
+                "presentation": {
+                  "type": "string",
+                  "enum": [
+                    "overlay-modal",
+                    "overlay-nonmodal",
+                    "overlay-toast",
+                    "inline"
+                  ]
+                },
+                "backdrop": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "dim"
+                  ]
+                },
+                "dismissOnEscape": {
+                  "type": "boolean"
+                },
+                "dismissOnBackdropClick": {
+                  "type": "boolean"
+                },
+                "stackOrder": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "allowedSlotModes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "visible",
+          "hidden",
+          "collapsed",
+          "disabled",
+          "readonly"
+        ]
+      },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}

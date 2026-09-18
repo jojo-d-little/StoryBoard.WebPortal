@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "skeleton-layouts.v1.schema.json",
+  "title": "Skeleton Layouts v1",
+  "type": "object",
+  "required": [
+    "meta",
+    "skeletonLayouts"
+  ],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "configVersion"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "string"
+        },
+        "configVersion": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "skeletonLayouts": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "family",
+          "formFactorKey",
+          "templatePath"
+        ],
+        "properties": {
+          "family": {
+            "type": "string"
+          },
+          "formFactorKey": {
+            "type": "string"
+          },
+          "minWidth": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "maxWidth": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "orientation": {
+            "type": "string",
+            "enum": [
+              "portrait",
+              "landscape"
+            ]
+          },
+          "templatePath": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

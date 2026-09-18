@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <style>
+      /*
+        Desktop standard skeleton contract (4x4 grid example)
+
+        Grid cells are addressed as row/column indices:
+        - Rows: 1..4 (top to bottom)
+        - Columns: 1..4 (left to right)
+
+        Slot placement for parity with existing desktop layout:
+        - topBar:            row 1, col 1, rowSpan 1, colSpan 4
+        - secondaryPanel:    row 2, col 1, rowSpan 1, colSpan 1
+        - utilityPanel:      row 3, col 1, rowSpan 1, colSpan 1
+        - primarySurface:    row 2, col 2, rowSpan 2, colSpan 3
+        - statusStrip:       row 4, col 1, rowSpan 1, colSpan 1
+        - diagnosticsDrawer: row 4, col 2, rowSpan 1, colSpan 3
+      */
+      .storyboard-ui-layout-root.desktop-standard {
+        --storyboard-ui-grid-col-1: minmax(220px, 1fr);
+        --storyboard-ui-grid-col-2: minmax(0, 1fr);
+        --storyboard-ui-grid-col-3: minmax(0, 1fr);
+        --storyboard-ui-grid-col-4: minmax(0, 1fr);
+        --storyboard-ui-grid-row-1: auto;
+        --storyboard-ui-grid-row-2: minmax(275px, 1fr);
+        --storyboard-ui-grid-row-3: auto;
+        --storyboard-ui-grid-row-4: auto;
+        --slot-min-playfield-width: 425px;
+        --slot-min-playfield-height: 325px;
+      }
+
+      .storyboard-ui-layout-root.desktop-standard .layout-main,
+      .storyboard-ui-layout-root.desktop-standard .layout-left-rail,
+      .storyboard-ui-layout-root.desktop-standard .layout-bottom {
+        display: contents;
+      }
+
+      .storyboard-ui-layout-root.desktop-standard .layout-playfield {
+        min-width: var(--slot-min-playfield-width);
+        min-height: var(--slot-min-playfield-height);
+      }
+
+      .storyboard-ui-layout-root.desktop-standard .layout-playfield > .storyboard-ui-component-slot {
+        min-width: var(--slot-min-playfield-width);
+        min-height: var(--slot-min-playfield-height);
+      }
+
+    </style>
+  </head>
+  <body>
+    <main class="skeleton desktop-standard" data-skeleton="desktopStandard">
+      <header class="layout-top" data-slot="topBar" data-storyboard-grid-cell="r1 c1" data-storyboard-grid-span="r1 c4"></header>
+
+      <div class="layout-main">
+        <section class="layout-left-rail">
+          <aside class="left-primary-panel" data-slot="secondaryPanel" data-storyboard-grid-cell="r2 c1"></aside>
+          <aside class="left-utility-panel" data-slot="utilityPanel" data-storyboard-grid-cell="r3 c1"></aside>
+        </section>
+
+        <section class="layout-playfield" data-slot="primarySurface" data-storyboard-grid-cell="r2 c2" data-storyboard-grid-span="r2 c3"></section>
+      </div>
+
+      <div class="layout-bottom">
+        <footer class="layout-bottom-left" data-slot="statusStrip" data-storyboard-grid-cell="r4 c1" data-storyboard-grid-span="r1 c4"></footer>
+      </div>
+
+      <section class="layout-bottom-diags" data-slot="diagnosticsDrawer"></section>
+      <section class="layout-overlay-devtools" data-slot="devToolsDrawer"></section>
+      <section class="layout-overlay-modal" data-slot="modalLayer"></section>
+      <section class="layout-overlay-nonmodal" data-slot="nonModalLayer"></section>
+      <section class="layout-overlay-toast" data-slot="toastLayer"></section>
+    </main>
+  </body>
+</html>

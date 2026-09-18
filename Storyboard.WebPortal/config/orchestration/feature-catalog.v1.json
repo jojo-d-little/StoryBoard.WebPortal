@@ -1,0 +1,56 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "configVersion": "1.0.0"
+  },
+  "features": {
+    "topBarMenu": {
+      "category": "chrome",
+      "description": "Shared top bar with always-on and context-aware action menu items."
+    },
+    "identityBootstrapStatus": {
+      "category": "identity",
+      "description": "Bootstrap identity/session readiness status."
+    },
+    "authSignIn": {
+      "category": "identity",
+      "description": "Primary sign-in experience and credential input."
+    },
+    "gameDiscovery": {
+      "category": "discovery",
+      "description": "Available game discovery listing and filtering."
+    },
+    "gameDetails": {
+      "category": "discovery",
+      "description": "Selected game details and metadata preview."
+    },
+    "commandHandler": {
+      "category": "session",
+      "description": "Session command input and echoed output timeline outside the Pixi renderer."
+    },
+    "sessionPlaySurface": {
+      "category": "session",
+      "description": "Main active session surface before rendering integration."
+    },
+    "inGameToolsMenu": {
+      "category": "session",
+      "description": "Dedicated in-game tools surface for substate-driven actions such as waypoint setup controls."
+    },
+    "interruptionRecovery": {
+      "category": "recovery",
+      "description": "Session interruption recovery content and guidance."
+    },
+    "globalStatus": {
+      "category": "status",
+      "description": "Global shell status strip for operation and errors."
+    },
+    "diagnosticsConsole": {
+      "category": "diagnostics",
+      "description": "Diagnostics panel/drawer for technical support context."
+    },
+    "devToolsPanel": {
+      "category": "diagnostics",
+      "description": "Developer tools panel for technical toggles and debug configuration."
+    }
+  }
+}

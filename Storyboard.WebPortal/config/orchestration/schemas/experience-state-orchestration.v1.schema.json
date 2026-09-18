@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "experience-state-orchestration.v1.schema.json",
+  "title": "Experience State Orchestration v1",
+  "type": "object",
+  "required": [
+    "meta",
+    "initialExperienceState",
+    "experienceStates",
+    "operationModel",
+    "transitions",
+    "resolutionDefaults"
+  ],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "configVersion"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "string"
+        },
+        "configVersion": {
+          "type": "string"
+        },
+        "lastUpdatedUtc": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "initialExperienceState": {
+      "type": "string",
+      "enum": [
+        "Bootstrapping",
+        "SignedOut",
+        "SignedIn",
+        "SessionActive",
+        "SessionDisconnected"
+      ]
+    },
+    "experienceStates": {
+      "type": "object",
+      "required": [
+        "Bootstrapping",
+        "SignedOut",
+        "SignedIn",
+        "SessionActive",
+        "SessionDisconnected"
+      ],
+      "additionalProperties": false,
+      "patternProperties": {
+        "^(Bootstrapping|SignedOut|SignedIn|SessionActive|SessionDisconnected)$": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        }
+      }
+    },
+    "operationModel": {
+      "type": "object",
+      "required": [
+        "statuses",
+        "phases"
+      ],
+      "properties": {
+        "statuses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "phases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "transitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "from",
+          "event",
+          "to"
+        ],
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "event": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "guardRef": {
+            "type": "string"
+          },
+          "actionRef": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "resolutionDefaults": {
+      "type": "object",
+      "required": [
+        "defaultSkeletonLayoutKey",
+        "defaultFormFactorKey",
+        "defaultCompositionProfileKey"
+      ],
+      "properties": {
+        "defaultSkeletonLayoutKey": {
+          "type": "string"
+        },
+        "defaultFormFactorKey": {
+          "type": "string"
+        },
+        "defaultCompositionProfileKey": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <style>
+      .storyboard-ui-layout-root.mobile-portrait .config-main-row {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+        gap: 0.75rem;
+      }
+
+      .storyboard-ui-layout-root.mobile-portrait .layout-left-rail {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+        gap: 0.75rem;
+      }
+
+      .storyboard-ui-layout-root.mobile-portrait .layout-bottom {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="skeleton mobile-portrait" data-skeleton="mobilePortrait">
+      <header class="layout-top" data-slot="topBar"></header>
+
+      <div class="layout-main">
+        <section class="layout-left-rail">
+          <aside class="left-primary-panel" data-slot="secondaryPanel"></aside>
+          <aside class="left-utility-panel" data-slot="utilityPanel"></aside>
+        </section>
+
+        <section class="layout-playfield" data-slot="primarySurface"></section>
+      </div>
+
+      <div class="layout-bottom">
+        <footer class="layout-bottom-left" data-slot="statusStrip"></footer>
+        <section class="layout-bottom-right" data-slot="diagnosticsDrawer"></section>
+      </div>
+
+      <section class="layout-overlay-modal" data-slot="modalLayer"></section>
+      <section class="layout-overlay-nonmodal" data-slot="nonModalLayer"></section>
+      <section class="layout-overlay-toast" data-slot="toastLayer"></section>
+    </main>
+  </body>
+</html>

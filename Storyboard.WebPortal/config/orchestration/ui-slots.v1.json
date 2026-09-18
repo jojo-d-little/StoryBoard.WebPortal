@@ -1,0 +1,127 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "configVersion": "1.0.0"
+  },
+  "slots": {
+    "topBar": {
+      "kind": "shell-chrome",
+      "infrastructure": false,
+      "collapsible": true,
+      "hideable": true,
+      "behaviorHints": {
+        "collapseToEdge": "top"
+      }
+    },
+    "primarySurface": {
+      "kind": "content-primary",
+      "infrastructure": false,
+      "collapsible": false,
+      "hideable": false
+    },
+    "secondaryPanel": {
+      "kind": "content-secondary",
+      "infrastructure": false,
+      "collapsible": true,
+      "hideable": true,
+      "behaviorHints": {
+        "collapseToEdge": "left"
+      }
+    },
+    "utilityPanel": {
+      "kind": "content-utility",
+      "infrastructure": false,
+      "collapsible": true,
+      "hideable": true,
+      "behaviorHints": {
+        "collapseToEdge": "left"
+      }
+    },
+    "diagnosticsDrawer": {
+      "kind": "overlay-nonmodal",
+      "infrastructure": true,
+      "collapsible": false,
+      "hideable": true,
+      "behaviorHints": {
+        "role": "nonmodal-layer",
+        "presentation": "overlay-nonmodal",
+        "backdrop": "none",
+        "dismissOnEscape": false,
+        "dismissOnBackdropClick": false,
+        "stackOrder": 870
+      }
+    },
+    "devToolsDrawer": {
+      "kind": "overlay-nonmodal",
+      "infrastructure": true,
+      "collapsible": false,
+      "hideable": true,
+      "behaviorHints": {
+        "role": "nonmodal-layer",
+        "presentation": "overlay-nonmodal",
+        "backdrop": "none",
+        "dismissOnEscape": false,
+        "dismissOnBackdropClick": false,
+        "stackOrder": 875
+      }
+    },
+    "modalLayer": {
+      "kind": "overlay-modal",
+      "infrastructure": true,
+      "collapsible": false,
+      "hideable": false,
+      "behaviorHints": {
+        "role": "dialog-layer",
+        "presentation": "overlay-modal",
+        "backdrop": "dim",
+        "dismissOnEscape": true,
+        "dismissOnBackdropClick": true,
+        "stackOrder": 900
+      }
+    },
+    "nonModalLayer": {
+      "kind": "overlay-nonmodal",
+      "infrastructure": true,
+      "collapsible": false,
+      "hideable": false,
+      "behaviorHints": {
+        "role": "nonmodal-layer",
+        "presentation": "overlay-nonmodal",
+        "backdrop": "none",
+        "dismissOnEscape": false,
+        "dismissOnBackdropClick": false,
+        "stackOrder": 880
+      }
+    },
+    "toastLayer": {
+      "kind": "overlay-toast",
+      "infrastructure": true,
+      "collapsible": false,
+      "hideable": false,
+      "behaviorHints": {
+        "role": "toast-layer",
+        "presentation": "overlay-toast",
+        "backdrop": "none",
+        "dismissOnEscape": false,
+        "dismissOnBackdropClick": false,
+        "stackOrder": 950
+      }
+    },
+    "statusStrip": {
+      "kind": "status",
+      "infrastructure": false,
+      "collapsible": true,
+      "hideable": true,
+      "behaviorHints": {
+        "collapseToEdge": "bottom"
+      }
+    }
+  },
+  "allowedSlotModes": [
+    "visible",
+    "hidden",
+    "collapsed",
+    "disabled",
+    "readonly"
+  ]
+}

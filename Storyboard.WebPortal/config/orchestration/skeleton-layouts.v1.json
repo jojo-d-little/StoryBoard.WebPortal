@@ -1,0 +1,27 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "configVersion": "1.0.0"
+  },
+  "skeletonLayouts": {
+    "desktopStandard": {
+      "family": "desktop",
+      "formFactorKey": "desktop",
+      "minWidth": 1024,
+      "templatePath": "skeletons/desktop-standard.html"
+    },
+    "desktopImmersive": {
+      "family": "desktop",
+      "formFactorKey": "desktop",
+      "minWidth": 1024,
+      "templatePath": "skeletons/desktop-standard.html"
+    },
+    "mobileLandscape": {
+      "family": "mobile",
+      "formFactorKey": "mobileLandscape",
+      "maxWidth": 1023,
+      "orientation": "landscape",
+      "templatePath": "skeletons/desktop-standard.html"
+    }
+  }
+}
