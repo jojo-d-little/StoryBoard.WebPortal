@@ -28,7 +28,7 @@ jobs:
 
       - run: npm ci
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.STORYBOARD_PACKAGES_TOKEN }}
 
       - run: npm run verify:contracts
       - run: npm test
