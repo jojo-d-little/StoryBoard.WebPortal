@@ -17,7 +17,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 26.x
           cache: npm
           cache-dependency-path: Storyboard.WebPortal/package-lock.json
           registry-url: https://npm.pkg.github.com
