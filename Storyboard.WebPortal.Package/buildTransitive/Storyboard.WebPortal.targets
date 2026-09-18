@@ -1,0 +1,15 @@
+<Project>
+  <ItemGroup>
+    <_StoryboardWebPortalContent Include="$(MSBuildThisFileDirectory)..\contentFiles\any\any\wwwroot\**\*" />
+  </ItemGroup>
+
+  <Target Name="CopyStoryboardWebPortalToBuildOutput" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Copy SourceFiles="@(_StoryboardWebPortalContent)"
+          DestinationFiles="@(_StoryboardWebPortalContent->'$(TargetDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
+
+  <Target Name="CopyStoryboardWebPortalToPublishOutput" AfterTargets="Publish" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Copy SourceFiles="@(_StoryboardWebPortalContent)"
+          DestinationFiles="@(_StoryboardWebPortalContent->'$(PublishDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
+</Project>

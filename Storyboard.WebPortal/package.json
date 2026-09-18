@@ -1,11 +1,12 @@
 {
   "name": "storyboard-webportal",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "pack:nuget": "node tools/pack-webportal-nuget.mjs",
     "verify:contracts": "node tools/verify-contract-package.mjs",
     "preview": "vite preview",
     "test": "vitest run",

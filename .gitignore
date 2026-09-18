@@ -2,6 +2,7 @@
 Storyboard.WebPortal/node_modules/
 Storyboard.WebPortal/dist/
 Storyboard.WebPortal/test-results/
+artifacts/
 
 # .NET build output
 **/bin/

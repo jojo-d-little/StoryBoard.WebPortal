@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <PackageId>Storyboard.WebPortal</PackageId>
+    <Authors>Jojo D Little</Authors>
+    <Description>Compiled Storyboard WebPortal static content for GameHost.</Description>
+    <PackageTags>storyboard;webportal;static-content;gamehost</PackageTags>
+    <RepositoryUrl>https://github.com/jojo-d-little/StoryBoard.WebPortal</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <WebPortalDistDirectory>$(MSBuildProjectDirectory)\..\Storyboard.WebPortal\dist</WebPortalDistDirectory>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(WebPortalDistDirectory)\**\*"
+          Pack="true"
+          PackagePath="contentFiles/any/any/wwwroot/%(RecursiveDir)%(Filename)%(Extension)"
+          PackageCopyToOutput="true"
+          PackageFlatten="false" />
+    <None Include="README.md"
+          Pack="true"
+          PackagePath="README.md" />
+    <None Include="buildTransitive\Storyboard.WebPortal.targets"
+          Pack="true"
+          PackagePath="buildTransitive\Storyboard.WebPortal.targets" />
+  </ItemGroup>
+
+  <Target Name="EnsureWebPortalDistExists" BeforeTargets="Pack">
+    <ItemGroup>
+      <_WebPortalDistFiles Include="$(WebPortalDistDirectory)\**\*" />
+    </ItemGroup>
+    <Error Condition="'@(_WebPortalDistFiles)' == ''"
+           Text="WebPortal dist output is missing. Run npm run build before packing Storyboard.WebPortal." />
+  </Target>
+</Project>

@@ -11,7 +11,7 @@ on:
 
 permissions:
   contents: write
-  packages: read
+  packages: write
 
 jobs:
   release:
@@ -34,6 +34,10 @@ jobs:
         run: npm ci
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GH_PACKAGES_READ_TOKEN }}
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.x
 
       - name: Validate contracts, tests, and build
         working-directory: Storyboard.WebPortal
@@ -71,6 +75,33 @@ jobs:
           echo "version=$package_version" >> "$GITHUB_OUTPUT"
           echo "archive=$archive" >> "$GITHUB_OUTPUT"
           echo "latest_tag=$latest_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Pack WebPortal NuGet package
+        id: nuget
+        shell: bash
+        env:
+          VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          rm -rf artifacts/packages/nuget
+          mkdir -p artifacts/packages/nuget
+          dotnet pack Storyboard.WebPortal.Package/Storyboard.WebPortal.Package.csproj \
+            --configuration Release \
+            --output artifacts/packages/nuget \
+            -p:Version="$VERSION" \
+            --nologo
+          package="artifacts/packages/nuget/Storyboard.WebPortal.${VERSION}.nupkg"
+          test -f "$package"
+          echo "package=$package" >> "$GITHUB_OUTPUT"
+
+      - name: Publish WebPortal NuGet package
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PACKAGE: ${{ steps.nuget.outputs.package }}
+        run: |
+          dotnet nuget push "$PACKAGE" \
+            --source https://nuget.pkg.github.com/jojo-d-little/index.json \
+            --api-key "$GH_TOKEN" \
+            --skip-duplicate
 
       - name: Create GitHub release
         env:
