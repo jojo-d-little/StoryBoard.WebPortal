@@ -46,5 +46,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: storyboard-webportal-${{ steps.package.outputs.version }}
-          path: storyboard-webportal-*.tar.gz
+          path: Storyboard.WebPortal/storyboard-webportal-*.tar.gz
           if-no-files-found: error
