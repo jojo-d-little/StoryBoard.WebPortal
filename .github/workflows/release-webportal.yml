@@ -1,0 +1,64 @@
+name: Release WebPortal
+
+on:
+  push:
+    tags:
+      - "webportal-v*"
+
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Storyboard.WebPortal/package-lock.json
+          registry-url: https://npm.pkg.github.com
+
+      - name: Install dependencies
+        working-directory: Storyboard.WebPortal
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate contracts, tests, and build
+        working-directory: Storyboard.WebPortal
+        run: |
+          npm run verify:contracts
+          npm test
+          npm run build
+
+      - name: Package runtime artifact
+        id: package
+        working-directory: Storyboard.WebPortal
+        shell: bash
+        run: |
+          package_version=$(node -p "require('./package.json').version")
+          tag_version="${GITHUB_REF_NAME#webportal-v}"
+          if [ "$package_version" != "$tag_version" ]; then
+            echo "Tag version $tag_version does not match package version $package_version."
+            exit 1
+          fi
+
+          archive="storyboard-webportal-${package_version}.tar.gz"
+          tar -czf "$archive" -C dist .
+          echo "version=$package_version" >> "$GITHUB_OUTPUT"
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.package.outputs.version }}
+          ARCHIVE: ${{ steps.package.outputs.archive }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "Storyboard.WebPortal/$ARCHIVE" \
+            --title "WebPortal $VERSION" \
+            --generate-notes
