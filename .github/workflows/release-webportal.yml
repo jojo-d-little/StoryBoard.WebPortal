@@ -1,13 +1,9 @@
 name: Release WebPortal
 
 on:
-  workflow_dispatch:
-    inputs:
-      confirm:
-        description: "Type RELEASE to publish the current WebPortal version"
-        required: true
-        default: ""
-        type: string
+  push:
+    tags:
+      - 'webportal-v*'
 
 permissions:
   contents: write
@@ -15,7 +11,6 @@ permissions:
 
 jobs:
   release:
-    if: ${{ inputs.confirm == 'RELEASE' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -53,7 +48,7 @@ jobs:
         run: |
           package_version=$(node -p "require('./package.json').version")
           lock_version=$(node -p "require('./package-lock.json').packages[''].version")
-          latest_tag=$(git tag --list 'webportal-v*' --sort=-version:refname | head -n 1)
+          release_tag="$GITHUB_REF_NAME"
 
           if [ "$package_version" != "$lock_version" ]; then
             echo "package.json version $package_version does not match package-lock.json version $lock_version."
@@ -65,8 +60,8 @@ jobs:
             exit 1
           fi
 
-          if [ -n "$latest_tag" ] && [ "$package_version" = "${latest_tag#webportal-v}" ]; then
-            echo "Version $package_version has already been released. Bump package.json and package-lock.json first."
+          if [ "$release_tag" != "webportal-v$package_version" ]; then
+            echo "Release tag $release_tag does not match package version $package_version."
             exit 1
           fi
 
@@ -74,7 +69,6 @@ jobs:
           tar -czf "$archive" -C dist .
           echo "version=$package_version" >> "$GITHUB_OUTPUT"
           echo "archive=$archive" >> "$GITHUB_OUTPUT"
-          echo "latest_tag=$latest_tag" >> "$GITHUB_OUTPUT"
 
       - name: Pack WebPortal NuGet package
         id: nuget

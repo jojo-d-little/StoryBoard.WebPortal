@@ -1,6 +1,6 @@
 # Releasing WebPortal
 
-WebPortal releases are manual and versioned. The release workflow builds the app and publishes the compiled `dist` contents as a GitHub Release asset.
+WebPortal releases are tag-driven and versioned. The release workflow builds the app and publishes the compiled `dist` contents as a GitHub Release asset.
 
 ## Prepare a release
 
@@ -21,7 +21,20 @@ Use the next intended version instead of `0.1.1`. For a prerelease, use a valid 
 npm run pack:nuget
 ```
 
-Commit and push the version change, then open GitHub Actions and run **Release WebPortal** from that branch. Enter `RELEASE` in the confirmation field.
+Commit and push the version change, then create and push the matching annotated tag:
+
+```powershell
+git tag -a webportal-v0.1.1 -m "Release WebPortal 0.1.1"
+git push origin main --follow-tags
+```
+
+Pushing the `webportal-v<version>` tag starts **Release WebPortal** automatically.
+
+The complete local path can be run with:
+
+```powershell
+.\scripts\Release.ps1 -Version 0.1.2
+```
 
 The workflow verifies that the package and lockfile versions match and that the version has not already been released. It then runs contract validation, tests, and the production build.
 
