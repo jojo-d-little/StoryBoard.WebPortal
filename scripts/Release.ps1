@@ -10,7 +10,6 @@ $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $app = Join-Path $root 'Storyboard.WebPortal'
 Set-Location $root
-$tag = "webportal-v$Version"
 
 function Invoke-Step([string]$Name, [scriptblock]$Action) {
     Write-Host "`n==> $Name" -ForegroundColor Cyan
@@ -30,6 +29,8 @@ if (-not $Version) {
     $confirmation = Read-Host "Current version is $currentVersion. Use suggested version ${Version}? [Y/n]"
     if ($confirmation -and $confirmation -notmatch '^(?i:y|yes)$') { throw 'Release cancelled.' }
 }
+$tag = "webportal-v$Version"
+if ([string]::IsNullOrWhiteSpace($Version)) { throw 'A WebPortal release version is required.' }
 if (git tag --list $tag) { throw "Tag '$tag' already exists locally." }
 git ls-remote --exit-code --tags origin "refs/tags/$tag" *> $null
 if ($LASTEXITCODE -eq 0) { throw "Tag '$tag' already exists on origin." }
