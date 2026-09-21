@@ -28,6 +28,7 @@ export function SessionPlaySurfaceHostV1(props: SessionPlaySurfaceHostV1Props): 
     <SessionPlaySurfaceRendererV1
       activeSessionId={props.hostWorkflow.activeSessionId}
       sceneSnapshot={props.hostWorkflow.rendererSceneSnapshot}
+      roomTransitionPreparationEpoch={props.hostWorkflow.roomTransitionPreparationEpoch}
       gameplayInteractionSubstate={props.hostWorkflow.gameplayInteractionSubstate}
       waypointDraftCount={props.hostWorkflow.waypointDraftCount}
       waypointPointPlacementCueStyle={props.hostWorkflow.waypointPointPlacementCueStyle}
@@ -35,6 +36,7 @@ export function SessionPlaySurfaceHostV1(props: SessionPlaySurfaceHostV1Props): 
       onDismissHudOverlay={props.hostWorkflow.dismissHudOverlay}
       onRegisterWaypointInteractionRendererBridge={props.hostWorkflow.registerWaypointInteractionRendererBridge}
       onReportRendererDiagnostic={props.hostWorkflow.reportRendererDiagnostic}
+      onReportRoomTransitionState={props.hostWorkflow.reportRendererRoomTransitionState}
       onReportRendererScaleMetrics={props.hostWorkflow.reportRendererScaleMetrics}
       onReportRendererLastClickPoint={props.hostWorkflow.reportRendererLastClickPoint}
       onWaypointPointSelected={handleWaypointPointSelected}

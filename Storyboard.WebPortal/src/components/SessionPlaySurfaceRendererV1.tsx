@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent } from "react";
-import { createGameRenderer, type GameRenderSceneSnapshot, type GameRendererDiagnosticsEvent } from "../gameRenderer";
+import {
+  createGameRenderer,
+  type GameRenderSceneSnapshot,
+  type GameRendererDiagnosticsEvent,
+  type GameRendererRoomTransitionState
+} from "../gameRenderer";
 import type { GameRendererRoomPoint } from "../gameRenderer";
 import { computeContainTransform, mapViewportPointToRoomPoint } from "../gameRenderer/scaling/containScaling";
 import type {
@@ -20,6 +25,7 @@ interface WaypointInteractionRendererBridge {
 interface SessionPlaySurfaceRendererV1Props {
   activeSessionId: string;
   sceneSnapshot: GameRenderSceneSnapshot | null;
+  roomTransitionPreparationEpoch: number;
   gameplayInteractionSubstate: GameplayInteractionSubstate;
   waypointDraftCount: number;
   waypointPointPlacementCueStyle: ResolvedStyledPointEffect | null;
@@ -27,6 +33,7 @@ interface SessionPlaySurfaceRendererV1Props {
   onDismissHudOverlay: () => void;
   onRegisterWaypointInteractionRendererBridge: (bridge: WaypointInteractionRendererBridge | null) => void;
   onReportRendererDiagnostic: (event: GameRendererDiagnosticsEvent) => void;
+  onReportRoomTransitionState: (state: GameRendererRoomTransitionState) => void;
   onReportRendererScaleMetrics: (metrics: RendererScaleMetrics | null) => void;
   onReportRendererLastClickPoint: (clickPoint: RendererLastClickPoint | null) => void;
   onWaypointPointSelected: (point: GameRendererRoomPoint) => void;
@@ -93,7 +100,8 @@ export function SessionPlaySurfaceRendererV1(props: SessionPlaySurfaceRendererV1
       diagnosticsSink: (event: GameRendererDiagnosticsEvent) => {
         props.onReportRendererDiagnostic(event);
         console.debug("[gameRenderer]", event.level, event.category, event.message, event.details);
-      }
+      },
+      onRoomTransitionStateChanged: props.onReportRoomTransitionState
     });
 
     props.onRegisterWaypointInteractionRendererBridge(rendererRef.current);
@@ -207,6 +215,14 @@ export function SessionPlaySurfaceRendererV1(props: SessionPlaySurfaceRendererV1
 
     rendererRef.current.updateScene(scene);
   }, [props.activeSessionId, scene]);
+
+  useEffect(() => {
+    if (!rendererRef.current || !props.activeSessionId || props.roomTransitionPreparationEpoch <= 0) {
+      return;
+    }
+
+    rendererRef.current.prepareRoomTransitionSnapshot(scene.roomTransition?.mode);
+  }, [props.activeSessionId, props.roomTransitionPreparationEpoch, scene.roomTransition?.mode]);
 
   function handleSurfacePointerDown(event: ReactPointerEvent<HTMLDivElement>): void {
     if (event.button !== 0) {

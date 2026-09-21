@@ -25,6 +25,7 @@ export type {
   CreateGameRendererOptions,
   GameRendererHandle,
   GameRendererInteractionMode,
+  GameRendererRoomTransitionState,
   GameRendererRoomPoint,
   SetInteractionModeResult
 } from "./pixi/PixiGameRenderer";

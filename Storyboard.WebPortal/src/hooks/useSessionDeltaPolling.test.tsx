@@ -292,4 +292,61 @@ describe("useSessionDeltaPolling", () => {
       })
     );
   });
+
+  it("pauses without resetting the watermark and resumes from the last consumed delta", async () => {
+    vi.useFakeTimers();
+    let paused = false;
+    const getSessionDeltas = vi.fn().mockImplementation(async () => ({
+      resultCode: "Success",
+      sessionData: {
+        sessionDeltaWatermark: "2",
+        roomObjectChanges: [],
+        soundCues: [],
+        outputLines: [],
+        diagnostics: [],
+        hasRoomChange: false,
+        hasPhaseChange: false
+      },
+      sessionDeltaWatermark: "2",
+      diagnostics: []
+    }));
+    const hostApiClient = {
+      getSessionDeltas,
+      getSessionBaseline: vi.fn()
+    } as unknown as import("../hostApi/client").HostApiClient;
+
+    const { unmount } = renderHook(() =>
+      useSessionDeltaPolling({
+        hostApiClient,
+        credentialHandle: "cred-1",
+        sessionId: "session-1",
+        initialWatermark: "1",
+        settings: {
+          pollIntervalMs: 100,
+          heartbeatEveryNPolls: 100
+        },
+        enabled: true,
+        allowInTest: true,
+        isPaused: () => paused,
+        onSessionData: () => {
+          paused = true;
+        },
+        addDiagnostic: vi.fn()
+      })
+    );
+
+    await vi.advanceTimersByTimeAsync(150);
+    expect(getSessionDeltas).toHaveBeenCalledTimes(1);
+    expect(getSessionDeltas).toHaveBeenLastCalledWith("cred-1", "session-1", "1", "Medium");
+
+    await vi.advanceTimersByTimeAsync(500);
+    expect(getSessionDeltas).toHaveBeenCalledTimes(1);
+
+    paused = false;
+    await vi.advanceTimersByTimeAsync(300);
+    expect(getSessionDeltas.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(getSessionDeltas.mock.calls[1]).toEqual(["cred-1", "session-1", "2", "Medium"]);
+
+    unmount();
+  });
 });

@@ -7,6 +7,7 @@ import { buildLegByLegSegments, type MovementTweenSegment } from "./reconciliati
 import { areHudOverlayEntriesEquivalent, createHudOverlayController } from "./hud/HudOverlayController";
 import { createAppearanceOutlineEffectController, type AppearanceOutlineEffectController } from "./effects/appearanceOutline/AppearanceOutlineEffectController";
 import { createAppearanceSilhouetteEffectController, type AppearanceSilhouetteEffectController } from "./effects/appearanceSilhouette/AppearanceSilhouetteEffectController";
+import { captureRoomTexture, type CapturedRoomTexture } from "./RoomSnapshotRenderer";
 import {
   createStyledPointEffectController,
   type StyledPointEffectController,
@@ -15,9 +16,12 @@ import {
 import type { Ticker } from "pixi.js";
 import { Application, Assets, Container, Graphics, Sprite } from "pixi.js";
 
+export type GameRendererRoomTransitionState = "preparing" | "running" | "complete" | "failed";
+
 export interface CreateGameRendererOptions {
   diagnosticsSink?: GameRendererDiagnosticsSink;
   intentSink?: GameRendererIntentSink;
+  onRoomTransitionStateChanged?: (state: GameRendererRoomTransitionState) => void;
 }
 
 export type GameRendererInteractionMode = "CommandClick" | "WaypointMoveSetup";
@@ -31,6 +35,7 @@ export type SetInteractionModeResult = "changed" | "unchanged";
 
 export interface GameRendererHandle {
   updateScene: (scene: GameRenderSceneSnapshot) => void;
+  prepareRoomTransitionSnapshot: (requestedMode?: "slide" | "fade" | "fade-blackout") => void;
   resize: (width: number, height: number) => void;
   setInteractionMode: (mode: GameRendererInteractionMode) => SetInteractionModeResult;
   getInteractionMode: () => GameRendererInteractionMode;
@@ -68,6 +73,7 @@ interface RoomObjectSpriteState {
 interface RoomSurfaceState {
   label: "active" | "staging";
   root: Container;
+  clipMask: Graphics;
   directionalOverlayLayer: Container;
   roomObjectLayer: Container;
   styledPointLayer: Container;
@@ -92,6 +98,14 @@ interface RoomSwapTween {
   pendingBoundsWidth?: number;
   pendingBoundsHeight?: number;
   hasAppliedBoundsSwap?: boolean;
+  usesSnapshotFrames?: boolean;
+}
+
+interface SnapshotTransitionState {
+  outgoing: CapturedRoomTexture;
+  incoming: CapturedRoomTexture;
+  outgoingFrame: Container;
+  incomingFrame: Container;
 }
 
 function areSilhouettePassesEquivalent(
@@ -161,13 +175,19 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   const stageRoot = new Container();
   stageRoot.sortableChildren = true;
 
-  const clipMask = new Graphics();
   const blackoutOverlay = new Graphics();
+  const snapshotTransitionLayer = new Container();
+  const snapshotTransitionMask = new Graphics();
+  snapshotTransitionLayer.visible = false;
+  snapshotTransitionLayer.mask = snapshotTransitionMask;
 
   function createRoomSurface(label: "active" | "staging"): RoomSurfaceState {
     const root = new Container();
     root.sortableChildren = true;
-    root.mask = clipMask;
+
+    const content = new Container();
+    const surfaceClipMask = new Graphics();
+    content.mask = surfaceClipMask;
 
     const directionalOverlayLayer = new Container();
     directionalOverlayLayer.sortableChildren = true;
@@ -178,13 +198,16 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     const styledPointLayer = new Container();
     styledPointLayer.sortableChildren = true;
 
-    root.addChild(directionalOverlayLayer);
-    root.addChild(roomObjectLayer);
-    root.addChild(styledPointLayer);
+    content.addChild(directionalOverlayLayer);
+    content.addChild(roomObjectLayer);
+    content.addChild(styledPointLayer);
+    root.addChild(content);
+    root.addChild(surfaceClipMask);
 
     return {
       label,
       root,
+      clipMask: surfaceClipMask,
       directionalOverlayLayer,
       roomObjectLayer,
       styledPointLayer,
@@ -213,7 +236,6 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   stageRoot.addChild(activeRoomSurface.root);
   stageRoot.addChild(stagingRoomSurface.root);
   stageRoot.addChild(blackoutOverlay);
-  stageRoot.addChild(clipMask);
 
   blackoutOverlay.zIndex = 10_000;
   blackoutOverlay.alpha = 0;
@@ -226,6 +248,10 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   let viewportWidth = 800;
   let viewportHeight = 600;
   let activeRoomSwapTween: RoomSwapTween | null = null;
+  let snapshotTransitionState: SnapshotTransitionState | null = null;
+  let preparedOutgoingSnapshot: CapturedRoomTexture | null = null;
+  let preparedOutgoingFrame: Container | null = null;
+  let activeSurfaceScene: GameRenderSceneSnapshot | null = null;
   let interactionMode: GameRendererInteractionMode = "CommandClick";
   const waypointDraft: GameRendererRoomPoint[] = [];
   const hudOverlayController = createHudOverlayController(() => isDisposed);
@@ -314,6 +340,158 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       message,
       details
     });
+  }
+
+  function reportRoomTransitionState(state: GameRendererRoomTransitionState): void {
+    options.onRoomTransitionStateChanged?.(state);
+  }
+
+  function clearSnapshotTransition(): void {
+    snapshotTransitionLayer.removeChildren().forEach((child) => child.destroy({ children: true }));
+    snapshotTransitionLayer.visible = false;
+    const state = snapshotTransitionState;
+    snapshotTransitionState = null;
+    state?.outgoing.dispose();
+    state?.incoming.dispose();
+  }
+
+  function clearPreparedOutgoingSnapshot(): void {
+    if (preparedOutgoingFrame) {
+      if (preparedOutgoingFrame.parent) {
+        preparedOutgoingFrame.parent.removeChild(preparedOutgoingFrame);
+      }
+      preparedOutgoingFrame.destroy({ children: true });
+      preparedOutgoingFrame = null;
+    }
+    preparedOutgoingSnapshot?.dispose();
+    preparedOutgoingSnapshot = null;
+    if (!activeRoomSwapTween) {
+      snapshotTransitionLayer.visible = false;
+      activeRoomSurface.root.visible = true;
+    }
+  }
+
+  function createViewportSnapshotFrame(snapshot: CapturedRoomTexture): Container {
+    const frame = new Container();
+    const background = new Graphics()
+      .rect(0, 0, viewportWidth, viewportHeight)
+      .fill(0x0f172a);
+    const sprite = new Sprite(snapshot.texture);
+    const transform = computeContainTransform(
+      snapshot.width,
+      snapshot.height,
+      viewportWidth,
+      viewportHeight
+    );
+    sprite.position.set(transform.offsetX, transform.offsetY);
+    sprite.scale.set(transform.scale);
+    frame.addChild(background);
+    frame.addChild(sprite);
+    return frame;
+  }
+
+  function captureSurfaceSnapshot(
+    surface: RoomSurfaceState,
+    scene: GameRenderSceneSnapshot
+  ): CapturedRoomTexture {
+    const captureStartedAt = performance.now();
+    const roomId = scene.roomId ?? "";
+    emit("debug", "Started room snapshot capture.", {
+      roomId: roomId || "(unknown)",
+      surface: surface.label,
+      width: scene.bounds.width,
+      height: scene.bounds.height,
+      viewportWidth,
+      viewportHeight
+    });
+
+    const transform = computeContainTransform(
+      scene.bounds.width,
+      scene.bounds.height,
+      viewportWidth,
+      viewportHeight
+    );
+    try {
+      const captured = captureRoomTexture(app.renderer, surface.root, {
+        roomId,
+        width: scene.bounds.width,
+        height: scene.bounds.height,
+        resolutionScale: transform.scale * app.renderer.resolution
+      });
+      emit("info", "Completed room snapshot capture.", {
+        roomId: roomId || "(unknown)",
+        surface: surface.label,
+        width: captured.width,
+        height: captured.height,
+        resolution: captured.resolution,
+        durationMs: performance.now() - captureStartedAt
+      });
+      return captured;
+    } catch (error) {
+      emit("warning", "Room snapshot capture failed.", {
+        roomId: roomId || "(unknown)",
+        surface: surface.label,
+        width: scene.bounds.width,
+        height: scene.bounds.height,
+        durationMs: performance.now() - captureStartedAt,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      throw error;
+    }
+  }
+
+  function prepareSnapshotTransition(
+    outgoingScene: GameRenderSceneSnapshot,
+    incomingScene: GameRenderSceneSnapshot,
+    preCapturedOutgoing?: CapturedRoomTexture
+  ): boolean {
+    clearSnapshotTransition();
+
+    try {
+      const outgoing = preCapturedOutgoing ?? captureSurfaceSnapshot(activeRoomSurface, outgoingScene);
+
+      let incoming: CapturedRoomTexture;
+      try {
+        incoming = captureSurfaceSnapshot(stagingRoomSurface, incomingScene);
+      } catch (error) {
+        outgoing.dispose();
+        throw error;
+      }
+
+      const outgoingFrame = createViewportSnapshotFrame(outgoing);
+      const incomingFrame = createViewportSnapshotFrame(incoming);
+      snapshotTransitionLayer.addChild(outgoingFrame);
+      snapshotTransitionLayer.addChild(incomingFrame);
+      snapshotTransitionLayer.visible = true;
+      snapshotTransitionState = {
+        outgoing,
+        incoming,
+        outgoingFrame,
+        incomingFrame
+      };
+
+      emit("info", "Prepared bounded room snapshots for slide transition.", {
+        outgoingRoomId: outgoing.roomId || "(unknown)",
+        incomingRoomId: incoming.roomId || "(unknown)",
+        outgoingWidth: outgoing.width,
+        outgoingHeight: outgoing.height,
+        incomingWidth: incoming.width,
+        incomingHeight: incoming.height,
+        outgoingResolution: outgoing.resolution,
+        incomingResolution: incoming.resolution,
+        viewportWidth,
+        viewportHeight
+      });
+      return true;
+    } catch (error) {
+      clearSnapshotTransition();
+      emit("warning", "Failed to prepare bounded room snapshots; falling back to fade-blackout.", {
+        outgoingRoomId: outgoingScene.roomId || "(unknown)",
+        incomingRoomId: incomingScene.roomId || "(unknown)",
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return false;
+    }
   }
 
   function syncRoomObjectAppearanceEffects(surface: RoomSurfaceState, objectId: string): void {
@@ -419,11 +597,19 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     }
   }
 
-  function cancelRoomSwapTween(clearStaging: boolean): void {
+  function cancelRoomSwapTween(
+    clearStaging: boolean,
+    reason = "cancelled"
+  ): void {
     if (!activeRoomSwapTween) {
       return;
     }
 
+    emit("warning", "Cancelled room transition.", {
+      mode: activeRoomSwapTween.mode,
+      generation: activeRoomSwapTween.generation,
+      reason
+    });
     activeRoomSwapTween = null;
     blackoutOverlay.alpha = 0;
     blackoutOverlay.visible = false;
@@ -432,20 +618,25 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     stagingRoomSurface.root.position.set(0, 0);
     stagingRoomSurface.root.alpha = 1;
     stagingRoomSurface.root.visible = false;
+    clearSnapshotTransition();
 
     if (clearStaging) {
       clearSurfaceSprites(stagingRoomSurface);
     }
   }
 
-  function beginRoomSwapTween(scene: GameRenderSceneSnapshot, generation: number): boolean {
+  function beginRoomSwapTween(
+    scene: GameRenderSceneSnapshot,
+    generation: number,
+    modeOverride?: RoomSwapTween["mode"]
+  ): boolean {
     const durationMs = Math.max(0, Math.round(scene.roomTransition?.durationMs ?? 0));
     if (durationMs <= 0) {
       return false;
     }
 
     const cueEffectKey = scene.roomTransition?.cueEffectKey ?? "";
-    const mode = scene.roomTransition?.mode ?? "slide";
+    const mode = modeOverride ?? scene.roomTransition?.mode ?? "slide";
 
     if (mode === "fade-blackout") {
       activeRoomSwapTween = {
@@ -482,6 +673,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         cueEffectKey: scene.roomTransition?.cueEffectKey || "(none)"
       });
 
+      reportRoomTransitionState("running");
+
       return true;
     }
 
@@ -514,6 +707,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         cueEffectKey: scene.roomTransition?.cueEffectKey || "(none)"
       });
 
+      reportRoomTransitionState("running");
+
       return true;
     }
 
@@ -528,8 +723,16 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       return false;
     }
 
-    const incomingStartX = unitVector.x * scene.bounds.width;
-    const incomingStartY = unitVector.y * scene.bounds.height;
+    const snapshotState = snapshotTransitionState;
+    if (!snapshotState) {
+      emit("warning", "Skipped snapshot slide because transition frames are unavailable.", {
+        roomId: scene.roomId || "(unknown)"
+      });
+      return false;
+    }
+
+    const incomingStartX = unitVector.x * viewportWidth;
+    const incomingStartY = unitVector.y * viewportHeight;
 
     activeRoomSwapTween = {
       generation,
@@ -541,14 +744,15 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       outgoingEndY: -incomingStartY,
       incomingStartX,
       incomingStartY,
-      direction: scene.roomTransition?.travelDirection ?? "(unknown)"
+      direction: scene.roomTransition?.travelDirection ?? "(unknown)",
+      usesSnapshotFrames: true
     };
 
-    activeRoomSurface.root.position.set(0, 0);
-    activeRoomSurface.root.alpha = 1;
-    stagingRoomSurface.root.position.set(incomingStartX, incomingStartY);
-    stagingRoomSurface.root.alpha = 1;
-    stagingRoomSurface.root.visible = true;
+    activeRoomSurface.root.visible = false;
+    stagingRoomSurface.root.visible = false;
+    snapshotState.outgoingFrame.position.set(0, 0);
+    snapshotState.incomingFrame.position.set(incomingStartX, incomingStartY);
+    snapshotTransitionLayer.visible = true;
 
     emit("debug", "Started room-transition tween.", {
       roomId: scene.roomId || "(unknown)",
@@ -560,6 +764,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       cueCategory: scene.roomTransition?.cueCategory || "(none)",
       cueEffectKey: scene.roomTransition?.cueEffectKey || "(none)"
     });
+
+    reportRoomTransitionState("running");
 
     return true;
   }
@@ -639,7 +845,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     }
 
     if (tween.generation !== renderGeneration) {
-      cancelRoomSwapTween(true);
+      cancelRoomSwapTween(true, "render-generation-changed");
       return;
     }
 
@@ -682,6 +888,15 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       stagingRoomSurface.root.position.set(0, 0);
       activeRoomSurface.root.alpha = 1 - eased;
       stagingRoomSurface.root.alpha = eased;
+    } else if (tween.usesSnapshotFrames && snapshotTransitionState) {
+      snapshotTransitionState.outgoingFrame.position.set(
+        tween.outgoingEndX * eased,
+        tween.outgoingEndY * eased
+      );
+      snapshotTransitionState.incomingFrame.position.set(
+        tween.incomingStartX * (1 - eased),
+        tween.incomingStartY * (1 - eased)
+      );
     } else {
       activeRoomSurface.root.position.set(
         tween.outgoingEndX * eased,
@@ -702,13 +917,18 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
 
     activeRoomSurface.root.position.set(0, 0);
     activeRoomSurface.root.alpha = 1;
-    activeRoomSurface.root.visible = true;
     stagingRoomSurface.root.position.set(0, 0);
     stagingRoomSurface.root.alpha = 1;
     blackoutOverlay.alpha = 0;
     blackoutOverlay.visible = false;
     activateStagedSurface();
+    activeSurfaceScene = currentScene;
+    if (currentScene) {
+      hudOverlayController.reconcile(currentScene, viewportWidth, viewportHeight);
+    }
+    clearSnapshotTransition();
     activeRoomSwapTween = null;
+    reportRoomTransitionState("complete");
 
     emit("debug", "Completed room-transition tween and committed staged surface.", {
       mode: tween.mode,
@@ -788,15 +1008,34 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   function updateClipMask(width: number, height: number): void {
     const normalizedWidth = Math.max(1, width);
     const normalizedHeight = Math.max(1, height);
-    clipMask
-      .clear()
-      .rect(0, 0, normalizedWidth, normalizedHeight)
-      .fill(0xffffff);
+    for (const surface of [activeRoomSurface, stagingRoomSurface]) {
+      surface.clipMask
+        .clear()
+        .rect(0, 0, normalizedWidth, normalizedHeight)
+        .fill(0xffffff);
+    }
 
     blackoutOverlay
       .clear()
       .rect(0, 0, normalizedWidth, normalizedHeight)
       .fill(0x000000);
+  }
+
+  function freezeStagedSurfaceForSnapshotHandoff(): void {
+    // A room-boundary scene is rendered into a fresh staging surface at its authoritative
+    // coordinates. Move-leg telemetry belongs to the delta that led to that room and must not
+    // replay after the already-correct incoming snapshot hands off to the live surface.
+    stagingRoomSurface.activeMovementTweensByObjectId.clear();
+    for (const objectId of stagingRoomSurface.roomObjectSpritesById.keys()) {
+      syncRoomObjectAppearanceEffects(stagingRoomSurface, objectId);
+    }
+  }
+
+  function updateSnapshotTransitionMask(): void {
+    snapshotTransitionMask
+      .clear()
+      .rect(0, 0, viewportWidth, viewportHeight)
+      .fill(0xffffff);
   }
 
   function applyViewportTransform(): void {
@@ -1385,7 +1624,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     scene: GameRenderSceneSnapshot,
     generation: number,
     previousScene: GameRenderSceneSnapshot | null,
-    surface: RoomSurfaceState
+    surface: RoomSurfaceState,
+    reconcileHud = true
   ): Promise<void> {
     await reconcileDirectionalOverlays(scene, generation, surface);
     if (isDisposed || generation !== renderGeneration) {
@@ -1397,7 +1637,9 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       return;
     }
 
-    hudOverlayController.reconcile(scene, viewportWidth, viewportHeight);
+    if (reconcileHud) {
+      hudOverlayController.reconcile(scene, viewportWidth, viewportHeight);
+    }
   }
 
   async function initialize(): Promise<void> {
@@ -1418,21 +1660,27 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     app.canvas.style.width = "100%";
     app.canvas.style.height = "100%";
     app.stage.addChild(stageRoot);
+    app.stage.addChild(snapshotTransitionLayer);
+    app.stage.addChild(snapshotTransitionMask);
     app.stage.addChild(hudOverlayController.layer);
     app.ticker.add(updateMovementTweens);
     app.ticker.add(updateRoomSwapTween);
     app.ticker.add(hudOverlayController.update);
     isReady = true;
+    updateSnapshotTransitionMask();
 
     if (currentScene) {
       const generation = ++renderGeneration;
       updateClipMask(currentScene.bounds.width, currentScene.bounds.height);
       app.renderer.resize(viewportWidth, viewportHeight);
+      updateSnapshotTransitionMask();
       applyViewportTransform();
       if (currentScene) {
         hudOverlayController.reconcile(currentScene, viewportWidth, viewportHeight);
       }
       await renderScene(currentScene, generation, null, activeRoomSurface);
+      activeSurfaceScene = currentScene;
+      reportRoomTransitionState("complete");
     }
   }
 
@@ -1446,6 +1694,39 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   });
 
   return {
+    prepareRoomTransitionSnapshot: (requestedMode) => {
+      // This pre-render boundary exists only to freeze the outgoing image for snapshot slides.
+      // A late preparation during a live fade-blackout would put a snapshot layer above the
+      // blackout overlay and make the transition look like an abrupt swap.
+      if (requestedMode !== "slide") {
+        return;
+      }
+
+      if (!isReady || isDisposed || !activeSurfaceScene) {
+        return;
+      }
+
+      clearPreparedOutgoingSnapshot();
+      reportRoomTransitionState("preparing");
+      try {
+        preparedOutgoingSnapshot = captureSurfaceSnapshot(activeRoomSurface, activeSurfaceScene);
+        preparedOutgoingFrame = createViewportSnapshotFrame(preparedOutgoingSnapshot);
+        snapshotTransitionLayer.addChild(preparedOutgoingFrame);
+        snapshotTransitionLayer.visible = true;
+        activeRoomSurface.root.visible = false;
+        emit("debug", "Captured outgoing room at transition preparation boundary.", {
+          roomId: activeSurfaceScene.roomId || "(unknown)",
+          width: preparedOutgoingSnapshot.width,
+          height: preparedOutgoingSnapshot.height,
+          resolution: preparedOutgoingSnapshot.resolution
+        });
+      } catch (error) {
+        emit("warning", "Failed to capture outgoing room at transition preparation boundary.", {
+          roomId: activeSurfaceScene.roomId || "(unknown)",
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    },
     updateScene: (scene) => {
       if (currentScene && areScenesRenderEquivalent(currentScene, scene)) {
         currentScene = scene;
@@ -1460,34 +1741,130 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
 
       const generation = ++renderGeneration;
       const isRoomChanged = previousScene !== null && previousScene.roomId !== scene.roomId;
+      const transitionDurationMs = Math.max(0, Math.round(scene.roomTransition?.durationMs ?? 0));
+      const requestedTransitionMode = scene.roomTransition?.mode ?? "slide";
       const shouldDelayBoundsSwap = isRoomChanged
-        && scene.roomTransition?.mode === "fade-blackout"
-        && Math.max(0, Math.round(scene.roomTransition?.durationMs ?? 0)) > 0;
+        && (requestedTransitionMode === "fade-blackout" || requestedTransitionMode === "slide")
+        && transitionDurationMs > 0;
+
+      let outgoingSnapshot: CapturedRoomTexture | undefined;
+      if (isRoomChanged) {
+        emit("info", "Resolved room transition.", {
+          outgoingRoomId: previousScene?.roomId || "(unknown)",
+          incomingRoomId: scene.roomId || "(unknown)",
+          mode: requestedTransitionMode,
+          durationMs: transitionDurationMs,
+          cueEffectKey: scene.roomTransition?.cueEffectKey || "(none)",
+          travelDirection: scene.roomTransition?.travelDirection || "(none)",
+          boundsWidth: scene.bounds.width,
+          boundsHeight: scene.bounds.height
+        });
+        reportRoomTransitionState("preparing");
+      }
+
+      if (isRoomChanged && requestedTransitionMode === "slide" && transitionDurationMs > 0 && previousScene) {
+        if (preparedOutgoingSnapshot
+          && preparedOutgoingSnapshot.roomId === (activeSurfaceScene?.roomId ?? previousScene.roomId ?? "")) {
+          outgoingSnapshot = preparedOutgoingSnapshot;
+          preparedOutgoingSnapshot = null;
+          preparedOutgoingFrame = null;
+        } else {
+          clearPreparedOutgoingSnapshot();
+          try {
+            outgoingSnapshot = captureSurfaceSnapshot(activeRoomSurface, activeSurfaceScene ?? previousScene);
+          } catch (error) {
+            emit("warning", "Failed to capture outgoing room snapshot; slide will use fade-blackout fallback.", {
+              roomId: previousScene.roomId || "(unknown)",
+              error: error instanceof Error ? error.message : String(error)
+            });
+          }
+        }
+      } else if (isRoomChanged) {
+        clearPreparedOutgoingSnapshot();
+      }
+
       if (!shouldDelayBoundsSwap) {
         updateClipMask(scene.bounds.width, scene.bounds.height);
         applyViewportTransform();
       }
-      cancelRoomSwapTween(false);
+      cancelRoomSwapTween(false, "superseded-by-new-scene");
 
       if (isRoomChanged) {
         clearSurfaceSprites(stagingRoomSurface);
         stagingRoomSurface.root.visible = false;
 
-        void renderScene(scene, generation, previousScene, stagingRoomSurface).then(() => {
+        void renderScene(scene, generation, previousScene, stagingRoomSurface, false).then(() => {
           if (isDisposed || generation !== renderGeneration) {
+            outgoingSnapshot?.dispose();
             return;
           }
 
-          if (!beginRoomSwapTween(scene, generation)) {
+          let transitionStarted = false;
+          if (requestedTransitionMode === "slide" && transitionDurationMs > 0 && previousScene) {
+            freezeStagedSurfaceForSnapshotHandoff();
+            const snapshotsPrepared = outgoingSnapshot
+              ? prepareSnapshotTransition(previousScene, scene, outgoingSnapshot)
+              : false;
+            outgoingSnapshot = undefined;
+
+            if (snapshotsPrepared) {
+              updateClipMask(scene.bounds.width, scene.bounds.height);
+              applyViewportTransform();
+              transitionStarted = beginRoomSwapTween(scene, generation);
+            } else {
+              emit("warning", "Falling back from snapshot slide to fade-blackout.", {
+                outgoingRoomId: previousScene.roomId || "(unknown)",
+                incomingRoomId: scene.roomId || "(unknown)",
+                fallbackReason: "snapshot-preparation-failed-or-unavailable",
+                durationMs: transitionDurationMs
+              });
+              transitionStarted = beginRoomSwapTween(scene, generation, "fade-blackout");
+            }
+          } else {
+            transitionStarted = beginRoomSwapTween(scene, generation);
+          }
+
+          if (!transitionStarted) {
+            emit("info", "Committed room without an animated transition.", {
+              outgoingRoomId: previousScene?.roomId || "(unknown)",
+              incomingRoomId: scene.roomId || "(unknown)",
+              requestedMode: requestedTransitionMode,
+              durationMs: transitionDurationMs,
+              reason: transitionDurationMs <= 0 ? "duration-zero" : "transition-not-started"
+            });
+            clearSnapshotTransition();
+            if (shouldDelayBoundsSwap) {
+              updateClipMask(scene.bounds.width, scene.bounds.height);
+              applyViewportTransform();
+            }
             activateStagedSurface();
+            activeSurfaceScene = scene;
+            hudOverlayController.reconcile(scene, viewportWidth, viewportHeight);
+            reportRoomTransitionState("complete");
             emit("debug", "Committed staged room surface after room-boundary render.", {
               roomId: scene.roomId || "(unknown)",
               previousRoomId: previousScene?.roomId || "(unknown)"
             });
           }
+        }).catch((error) => {
+          outgoingSnapshot?.dispose();
+          clearSnapshotTransition();
+          if (isDisposed || generation !== renderGeneration) {
+            return;
+          }
+
+          emit("error", "Failed to render staged room surface.", {
+            roomId: scene.roomId || "(unknown)",
+            error: error instanceof Error ? error.message : String(error)
+          });
+          reportRoomTransitionState("failed");
         });
       } else {
-        void renderScene(scene, generation, previousScene, activeRoomSurface);
+        void renderScene(scene, generation, previousScene, activeRoomSurface).then(() => {
+          if (!isDisposed && generation === renderGeneration) {
+            activeSurfaceScene = scene;
+          }
+        });
       }
 
       emit("debug", "Applied scene update.", {
@@ -1516,6 +1893,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       }
 
       app.renderer.resize(viewportWidth, viewportHeight);
+      updateSnapshotTransitionMask();
       applyViewportTransform();
       if (currentScene) {
         hudOverlayController.reconcile(currentScene, viewportWidth, viewportHeight);
@@ -1603,7 +1981,10 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
 
       try {
         clearAllSceneSprites();
-        cancelRoomSwapTween(false);
+        cancelRoomSwapTween(false, "renderer-disposed");
+        clearPreparedOutgoingSnapshot();
+        clearSnapshotTransition();
+        reportRoomTransitionState("failed");
         activeRoomSurface.styledPointEffectController.dispose();
         stagingRoomSurface.styledPointEffectController.dispose();
         if (canvas && canvas.parentElement === mountElement) {

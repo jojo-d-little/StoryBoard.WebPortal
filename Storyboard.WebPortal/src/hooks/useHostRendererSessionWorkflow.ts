@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GameRenderSceneSnapshot } from "../gameRenderer";
+import type { GameRenderSceneSnapshot, GameRendererRoomTransitionState } from "../gameRenderer";
 import { mapHostPresentationToSceneSnapshot, mapHostSessionDataToSceneSnapshot } from "../gameRenderer/adapters";
 import type { DiagnosticsLevel } from "../components/DiagnosticsConsole";
 import { HostApiClient } from "../hostApi/client";
@@ -9,6 +9,13 @@ import { buildAssetCacheKey, webPortalAssetCache } from "../cache/webPortalAsset
 import type { PresentationCueCatalogDocument } from "../gameRenderer/presentationCue/resolveMovementCueDuration";
 
 type AddDiagnostic = (level: DiagnosticsLevel, category: string, message: string, details?: unknown) => void;
+const ROOM_TRANSITION_POLLING_PAUSE_WATCHDOG_MS = 30000;
+
+export interface HostRendererSessionWorkflowResult {
+  reportRoomTransitionState: (state: GameRendererRoomTransitionState) => void;
+  roomTransitionPreparationEpoch: number;
+  roomTransitionActive: boolean;
+}
 
 function isMovementCueCategory(value: string): boolean {
   return value.trim().toLowerCase() === "movement";
@@ -82,9 +89,11 @@ function extractContentTypeFromDataUrl(dataUrl: string): string {
   return match?.[1] ?? "application/octet-stream";
 }
 
-export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWorkflowOptions): void {
+export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWorkflowOptions): HostRendererSessionWorkflowResult {
   const [baselineSyncReady, setBaselineSyncReady] = useState<boolean>(false);
   const [baselineWatermark, setBaselineWatermark] = useState<string>("");
+  const [roomTransitionPreparationEpoch, setRoomTransitionPreparationEpoch] = useState<number>(0);
+  const [roomTransitionActive, setRoomTransitionActive] = useState<boolean>(false);
   const sceneHydrationGenerationRef = useRef<number>(0);
   const rendererSceneSnapshotRef = useRef<GameRenderSceneSnapshot | null>(options.rendererSceneSnapshot);
   const applyMovementCueDurationsRef = useRef(options.applyMovementCueDurations);
@@ -96,6 +105,62 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   const consumeSessionDeltaSoundCuesRef = useRef(options.consumeSessionDeltaSoundCues);
   const addDiagnosticRef = useRef(options.addDiagnostic);
   const presentationCueCatalogRevisionRef = useRef<number>(options.presentationCueCatalogRevision);
+  const pollingPausedForRoomTransitionRef = useRef<boolean>(false);
+  const pollingPauseWatchdogRef = useRef<number | null>(null);
+  const deferredPhasePresentationRef = useRef<HostSessionDataEnvelope[]>([]);
+
+  const releaseRoomTransitionPollingPause = useCallback((reason: string): void => {
+    if (pollingPauseWatchdogRef.current !== null) {
+      window.clearTimeout(pollingPauseWatchdogRef.current);
+      pollingPauseWatchdogRef.current = null;
+    }
+
+    const wasPaused = pollingPausedForRoomTransitionRef.current;
+    pollingPausedForRoomTransitionRef.current = false;
+    setRoomTransitionActive(false);
+    const deferred = deferredPhasePresentationRef.current.splice(0);
+    for (const sessionData of deferred) {
+      consumeSessionDeltaPhasePresentationRef.current(sessionData);
+    }
+
+    if (wasPaused) {
+      addDiagnosticRef.current("info", "session-delta", "Released room-transition polling pause.", {
+        reason,
+        deferredPhasePresentationCount: deferred.length
+      });
+    }
+  }, []);
+
+  const assertRoomTransitionPollingPause = useCallback((reason: string): void => {
+    if (!pollingPausedForRoomTransitionRef.current) {
+      pollingPausedForRoomTransitionRef.current = true;
+      setRoomTransitionActive(true);
+      addDiagnosticRef.current("info", "session-delta", "Paused session delta polling for room transition.", {
+        reason,
+        watchdogMs: ROOM_TRANSITION_POLLING_PAUSE_WATCHDOG_MS
+      });
+    }
+
+    if (pollingPauseWatchdogRef.current !== null) {
+      window.clearTimeout(pollingPauseWatchdogRef.current);
+    }
+    pollingPauseWatchdogRef.current = window.setTimeout(() => {
+      pollingPauseWatchdogRef.current = null;
+      addDiagnosticRef.current("warn", "session-delta", "Room-transition polling pause watchdog elapsed; resuming polling.", {
+        watchdogMs: ROOM_TRANSITION_POLLING_PAUSE_WATCHDOG_MS
+      });
+      releaseRoomTransitionPollingPause("watchdog");
+    }, ROOM_TRANSITION_POLLING_PAUSE_WATCHDOG_MS);
+  }, [releaseRoomTransitionPollingPause]);
+
+  const reportRoomTransitionState = useCallback((state: GameRendererRoomTransitionState): void => {
+    if (state === "preparing" || state === "running") {
+      assertRoomTransitionPollingPause(`renderer-${state}`);
+      return;
+    }
+
+    releaseRoomTransitionPollingPause(`renderer-${state}`);
+  }, [assertRoomTransitionPollingPause, releaseRoomTransitionPollingPause]);
 
   useEffect(() => {
     rendererSceneSnapshotRef.current = options.rendererSceneSnapshot;
@@ -132,6 +197,17 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   useEffect(() => {
     addDiagnosticRef.current = options.addDiagnostic;
   }, [options.addDiagnostic]);
+
+  useEffect(() => {
+    return () => {
+      if (pollingPauseWatchdogRef.current !== null) {
+        window.clearTimeout(pollingPauseWatchdogRef.current);
+        pollingPauseWatchdogRef.current = null;
+      }
+      pollingPausedForRoomTransitionRef.current = false;
+      deferredPhasePresentationRef.current.length = 0;
+    };
+  }, []);
 
   useEffect(() => {
     const previousRevision = presentationCueCatalogRevisionRef.current;
@@ -726,8 +802,14 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   }, [options.credentialHandle, options.activeSessionId, options.hostApiClient, applySessionBaseline]);
 
   const handleSessionDataUpdate = useCallback((sessionData: HostSessionDataEnvelope): void => {
+    if (sessionData.hasRoomChange) {
+      assertRoomTransitionPollingPause("accepted-room-change-delta");
+      setRoomTransitionPreparationEpoch((value) => value + 1);
+      deferredPhasePresentationRef.current.push(sessionData);
+    } else {
+      consumeSessionDeltaPhasePresentationRef.current(sessionData);
+    }
     consumeSessionDeltaSoundCuesRef.current(sessionData);
-    consumeSessionDeltaPhasePresentationRef.current(sessionData);
     const previousSnapshot = rendererSceneSnapshotRef.current;
     const nextSnapshot = mapHostSessionDataToSceneSnapshot(sessionData, previousSnapshot);
     if (nextSnapshot) {
@@ -736,15 +818,27 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       emitAppearanceCueResolutionDiagnostics("delta", resolvedSnapshot, sessionData);
       emitRoomTransitionCueResolutionDiagnostics("delta", resolvedSnapshot, sessionData);
       emitTimingSyncDiagnostics(previousSnapshot, resolvedSnapshot, sessionData);
-      void hydrateSceneSnapshotAssets(resolvedSnapshot, "delta");
+      void hydrateSceneSnapshotAssets(resolvedSnapshot, "delta").catch((error) => {
+        addDiagnosticRef.current("warn", "session-render", "Failed to hydrate delta scene assets.", {
+          roomId: resolvedSnapshot.roomId || "(unknown)",
+          message: error instanceof Error ? error.message : String(error)
+        });
+        if (sessionData.hasRoomChange) {
+          releaseRoomTransitionPollingPause("room-change-hydration-failed");
+        }
+      });
+    } else if (sessionData.hasRoomChange) {
+      releaseRoomTransitionPollingPause("room-change-without-renderable-scene");
     }
     consumeSessionDeltaEchoRef.current(sessionData);
   }, [
     emitAppearanceCueResolutionDiagnostics,
+    assertRoomTransitionPollingPause,
     emitMovementCueResolutionDiagnostics,
     emitRoomTransitionCueResolutionDiagnostics,
     emitTimingSyncDiagnostics,
-    hydrateSceneSnapshotAssets
+    hydrateSceneSnapshotAssets,
+    releaseRoomTransitionPollingPause
   ]);
 
   useSessionDeltaPolling({
@@ -758,10 +852,17 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       heartbeatEveryNPolls: options.heartbeatEveryNPolls
     },
     enabled: baselineSyncReady,
+    isPaused: () => pollingPausedForRoomTransitionRef.current,
     onSessionData: handleSessionDataUpdate,
     onResyncBaseline: async (baseline) => {
       await applySessionBaseline(baseline, "resync");
     },
     addDiagnostic: options.addDiagnostic
   });
+
+  return {
+    reportRoomTransitionState,
+    roomTransitionPreparationEpoch,
+    roomTransitionActive
+  };
 }

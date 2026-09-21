@@ -4,7 +4,7 @@ import { HostApiClient } from "../hostApi/client";
 import type { GameRenderSceneSnapshot } from "../gameRenderer";
 import type { GameRendererRoomPoint } from "../gameRenderer";
 import type { GameRenderTravelDirection } from "../gameRenderer/contracts/sceneTypes";
-import type { GameRendererDiagnosticsEvent } from "../gameRenderer";
+import type { GameRendererDiagnosticsEvent, GameRendererRoomTransitionState } from "../gameRenderer";
 import type {
   HostDiscoveredGame,
   HostGameDetailsDescriptor,
@@ -194,6 +194,8 @@ export interface HostWorkflowState {
   reportRendererScaleMetrics: (metrics: RendererScaleMetrics | null) => void;
   reportRendererLastClickPoint: (clickPoint: RendererLastClickPoint | null) => void;
   reportRendererDiagnostic: (event: GameRendererDiagnosticsEvent) => void;
+  reportRendererRoomTransitionState: (state: GameRendererRoomTransitionState) => void;
+  roomTransitionPreparationEpoch: number;
   sessionOutputLines: string[];
   pendingCommandClarification: HostPendingClarificationRequest | null;
   lastCommandResult: HostProcessCommandResult | null;
@@ -523,7 +525,11 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     addDiagnostic: options.addDiagnostic
   });
 
-  useHostRendererSessionWorkflow({
+  const {
+    reportRoomTransitionState: reportRendererRoomTransitionState,
+    roomTransitionPreparationEpoch,
+    roomTransitionActive
+  } = useHostRendererSessionWorkflow({
     hostApiClient,
     credentialHandle,
     activeSessionId,
@@ -564,6 +570,21 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     refreshCacheStats,
     addDiagnostic: options.addDiagnostic
   });
+
+  const submitCommandWhenRendererReady = useCallback(async (
+    rawCommandText: string,
+    submitOptions?: { suppressClientEcho?: boolean }
+  ): Promise<HostProcessCommandResult | null> => {
+    if (roomTransitionActive) {
+      options.addDiagnostic("warn", "command", "Command submission was blocked by an active room transition.", {
+        commandText: rawCommandText,
+        activeSessionId: activeSessionId || "(none)"
+      });
+      return null;
+    }
+
+    return submitCommand(rawCommandText, submitOptions);
+  }, [activeSessionId, options, roomTransitionActive, submitCommand]);
 
   const {
     tryTransitionByEvents,
@@ -857,14 +878,14 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
       activeSessionId: activeSessionId || "(none)"
     });
 
-    const result = await submitCommand(outboundCommandText, { suppressClientEcho: true });
+    const result = await submitCommandWhenRendererReady(outboundCommandText, { suppressClientEcho: true });
     if (!shouldClearWaypointDraftAfterSubmit(result)) {
       return;
     }
 
     waypointRendererBridge?.clearWaypoints();
     setWaypointDraftCount(waypointRendererBridge?.getWaypointsSnapshot().length ?? 0);
-  }, [activeSessionId, buildSubmitWaypointCommand, options, submitCommand, validateWaypointAction, waypointRendererBridge]);
+  }, [activeSessionId, buildSubmitWaypointCommand, options, submitCommandWhenRendererReady, validateWaypointAction, waypointRendererBridge]);
 
   const buildPointClickedCommand = useCallback((roomX: number, roomY: number): string => {
     const normalizedX = Math.max(0, Math.round(roomX));
@@ -914,10 +935,12 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     reportRendererScaleMetrics,
     reportRendererLastClickPoint,
     reportRendererDiagnostic,
+    reportRendererRoomTransitionState,
+    roomTransitionPreparationEpoch,
     sessionOutputLines,
     pendingCommandClarification,
     lastCommandResult,
-    submitCommand,
+    submitCommand: submitCommandWhenRendererReady,
     buildPointClickedCommand,
     reportPlaySurfaceCommandDispatch,
     submitClarificationAnswer,

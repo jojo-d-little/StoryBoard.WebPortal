@@ -16,6 +16,7 @@ interface UseSessionDeltaPollingOptions {
   resetEpoch?: number;
   settings: SessionDeltaPollingSettings;
   enabled: boolean;
+  isPaused?: () => boolean;
   allowInTest?: boolean;
   onSessionData?: (sessionData: HostSessionDataEnvelope) => void;
   onResyncBaseline?: (baseline: HostRuntimePresentationBaseline) => void | Promise<void>;
@@ -33,6 +34,7 @@ interface PollingRuntimeState {
   runCount: number;
   noopCount: number;
   failureCount: number;
+  pauseStartedAtMs: number;
 }
 
 interface PollAnalysis {
@@ -148,11 +150,13 @@ export function useSessionDeltaPolling(options: UseSessionDeltaPollingOptions): 
     currentWatermark: "",
     runCount: 0,
     noopCount: 0,
-    failureCount: 0
+    failureCount: 0,
+    pauseStartedAtMs: 0
   });
   const onSessionDataRef = useRef(options.onSessionData);
   const onResyncBaselineRef = useRef(options.onResyncBaseline);
   const addDiagnosticRef = useRef(options.addDiagnostic);
+  const isPausedRef = useRef(options.isPaused);
 
   useEffect(() => {
     onSessionDataRef.current = options.onSessionData;
@@ -165,6 +169,10 @@ export function useSessionDeltaPolling(options: UseSessionDeltaPollingOptions): 
   useEffect(() => {
     addDiagnosticRef.current = options.addDiagnostic;
   }, [options.addDiagnostic]);
+
+  useEffect(() => {
+    isPausedRef.current = options.isPaused;
+  }, [options.isPaused]);
 
   useEffect(() => {
     const isTestRuntime = import.meta.env.MODE === "test";
@@ -341,6 +349,32 @@ export function useSessionDeltaPolling(options: UseSessionDeltaPollingOptions): 
           break;
         }
 
+        while (isCurrentGeneration() && Boolean(isPausedRef.current?.())) {
+          if (runtimeState.pauseStartedAtMs <= 0) {
+            runtimeState.pauseStartedAtMs = Date.now();
+            addDiagnosticRef.current("info", "session-delta", "Session delta polling paused by renderer workflow.", {
+              watermark: runtimeState.currentWatermark || "(none)",
+              runCount: runtimeState.runCount
+            });
+          }
+
+          await waitForDelay(Math.min(normalizedPollIntervalMs, 250));
+        }
+
+        if (!isCurrentGeneration()) {
+          break;
+        }
+
+        if (runtimeState.pauseStartedAtMs > 0) {
+          const pauseDurationMs = Date.now() - runtimeState.pauseStartedAtMs;
+          runtimeState.pauseStartedAtMs = 0;
+          addDiagnosticRef.current("info", "session-delta", "Session delta polling resumed after renderer workflow pause.", {
+            watermark: runtimeState.currentWatermark || "(none)",
+            runCount: runtimeState.runCount,
+            pauseDurationMs
+          });
+        }
+
         await runOnePollCycle();
         nextPollDueAtMs = Date.now() + normalizedPollIntervalMs;
       }
@@ -353,6 +387,7 @@ export function useSessionDeltaPolling(options: UseSessionDeltaPollingOptions): 
       runtimeState.runCount = 0;
       runtimeState.noopCount = 0;
       runtimeState.failureCount = 0;
+      runtimeState.pauseStartedAtMs = 0;
       return () => {
         stopPolling();
       };
@@ -364,6 +399,7 @@ export function useSessionDeltaPolling(options: UseSessionDeltaPollingOptions): 
     runtimeState.runCount = 0;
     runtimeState.noopCount = 0;
     runtimeState.failureCount = 0;
+    runtimeState.pauseStartedAtMs = 0;
 
     addDiagnosticRef.current("info", "session-delta", "Session delta polling started.", {
       sessionId: options.sessionId,

@@ -367,7 +367,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
       const app = apps[apps.length - 1];
       const stageRoot = app?.stage?.children?.[0];
       const activeSurfaceRoot = stageRoot?.children?.[0];
-      const roomObjectLayer = activeSurfaceRoot?.children?.[1];
+      const roomObjectLayer = activeSurfaceRoot?.children?.[0]?.children?.[1];
       return Array.isArray(roomObjectLayer?.children) && roomObjectLayer.children.length > 0;
     }, 1000);
 
@@ -408,7 +408,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
     const app = apps[apps.length - 1];
     const stageRoot = app.stage.children[0];
     const activeSurfaceRoot = stageRoot.children[0];
-    const roomObjectLayer = activeSurfaceRoot.children[1];
+    const roomObjectLayer = activeSurfaceRoot.children[0].children[1];
     const root = roomObjectLayer.children[0] as {
       position: { x: number };
       children: Array<{ scale: { x: number } }>;
@@ -468,7 +468,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
       const app = apps[apps.length - 1];
       const stageRoot = app?.stage?.children?.[0];
       const activeSurfaceRoot = stageRoot?.children?.[0];
-      const roomObjectLayer = activeSurfaceRoot?.children?.[1];
+      const roomObjectLayer = activeSurfaceRoot?.children?.[0]?.children?.[1];
       return Array.isArray(roomObjectLayer?.children) && roomObjectLayer.children.length > 0;
     }, 1000);
 
@@ -509,7 +509,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
     const app = apps[apps.length - 1];
     const stageRoot = app.stage.children[0];
     const activeSurfaceRoot = stageRoot.children[0];
-    const roomObjectLayer = activeSurfaceRoot.children[1];
+    const roomObjectLayer = activeSurfaceRoot.children[0].children[1];
     const root = roomObjectLayer.children[0] as { zIndex: number };
 
     expect(root.zIndex).toBe(220);
@@ -562,7 +562,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
       const app = apps[apps.length - 1];
       const stageRoot = app?.stage?.children?.[0];
       const activeSurfaceRoot = stageRoot?.children?.[0];
-      const roomObjectLayer = activeSurfaceRoot?.children?.[1];
+      const roomObjectLayer = activeSurfaceRoot?.children?.[0]?.children?.[1];
       return Array.isArray(roomObjectLayer?.children) && roomObjectLayer.children.length > 0;
     }, 1000);
 
@@ -603,7 +603,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
     const app = apps[apps.length - 1];
     const stageRoot = app.stage.children[0];
     const activeSurfaceRoot = stageRoot.children[0];
-    const roomObjectLayer = activeSurfaceRoot.children[1];
+    const roomObjectLayer = activeSurfaceRoot.children[0].children[1];
     const root = roomObjectLayer.children[0] as { zIndex: number };
 
     expect(root.zIndex).toBe(220);
@@ -645,7 +645,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
       const stageRoot = app?.stage?.children?.[0];
       const surfaceRoots = [stageRoot?.children?.[0], stageRoot?.children?.[1]].filter(Boolean);
       const activeSurfaceRoot = surfaceRoots.find((surface) => surface.visible) ?? surfaceRoots[0];
-      const directionalLayer = activeSurfaceRoot?.children?.[0];
+      const directionalLayer = activeSurfaceRoot?.children?.[0]?.children?.[0];
       return (directionalLayer?.children ?? []) as Array<{
         zIndex: number;
         anchor: { x: number; y: number };
@@ -818,7 +818,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
       const stageRoot = app?.stage?.children?.[0];
       const surfaceRoots = [stageRoot?.children?.[0], stageRoot?.children?.[1]].filter(Boolean);
       const activeSurfaceRoot = surfaceRoots.find((surface) => surface.visible) ?? surfaceRoots[0];
-      const directionalLayer = activeSurfaceRoot?.children?.[0];
+      const directionalLayer = activeSurfaceRoot?.children?.[0]?.children?.[0];
       const overlays = directionalLayer?.children ?? [];
       return overlays.length === 1;
     }, 1200);
@@ -828,7 +828,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
     const stageRoot = app?.stage?.children?.[0];
     const surfaceRoots = [stageRoot?.children?.[0], stageRoot?.children?.[1]].filter(Boolean);
     const activeSurfaceRoot = surfaceRoots.find((surface) => surface.visible) ?? surfaceRoots[0];
-    const directionalLayer = activeSurfaceRoot?.children?.[0];
+    const directionalLayer = activeSurfaceRoot?.children?.[0]?.children?.[0];
     const overlay = directionalLayer?.children?.[0] as {
       anchor: { x: number; y: number };
       position: { x: number; y: number };

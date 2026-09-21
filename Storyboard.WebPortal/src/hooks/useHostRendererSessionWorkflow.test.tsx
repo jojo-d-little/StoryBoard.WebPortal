@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HostCommandSoundCue } from "../hostApi/HostContracts";
 import { useHostRendererSessionWorkflow } from "./useHostRendererSessionWorkflow";
@@ -146,5 +146,89 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
         .find((call) => typeof call.onResyncBaseline === "function");
       expect(matchingCall).toBeDefined();
     });
+  });
+
+  it("pauses polling for a room-change delta and defers phase presentation until renderer completion", async () => {
+    const hostApiClient = {
+      getSessionBaseline: vi.fn().mockResolvedValue({
+        sessionDeltaWatermark: "1",
+        soundCues: [],
+        orderedTextPresentationSteps: []
+      }),
+      getSessionDeltas: vi.fn(),
+      getAssetPreviewDataUrl: vi.fn()
+    } as unknown as HostApiClient;
+    const consumeSessionDeltaPhasePresentation = vi.fn();
+    const { result } = renderHook(() =>
+      useHostRendererSessionWorkflow({
+        hostApiClient,
+        credentialHandle: "cred-1",
+        activeSessionId: "session-1",
+        selectedGameId: "game-1",
+        selectedGameKey: "game-key",
+        presentationCueCatalogRevision: 0,
+        rendererSceneSnapshot: null,
+        setRendererSceneSnapshot: vi.fn(),
+        applyMovementCueDurations: (scene) => scene,
+        getCurrentPresentationCueCatalog: () => null,
+        presentationCueCatalogSource: "none",
+        getHudOverlayEntries: () => [],
+        pollIntervalMs: 100,
+        heartbeatEveryNPolls: 100,
+        sessionDeltaResetEpoch: 0,
+        consumeSessionDeltaPhasePresentation,
+        consumeSessionDeltaEcho: vi.fn(),
+        consumeSessionDeltaSoundCues: vi.fn(),
+        refreshCacheStats: vi.fn(),
+        addDiagnostic: vi.fn()
+      })
+    );
+
+    await waitFor(() => {
+      expect(useSessionDeltaPollingMock).toHaveBeenCalled();
+    });
+
+    const pollingOptions = useSessionDeltaPollingMock.mock.calls[useSessionDeltaPollingMock.mock.calls.length - 1]?.[0] as {
+      isPaused: () => boolean;
+      onSessionData: (sessionData: unknown) => void;
+    };
+    const roomChange = {
+      sessionDeltaWatermark: "2",
+      roomObjectChanges: [],
+      soundCues: [],
+      outputLines: [],
+      diagnostics: [],
+      orderedTextPresentationSteps: [{ sequence: 1 }],
+      hasRoomChange: true,
+      hasPhaseChange: true,
+      roomChange: {
+        travelDirection: "East",
+        presentationCues: [],
+        newRoom: {
+          roomId: "room-2",
+          name: "Second Room",
+          roomDisplayMode: 1,
+          renderableRoomObjects: [],
+          directionalRenderableImages: []
+        }
+      },
+      authoredRenderWidth: 800,
+      authoredRenderHeight: 600
+    };
+
+    act(() => {
+      pollingOptions.onSessionData(roomChange);
+    });
+    expect(pollingOptions.isPaused()).toBe(true);
+    expect(consumeSessionDeltaPhasePresentation).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(result.current.roomTransitionPreparationEpoch).toBe(1);
+    });
+
+    act(() => {
+      result.current.reportRoomTransitionState("complete");
+    });
+    expect(pollingOptions.isPaused()).toBe(false);
+    expect(consumeSessionDeltaPhasePresentation).toHaveBeenCalledWith(roomChange);
   });
 });
