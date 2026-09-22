@@ -48,6 +48,7 @@ function canAttachToExistingStartedSession(response: {
 }
 
 interface UseHostSessionWorkflowOptions {
+  startupAudioReady: boolean;
   credentialHandle: string;
   selectedGameId: string;
   selectedGameKey: string;
@@ -109,6 +110,15 @@ interface SessionOperationSuccessOptions {
 }
 
 export function useHostSessionWorkflow(options: UseHostSessionWorkflowOptions): UseHostSessionWorkflowResult {
+  function ensureStartupAudioReady(): boolean {
+    if (options.startupAudioReady) {
+      return true;
+    }
+
+    options.setHostStatus("Choose whether to enable sound before starting the session.");
+    return false;
+  }
+
   const resetEchoForSessionAttach = useCallback((reason: SessionAttachReason, targetSessionId: string): void => {
     options.clearPendingCommandState();
     options.resetSessionEchoForAttach(reason, targetSessionId);
@@ -153,6 +163,10 @@ export function useHostSessionWorkflow(options: UseHostSessionWorkflowOptions): 
   }, [options]);
 
   const startSessionFromSelectedGame = useCallback(async (): Promise<void> => {
+    if (!ensureStartupAudioReady()) {
+      return;
+    }
+
     if (!ensureCredentialHandle(options.credentialHandle, options.setHostStatus, MSG_SIGNIN_REQUIRED_START)) {
       return;
     }
@@ -209,6 +223,10 @@ export function useHostSessionWorkflow(options: UseHostSessionWorkflowOptions): 
   }, [options, runSessionOperation, completeSessionOperationSuccess]);
 
   const startSessionForGame = useCallback(async (gameId: string, gameKey: string): Promise<void> => {
+    if (!ensureStartupAudioReady()) {
+      return;
+    }
+
     if (!ensureCredentialHandle(options.credentialHandle, options.setHostStatus, MSG_SIGNIN_REQUIRED_START)) {
       return;
     }
@@ -323,6 +341,10 @@ export function useHostSessionWorkflow(options: UseHostSessionWorkflowOptions): 
   }, [options, runSessionOperation, completeSessionOperationSuccess]);
 
   const joinSessionById = useCallback(async (sessionId: string): Promise<void> => {
+    if (!ensureStartupAudioReady()) {
+      return;
+    }
+
     if (!ensureCredentialHandle(options.credentialHandle, options.setHostStatus, MSG_SIGNIN_REQUIRED_JOIN)) {
       return;
     }
@@ -419,6 +441,10 @@ export function useHostSessionWorkflow(options: UseHostSessionWorkflowOptions): 
   }, [leaveActiveSession, options]);
 
   const reconnectActiveSession = useCallback(async (): Promise<void> => {
+    if (!ensureStartupAudioReady()) {
+      return;
+    }
+
     if (!ensureCredentialHandle(options.credentialHandle, options.setHostStatus, MSG_SIGNIN_REQUIRED_RECONNECT)) {
       return;
     }

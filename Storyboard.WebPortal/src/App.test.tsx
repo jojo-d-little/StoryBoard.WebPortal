@@ -127,6 +127,16 @@ vi.mock("./hostApi/client", () => {
   };
 });
 
+vi.mock("./hooks/usePortalStartupAudioGate", () => ({
+  usePortalStartupAudioGate: () => ({
+    status: "enabled",
+    startupAudioReady: true,
+    enableAudio: vi.fn().mockResolvedValue(undefined),
+    retryAudio: vi.fn().mockResolvedValue(undefined),
+    continueMuted: vi.fn()
+  })
+}));
+
 beforeEach(() => {
   window.localStorage.clear();
   window.history.replaceState({}, "", "/");
@@ -357,8 +367,20 @@ describe("App override behavior", () => {
     });
 
     expect(window.location.search).toBe("?mode=devsimulator&username=dev");
-    expect(screen.getByText("activeSessionId=s-1")).toBeInTheDocument();
+    expect(document.querySelector('main[data-launch-mode="devsimulator"]')).toHaveAttribute("data-presentation-variant", "development");
+    expect(screen.queryByText("Storyboard Shell Lab")).not.toBeInTheDocument();
+    expect(document.querySelector("[data-skeleton-layout]")).not.toBeNull();
+    expect(screen.getByText("session=s-1")).toBeInTheDocument();
     expect(screen.getByText("Start session succeeded: Session.Start.Success")).toBeInTheDocument();
+  });
+
+  it("allows the lab renderer to be explicitly requested for a development launch", async () => {
+    window.history.replaceState({}, "", "/client/?mode=devsimulator&username=dev&rm=lab");
+
+    render(<App />);
+
+    expect(await screen.findByText("Storyboard Shell Lab")).toBeInTheDocument();
+    expect(document.querySelector('main[data-launch-mode="devsimulator"]')).toHaveAttribute("data-presentation-variant", "development");
   });
 
   it("attaches to the existing owner session during automatic bootstrap", async () => {
@@ -387,7 +409,7 @@ describe("App override behavior", () => {
       expect(startSessionMock).toHaveBeenCalledTimes(1);
     });
 
-    expect(screen.getByText("activeSessionId=s-existing")).toBeInTheDocument();
+    expect(screen.getByText("session=s-existing")).toBeInTheDocument();
     expect(screen.getByText("Attached to existing session: Session.Start.AlreadyExists")).toBeInTheDocument();
   });
 

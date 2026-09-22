@@ -9,6 +9,9 @@ import { DiagnosticsConsole, type DiagnosticsEntry, type DiagnosticsLevel } from
 import { ConfigSlotFeatureRenderer } from "./components/ConfigSlotFeatureRenderer";
 import { ShellLabControls } from "./components/ShellLabControls";
 import { useHostWorkflow } from "./hooks/useHostWorkflow";
+import { usePortalStartupAudioGate } from "./hooks/usePortalStartupAudioGate";
+import { PortalStartupSplash } from "./components/PortalStartupSplash";
+import { readPortalLaunchContext } from "./launch/portalLaunchContext";
 import { resolveTechnicalFeatureComponent } from "./orchestration/technicalFeatureImplementations";
 import { DEFAULT_WEB_PORTAL_SETTINGS, type WebPortalSettings } from "./settings/webPortalSettings";
 import {
@@ -156,20 +159,6 @@ function readQueryOverrides(): QueryOverrides {
   };
 }
 
-interface DevelopmentBootstrapContext {
-  username: string;
-}
-
-function readDevelopmentBootstrapContext(): DevelopmentBootstrapContext | null {
-  const params = new URLSearchParams(window.location.search);
-  if ((params.get("mode") || "").trim().toLowerCase() !== "devsimulator") {
-    return null;
-  }
-
-  const username = (params.get("username") || "").trim();
-  return username ? { username } : null;
-}
-
 function readSlotModeQueryOverrides(): Record<string, QuerySlotMode> {
   const params = new URLSearchParams(window.location.search);
   const overrides: Record<string, QuerySlotMode> = {};
@@ -186,11 +175,6 @@ function readSlotModeQueryOverrides(): Record<string, QuerySlotMode> {
   }
 
   return overrides;
-}
-
-function readRenderMode(): RenderMode {
-  const mode = getQueryParam("rm");
-  return mode === "config" ? "config" : "lab";
 }
 
 function readPersistedOverride(storageKey: string): string {
@@ -298,12 +282,27 @@ interface AppProps {
 
 export default function App(props: AppProps): JSX.Element {
   const settings = props.initialSettings ?? DEFAULT_WEB_PORTAL_SETTINGS;
-  const developmentBootstrap = useMemo(() => readDevelopmentBootstrapContext(), []);
+  const startupAudioGate = usePortalStartupAudioGate();
+  const launchContext = useMemo(() => readPortalLaunchContext(), []);
+  const developmentBootstrap = useMemo(() => {
+    if (launchContext.mode !== "devsimulator" || !launchContext.username) {
+      return null;
+    }
+
+    return { username: launchContext.username };
+  }, [launchContext]);
   const [contracts, setContracts] = useState<OrchestrationContracts | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [shareMessage, setShareMessage] = useState<string>("");
   const [queryOverrides, setQueryOverrides] = useState<QueryOverrides>(() => readQueryOverrides());
-  const [renderMode, setRenderMode] = useState<RenderMode>(() => readRenderMode());
+  const [renderMode, setRenderMode] = useState<RenderMode>(() => {
+    const requestedRenderMode = getQueryParam("rm");
+    if (requestedRenderMode === "lab" || requestedRenderMode === "config") {
+      return requestedRenderMode;
+    }
+
+    return launchContext.presentationVariant === "development" ? "config" : "lab";
+  });
 
   const [state, setState] = useState<string>("");
   const [formFactorOverride, setFormFactorOverride] = useState<string>(() => getInitialOverride(OVERRIDE_STORAGE_KEYS.formFactor));
@@ -892,6 +891,7 @@ export default function App(props: AppProps): JSX.Element {
   const hostWorkflow = useHostWorkflow({
     baseUrlOverride: hostApiBaseUrlOverride,
     developmentBootstrap,
+    startupAudioStatus: startupAudioGate.status,
     pollIntervalMs,
     heartbeatEveryNPolls,
     echoOutputRetentionLines: settings.devToolsDefaults.echoOutputRetentionLines,
@@ -1044,7 +1044,11 @@ export default function App(props: AppProps): JSX.Element {
 
     const url = new URL(window.location.href);
     if (next === "lab") {
-      url.searchParams.delete("rm");
+      if (launchContext.mode === "devsimulator") {
+        url.searchParams.set("rm", "lab");
+      } else {
+        url.searchParams.delete("rm");
+      }
     } else {
       url.searchParams.set("rm", "config");
     }
@@ -1226,6 +1230,7 @@ export default function App(props: AppProps): JSX.Element {
   }, [contracts, planWithSlotModeOverrides]);
 
   const shellClassName = `shell ${renderMode === "config" ? "mode-config" : "mode-lab"}`;
+  const showLabChrome = launchContext.mode !== "devsimulator" || renderMode === "lab";
 
   if (!contracts) {
     return (
@@ -1236,8 +1241,18 @@ export default function App(props: AppProps): JSX.Element {
   }
 
   return (
-    <main className={shellClassName}>
-      {renderMode === "config" && showInspectorToggle ? (
+    <main
+      className={shellClassName}
+      data-launch-mode={launchContext.mode}
+      data-presentation-variant={launchContext.presentationVariant}
+    >
+      <PortalStartupSplash
+        status={startupAudioGate.status}
+        onEnableAudio={() => void startupAudioGate.enableAudio()}
+        onRetryAudio={() => void startupAudioGate.retryAudio()}
+        onContinueMuted={startupAudioGate.continueMuted}
+      />
+      {showLabChrome && renderMode === "config" && showInspectorToggle ? (
         <div className="events">
           <button type="button" onClick={() => setInspectorOpen((open) => !open)}>
             {inspectorOpen ? "Hide Inspector" : "Show Inspector"}
@@ -1245,7 +1260,7 @@ export default function App(props: AppProps): JSX.Element {
         </div>
       ) : null}
 
-      <ShellLabControls
+      {showLabChrome ? <ShellLabControls
         renderMode={renderMode}
         inspectorOpen={inspectorOpen}
         devToolsOpen={devToolsOpen}
@@ -1371,7 +1386,7 @@ export default function App(props: AppProps): JSX.Element {
           }
         }}
         hostWorkflow={hostWorkflow}
-      />
+      /> : null}
 
       {error ? <section className="error">{error}</section> : null}
 

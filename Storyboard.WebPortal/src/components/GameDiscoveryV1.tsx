@@ -7,7 +7,8 @@ type DiscoveryViewMode = "games" | "sessions";
 
 export type GameDiscoveryWorkflow = Pick<
   HostWorkflowState,
-  "hostBusy"
+  "developmentBootstrapActive"
+  | "hostBusy"
   | "credentialHandle"
   | "fetchDiscoveredGames"
   | "fetchGameDetails"
@@ -125,13 +126,13 @@ export function GameDiscoveryV1(props: GameDiscoveryV1Props): JSX.Element {
   }
 
   useEffect(() => {
-    if (!hostWorkflow.credentialHandle || hasAutoLoadedRef.current) {
+    if (hostWorkflow.developmentBootstrapActive || !hostWorkflow.credentialHandle || hasAutoLoadedRef.current) {
       return;
     }
 
     hasAutoLoadedRef.current = true;
     void refreshGamesAndDetails();
-  }, [hostWorkflow.credentialHandle]);
+  }, [hostWorkflow.credentialHandle, hostWorkflow.developmentBootstrapActive]);
 
   useEffect(() => {
     if (!hostWorkflow.credentialHandle) {

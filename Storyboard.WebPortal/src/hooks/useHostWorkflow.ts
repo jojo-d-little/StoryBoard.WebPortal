@@ -43,6 +43,7 @@ import {
   resolveCatalogStyledPointEffect,
   type ResolvedStyledPointEffect
 } from "../gameRenderer/presentationCue/resolveMovementCueDuration";
+import type { PortalStartupAudioStatus } from "./usePortalStartupAudioGate";
 
 export type HostOperationKey =
   | "none"
@@ -65,6 +66,7 @@ interface UseHostWorkflowOptions {
   developmentBootstrap: {
     username: string;
   } | null;
+  startupAudioStatus: PortalStartupAudioStatus;
   pollIntervalMs: number;
   heartbeatEveryNPolls: number;
   echoOutputRetentionLines: number;
@@ -165,6 +167,7 @@ export function shouldClearWaypointDraftAfterSubmit(result: HostProcessCommandRe
 }
 
 export interface HostWorkflowState {
+  developmentBootstrapActive: boolean;
   authUsername: string;
   setAuthUsername: (value: string) => void;
   authPassword: string;
@@ -357,7 +360,11 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
   const [rendererScaleMetrics, setRendererScaleMetrics] = useState<RendererScaleMetrics | null>(null);
   const [rendererLastClickPoint, setRendererLastClickPoint] = useState<RendererLastClickPoint | null>(null);
   const [lastPlaySurfaceDispatch, setLastPlaySurfaceDispatch] = useState<string>("(none)");
-  const [audioUnlockRequired, setAudioUnlockRequired] = useState<boolean>(options.audioDefaults.requireUserGestureToUnlock);
+  const [audioUnlockRequired, setAudioUnlockRequired] = useState<boolean>(
+    options.audioDefaults.requireUserGestureToUnlock
+      && options.startupAudioStatus !== "enabled"
+      && options.startupAudioStatus !== "muted"
+  );
   const [sfxMuted, setSfxMuted] = useState<boolean>(options.audioDefaults.lanes.sfx.muted);
   const [sfxVolumePercent, setSfxVolumePercent] = useState<number>(options.audioDefaults.lanes.sfx.volumePercent);
   const [ambientMuted, setAmbientMuted] = useState<boolean>(options.audioDefaults.lanes.ambient.muted);
@@ -520,16 +527,22 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     audioUnlockRequired,
     audioLanes: {
       sfx: {
-        muted: sfxMuted,
+        muted: sfxMuted || options.startupAudioStatus === "muted",
         volumePercent: sfxVolumePercent
       },
       ambient: {
-        muted: ambientMuted,
+        muted: ambientMuted || options.startupAudioStatus === "muted",
         volumePercent: ambientVolumePercent
       }
     },
     addDiagnostic: options.addDiagnostic
   });
+
+  useEffect(() => {
+    if (options.startupAudioStatus === "enabled" || options.startupAudioStatus === "muted") {
+      setAudioUnlockRequired(false);
+    }
+  }, [options.startupAudioStatus]);
 
   const {
     reportRoomTransitionState: reportRendererRoomTransitionState,
@@ -615,6 +628,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     reconnectActiveSession,
     returnToLobby
   } = useHostSessionWorkflow({
+    startupAudioReady: options.startupAudioStatus === "enabled" || options.startupAudioStatus === "muted",
     credentialHandle,
     selectedGameId,
     selectedGameKey,
@@ -733,7 +747,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
   }, [credentialHandle, fetchDiscoveredGames, options.addDiagnostic, options.developmentBootstrap]);
 
   useEffect(() => {
-    if (!options.developmentBootstrap || !credentialHandle || activeSessionId || developmentBootstrapSessionStartedRef.current) {
+    if (!options.developmentBootstrap || !credentialHandle || !options.startupAudioStatus || options.startupAudioStatus === "checking" || options.startupAudioStatus === "needs-user-action" || options.startupAudioStatus === "denied" || activeSessionId || developmentBootstrapSessionStartedRef.current) {
       return;
     }
 
@@ -769,7 +783,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
       gameKey: game.gameKey
     });
     void startSessionForGame(game.gameId, game.gameKey);
-  }, [activeSessionId, credentialHandle, discoverGames, hostOperationKey, hostOperationPhase, options.addDiagnostic, options.developmentBootstrap, setHostStatus, startSessionForGame]);
+  }, [activeSessionId, credentialHandle, discoverGames, hostOperationKey, hostOperationPhase, options.addDiagnostic, options.developmentBootstrap, options.startupAudioStatus, setHostStatus, startSessionForGame]);
 
   useEffect(() => {
     setRendererSceneSnapshot((current) => {
@@ -973,6 +987,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
   }, [activeSessionId]);
 
   return {
+    developmentBootstrapActive: options.developmentBootstrap !== null,
     authUsername,
     setAuthUsername,
     authPassword,
