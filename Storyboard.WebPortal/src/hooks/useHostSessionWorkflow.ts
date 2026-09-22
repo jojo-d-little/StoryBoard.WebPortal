@@ -35,6 +35,18 @@ const ERR_PREFIX_JOIN = "Join session error";
 const ERR_PREFIX_LEAVE = "Leave session error";
 const ERR_PREFIX_RECONNECT = "Reconnect error";
 
+function canAttachToExistingStartedSession(response: {
+  result: { code: string };
+  created: boolean;
+  session: HostSessionDescriptor | null;
+}): boolean {
+  return response.result.code === "Session.Start.AlreadyExists"
+    && !response.created
+    && Boolean(response.session?.sessionId)
+    && Boolean(response.session?.isJoined)
+    && Boolean(response.session?.isOwner);
+}
+
 interface UseHostSessionWorkflowOptions {
   credentialHandle: string;
   selectedGameId: string;
@@ -163,7 +175,8 @@ export function useHostSessionWorkflow(options: UseHostSessionWorkflowOptions): 
         options.requestedJoinPolicy
       );
 
-      if (!response.result.success || !response.created) {
+      const attachedToExistingSession = canAttachToExistingStartedSession(response);
+      if ((!response.result.success || !response.created) && !attachedToExistingSession) {
         options.failHostOperation("sessionStart", `Start session failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnosticsMessages)}`);
         return;
       }
@@ -179,11 +192,16 @@ export function useHostSessionWorkflow(options: UseHostSessionWorkflowOptions): 
       options.tryTransitionByEvents(["StartSessionSucceeded", "StartSessionSuccess", "SessionStartSucceeded"], "SessionActive");
       completeSessionOperationSuccess({
         operation: "sessionStart",
-        hostStatusMessage: `Start session succeeded: ${response.result.code}`,
-        diagnosticMessage: "Session start succeeded.",
+        hostStatusMessage: attachedToExistingSession
+          ? `Attached to existing session: ${response.result.code}`
+          : `Start session succeeded: ${response.result.code}`,
+        diagnosticMessage: attachedToExistingSession
+          ? "Attached to the existing owner session returned by the host."
+          : "Session start succeeded.",
         diagnosticDetails: {
           sessionId: createdSessionId,
-          resultCode: response.result.code
+          resultCode: response.result.code,
+          attachedToExistingSession
         }
       });
       }
@@ -213,7 +231,8 @@ export function useHostSessionWorkflow(options: UseHostSessionWorkflowOptions): 
         options.requestedJoinPolicy
       );
 
-      if (!response.result.success || !response.created) {
+      const attachedToExistingSession = canAttachToExistingStartedSession(response);
+      if ((!response.result.success || !response.created) && !attachedToExistingSession) {
         options.failHostOperation("sessionStart", `Start session failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnosticsMessages)}`);
         return;
       }
@@ -232,11 +251,16 @@ export function useHostSessionWorkflow(options: UseHostSessionWorkflowOptions): 
       options.tryTransitionByEvents(["StartSessionSucceeded", "StartSessionSuccess", "SessionStartSucceeded"], "SessionActive");
       completeSessionOperationSuccess({
         operation: "sessionStart",
-        hostStatusMessage: `Start session succeeded: ${response.result.code}`,
-        diagnosticMessage: "Session start succeeded.",
+        hostStatusMessage: attachedToExistingSession
+          ? `Attached to existing session: ${response.result.code}`
+          : `Start session succeeded: ${response.result.code}`,
+        diagnosticMessage: attachedToExistingSession
+          ? "Attached to the existing owner session returned by the host."
+          : "Session start succeeded.",
         diagnosticDetails: {
           sessionId: createdSessionId,
-          resultCode: response.result.code
+          resultCode: response.result.code,
+          attachedToExistingSession
         }
       });
       }

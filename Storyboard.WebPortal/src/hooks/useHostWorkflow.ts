@@ -62,6 +62,9 @@ type AddDiagnostic = (level: DiagnosticsLevel, category: string, message: string
 
 interface UseHostWorkflowOptions {
   baseUrlOverride: string;
+  developmentBootstrap: {
+    username: string;
+  } | null;
   pollIntervalMs: number;
   heartbeatEveryNPolls: number;
   echoOutputRetentionLines: number;
@@ -337,8 +340,8 @@ function formatDiagnostics(messages: string[]): string {
 
 export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowState {
   const echoOutputRetentionLines = normalizeEchoOutputRetentionLines(options.echoOutputRetentionLines);
-  const [authUsername, setAuthUsername] = useState<string>("admin");
-  const [authPassword, setAuthPassword] = useState<string>("admin");
+  const [authUsername, setAuthUsername] = useState<string>(() => options.developmentBootstrap?.username || "admin");
+  const [authPassword, setAuthPassword] = useState<string>(() => options.developmentBootstrap ? "" : "admin");
   const [credentialHandle, setCredentialHandle] = useState<string>("");
   const [principalName, setPrincipalName] = useState<string>("");
   const [discoverGames, setDiscoverGames] = useState<HostDiscoveredGame[]>([]);
@@ -363,6 +366,9 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
   const [waypointDraftCount, setWaypointDraftCount] = useState<number>(0);
   const [waypointRendererBridge, setWaypointRendererBridge] = useState<WaypointInteractionRendererBridge | null>(null);
   const waypointWarningLastEmittedByCodeRef = useRef<Map<string, number>>(new Map());
+  const developmentBootstrapSignInStartedRef = useRef<boolean>(false);
+  const developmentBootstrapDiscoveryStartedRef = useRef<boolean>(false);
+  const developmentBootstrapSessionStartedRef = useRef<boolean>(false);
 
   const {
     cacheStats,
@@ -700,6 +706,70 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     setSelectedGameId,
     setSelectedGameKey
   });
+
+  useEffect(() => {
+    if (!options.developmentBootstrap || !options.contracts || credentialHandle || developmentBootstrapSignInStartedRef.current) {
+      return;
+    }
+
+    developmentBootstrapSignInStartedRef.current = true;
+    options.addDiagnostic("info", "auth", "Starting development Portal bootstrap sign-in.", {
+      mode: "devsimulator",
+      username: authUsername
+    });
+    void signInToHost();
+  }, [authUsername, credentialHandle, options.addDiagnostic, options.contracts, options.developmentBootstrap, signInToHost]);
+
+  useEffect(() => {
+    if (!options.developmentBootstrap || !credentialHandle || developmentBootstrapDiscoveryStartedRef.current) {
+      return;
+    }
+
+    developmentBootstrapDiscoveryStartedRef.current = true;
+    options.addDiagnostic("info", "discovery", "Starting development Portal bootstrap discovery.", {
+      mode: "devsimulator"
+    });
+    void fetchDiscoveredGames();
+  }, [credentialHandle, fetchDiscoveredGames, options.addDiagnostic, options.developmentBootstrap]);
+
+  useEffect(() => {
+    if (!options.developmentBootstrap || !credentialHandle || activeSessionId || developmentBootstrapSessionStartedRef.current) {
+      return;
+    }
+
+    if (hostOperationKey !== "discovery" || hostOperationPhase !== "Idle") {
+      return;
+    }
+
+    if (discoverGames.length === 0) {
+      developmentBootstrapSessionStartedRef.current = true;
+      setHostStatus("Development bootstrap found no enabled games.");
+      options.addDiagnostic("error", "discovery", "Development bootstrap could not select a game because discovery returned no enabled games.", {
+        mode: "devsimulator",
+        count: 0
+      });
+      return;
+    }
+
+    if (discoverGames.length !== 1) {
+      developmentBootstrapSessionStartedRef.current = true;
+      setHostStatus("Development bootstrap requires exactly one enabled game.");
+      options.addDiagnostic("error", "discovery", "Development bootstrap stopped because discovery returned more than one enabled game.", {
+        mode: "devsimulator",
+        count: discoverGames.length
+      });
+      return;
+    }
+
+    const game = discoverGames[0];
+    developmentBootstrapSessionStartedRef.current = true;
+    options.addDiagnostic("info", "session", "Development bootstrap starting the discovered game session.", {
+      mode: "devsimulator",
+      gameId: game.gameId,
+      gameKey: game.gameKey
+    });
+    void startSessionForGame(game.gameId, game.gameKey);
+  }, [activeSessionId, credentialHandle, discoverGames, hostOperationKey, hostOperationPhase, options.addDiagnostic, options.developmentBootstrap, setHostStatus, startSessionForGame]);
 
   useEffect(() => {
     setRendererSceneSnapshot((current) => {

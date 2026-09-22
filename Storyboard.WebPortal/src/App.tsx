@@ -111,7 +111,7 @@ const DEFAULT_THEME_TYPOGRAPHY: ThemeTypographyTokens = {
   hudFontFamilyBody: "\"Source Sans 3\", \"Segoe UI\", sans-serif"
 };
 
-const RESERVED_QUERY_PARAM_NAMES = new Set(["ff", "cp", "sk", "rm"]);
+const RESERVED_QUERY_PARAM_NAMES = new Set(["ff", "cp", "sk", "rm", "mode", "username"]);
 
 type DiagnosticCategoryOption = {
   category: string;
@@ -154,6 +154,20 @@ function readQueryOverrides(): QueryOverrides {
     cp: getQueryParam("cp") ?? "",
     sk: getQueryParam("sk") ?? ""
   };
+}
+
+interface DevelopmentBootstrapContext {
+  username: string;
+}
+
+function readDevelopmentBootstrapContext(): DevelopmentBootstrapContext | null {
+  const params = new URLSearchParams(window.location.search);
+  if ((params.get("mode") || "").trim().toLowerCase() !== "devsimulator") {
+    return null;
+  }
+
+  const username = (params.get("username") || "").trim();
+  return username ? { username } : null;
 }
 
 function readSlotModeQueryOverrides(): Record<string, QuerySlotMode> {
@@ -284,6 +298,7 @@ interface AppProps {
 
 export default function App(props: AppProps): JSX.Element {
   const settings = props.initialSettings ?? DEFAULT_WEB_PORTAL_SETTINGS;
+  const developmentBootstrap = useMemo(() => readDevelopmentBootstrapContext(), []);
   const [contracts, setContracts] = useState<OrchestrationContracts | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [shareMessage, setShareMessage] = useState<string>("");
@@ -328,6 +343,7 @@ export default function App(props: AppProps): JSX.Element {
   const liveThemeColorsSourceIdRef = useRef<string>(Math.random().toString(36).slice(2));
   const liveDiagnosticsSourceIdRef = useRef<string>(Math.random().toString(36).slice(2));
   const diagnosticsEntriesRef = useRef<DiagnosticsEntry[]>([]);
+
   const [preferredInputFocusRestoreEpoch, setPreferredInputFocusRestoreEpoch] = useState<number>(0);
   const preferredInputFocusLockUntilMsRef = useRef<number>(0);
 
@@ -875,6 +891,7 @@ export default function App(props: AppProps): JSX.Element {
 
   const hostWorkflow = useHostWorkflow({
     baseUrlOverride: hostApiBaseUrlOverride,
+    developmentBootstrap,
     pollIntervalMs,
     heartbeatEveryNPolls,
     echoOutputRetentionLines: settings.devToolsDefaults.echoOutputRetentionLines,

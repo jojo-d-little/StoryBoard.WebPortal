@@ -345,6 +345,52 @@ describe("App override behavior", () => {
     expect(screen.getByText("Start session succeeded: Session.Start.Success")).toBeInTheDocument();
   });
 
+  it("automatically bootstraps from the devsimulator launch URL", async () => {
+    window.history.replaceState({}, "", "/client/?mode=devsimulator&username=dev");
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(authenticateMock).toHaveBeenCalledWith("dev", "");
+      expect(discoverGamesMock).toHaveBeenCalledTimes(1);
+      expect(startSessionMock).toHaveBeenCalledTimes(1);
+    });
+
+    expect(window.location.search).toBe("?mode=devsimulator&username=dev");
+    expect(screen.getByText("activeSessionId=s-1")).toBeInTheDocument();
+    expect(screen.getByText("Start session succeeded: Session.Start.Success")).toBeInTheDocument();
+  });
+
+  it("attaches to the existing owner session during automatic bootstrap", async () => {
+    startSessionMock.mockResolvedValueOnce({
+      result: { success: false, code: "Session.Start.AlreadyExists", diagnosticsMessages: [] },
+      created: false,
+      session: {
+        sessionId: "s-existing",
+        gameId: "g-1",
+        gameKey: "sample.game",
+        sessionName: "Designer Session",
+        sessionState: "active",
+        ownerPrincipalId: "dev",
+        joinPolicy: "ownerOnly",
+        canJoin: true,
+        canLeave: true,
+        isJoined: true,
+        isOwner: true
+      }
+    });
+    window.history.replaceState({}, "", "/client/?mode=devsimulator&username=dev");
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(startSessionMock).toHaveBeenCalledTimes(1);
+    });
+
+    expect(screen.getByText("activeSessionId=s-existing")).toBeInTheDocument();
+    expect(screen.getByText("Attached to existing session: Session.Start.AlreadyExists")).toBeInTheDocument();
+  });
+
   it("shows failed phase and diagnostics when sign-in fails", async () => {
     authenticateMock.mockResolvedValueOnce({
       result: { success: false, code: "Identity.Authenticate.InvalidCredentials", diagnosticsMessages: ["bad credentials"] },
