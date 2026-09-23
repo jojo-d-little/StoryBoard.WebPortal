@@ -968,7 +968,6 @@ export function ConfigDrivenLayoutPreview(props: ConfigDrivenLayoutPreviewProps)
 
   function openUndockedNonModalWindow(slotKey: string): void {
     const undockedUrl = new URL(window.location.href);
-    undockedUrl.searchParams.set("rm", "config");
     undockedUrl.searchParams.set(slotKey, "visible");
     undockedUrl.searchParams.set("undocked", slotKey);
 

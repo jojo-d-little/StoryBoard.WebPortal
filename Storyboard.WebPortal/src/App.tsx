@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadOrchestrationContracts } from "./orchestration/loader";
 import { listEventsFromState, resolveShellPlan, tryTransition } from "./orchestration/resolver";
 import type { OrchestrationContracts, ResolvedSlot, SlotMode, ThemeContract } from "./orchestration/types";
-import { ResolvedPlanView } from "./components/ResolvedPlanView";
 import { ConfigDrivenLayoutPreview } from "./components/ConfigDrivenLayoutPreview";
 import { DevToolsPanel } from "./components/DevToolsPanel";
 import { DiagnosticsConsole, type DiagnosticsEntry, type DiagnosticsLevel } from "./components/DiagnosticsConsole";
@@ -37,7 +36,6 @@ const DEV_TOOLS_STORAGE_KEYS = {
   pollIntervalMs: "shellLab.devTools.pollIntervalMs",
   heartbeatEveryNPolls: "shellLab.devTools.heartbeatEveryNPolls"
 } as const;
-type RenderMode = "lab" | "config";
 type QuerySlotMode = Extract<SlotMode, "hidden" | "visible">;
 const LIVE_LAYOUT_CONTROLS_CHANNEL = "shellLab.liveLayoutControls";
 const LIVE_THEME_COLORS_CHANNEL = "shellLab.liveThemeColors";
@@ -50,7 +48,6 @@ type PreviewContext = {
   formFactorKey: string;
   compositionProfileKey: string;
   skeletonLayoutKey: string;
-  renderMode: RenderMode;
 };
 type ThemeColorTokens = ThemeContract["tokens"]["color"];
 type ThemeColorTokenKey = keyof ThemeColorTokens;
@@ -114,7 +111,7 @@ const DEFAULT_THEME_TYPOGRAPHY: ThemeTypographyTokens = {
   hudFontFamilyBody: "\"Source Sans 3\", \"Segoe UI\", sans-serif"
 };
 
-const RESERVED_QUERY_PARAM_NAMES = new Set(["ff", "cp", "sk", "rm", "mode", "username"]);
+const RESERVED_QUERY_PARAM_NAMES = new Set(["ff", "cp", "sk", "mode", "username", "autoStartSession"]);
 
 type DiagnosticCategoryOption = {
   category: string;
@@ -285,25 +282,19 @@ export default function App(props: AppProps): JSX.Element {
   const startupAudioGate = usePortalStartupAudioGate();
   const launchContext = useMemo(() => readPortalLaunchContext(), []);
   const developmentBootstrap = useMemo(() => {
-    if (launchContext.mode !== "devsimulator" || !launchContext.username) {
+    if (!launchContext.username) {
       return null;
     }
 
-    return { username: launchContext.username };
+    return {
+      username: launchContext.username,
+      autoStartSession: launchContext.autoStartSession
+    };
   }, [launchContext]);
   const [contracts, setContracts] = useState<OrchestrationContracts | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [shareMessage, setShareMessage] = useState<string>("");
   const [queryOverrides, setQueryOverrides] = useState<QueryOverrides>(() => readQueryOverrides());
-  const [renderMode, setRenderMode] = useState<RenderMode>(() => {
-    const requestedRenderMode = getQueryParam("rm");
-    if (requestedRenderMode === "lab" || requestedRenderMode === "config") {
-      return requestedRenderMode;
-    }
-
-    return launchContext.presentationVariant === "development" ? "config" : "lab";
-  });
-
   const [state, setState] = useState<string>("");
   const [formFactorOverride, setFormFactorOverride] = useState<string>(() => getInitialOverride(OVERRIDE_STORAGE_KEYS.formFactor));
   const [compositionOverride, setCompositionOverride] = useState<string>(() => getInitialOverride(OVERRIDE_STORAGE_KEYS.composition));
@@ -808,6 +799,7 @@ export default function App(props: AppProps): JSX.Element {
     try {
       return {
         plan: resolveShellPlan(contracts, {
+          modeKey: launchContext.mode,
           experienceState: state,
           formFactorOverride: effectiveOverrides.formFactor.value || undefined,
           compositionProfileOverride: effectiveOverrides.composition.value || undefined,
@@ -821,7 +813,7 @@ export default function App(props: AppProps): JSX.Element {
         resolveError: err instanceof Error ? err.message : String(err)
       };
     }
-  }, [contracts, state, effectiveOverrides]);
+  }, [contracts, launchContext.mode, state, effectiveOverrides]);
 
   const error = loadError ?? plan.resolveError;
 
@@ -883,10 +875,9 @@ export default function App(props: AppProps): JSX.Element {
       experienceState: state,
       formFactorKey: plan.plan.formFactorKey,
       compositionProfileKey: plan.plan.compositionProfileKey,
-      skeletonLayoutKey: plan.plan.skeletonLayoutKey,
-      renderMode
+      skeletonLayoutKey: plan.plan.skeletonLayoutKey
     };
-  }, [plan.plan, state, renderMode]);
+  }, [plan.plan, state]);
 
   const hostWorkflow = useHostWorkflow({
     baseUrlOverride: hostApiBaseUrlOverride,
@@ -1039,23 +1030,6 @@ export default function App(props: AppProps): JSX.Element {
     handleCommandSubmitCompleted
   ]);
 
-  function setRenderModeAndPersist(next: RenderMode): void {
-    setRenderMode(next);
-
-    const url = new URL(window.location.href);
-    if (next === "lab") {
-      if (launchContext.mode === "devsimulator") {
-        url.searchParams.set("rm", "lab");
-      } else {
-        url.searchParams.delete("rm");
-      }
-    } else {
-      url.searchParams.set("rm", "config");
-    }
-
-    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-  }
-
   async function copyShareUrl(): Promise<void> {
     const text = buildShareUrl(window.location.href, effectiveOverrides);
     try {
@@ -1100,10 +1074,6 @@ export default function App(props: AppProps): JSX.Element {
   }, [plan.plan, slotModeQueryOverrides, slotModeOverrides]);
 
   const preferredInputElementId = useMemo(() => {
-    if (renderMode !== "config") {
-      return "";
-    }
-
     const preferredInputFocus = planWithSlotModeOverrides?.preferredInputFocus;
     if (!preferredInputFocus) {
       return "";
@@ -1117,7 +1087,7 @@ export default function App(props: AppProps): JSX.Element {
     }
 
     return preferredInputFocus.inputElementId?.trim() ?? "";
-  }, [renderMode, planWithSlotModeOverrides]);
+  }, [planWithSlotModeOverrides]);
 
   const restorePreferredInputFocus = useCallback((): void => {
     if (!preferredInputElementId) {
@@ -1229,13 +1199,22 @@ export default function App(props: AppProps): JSX.Element {
     return layout?.templateSlotClassNames;
   }, [contracts, planWithSlotModeOverrides]);
 
-  const shellClassName = `shell ${renderMode === "config" ? "mode-config" : "mode-lab"}`;
-  const showLabChrome = launchContext.mode !== "devsimulator" || renderMode === "lab";
+  const shellClassName = "shell mode-config";
+  const showLabChrome = launchContext.mode !== "devsimulator";
+  const startupSplash = (
+    <PortalStartupSplash
+      status={startupAudioGate.status}
+      onEnableAudio={() => void startupAudioGate.enableAudio()}
+      onRetryAudio={() => void startupAudioGate.retryAudio()}
+      onContinueMuted={startupAudioGate.continueMuted}
+    />
+  );
 
   if (!contracts) {
     return (
       <main className={shellClassName}>
         {loadError ? <section className="error">{loadError}</section> : <p>Loading orchestration contracts...</p>}
+        {startupSplash}
       </main>
     );
   }
@@ -1244,15 +1223,10 @@ export default function App(props: AppProps): JSX.Element {
     <main
       className={shellClassName}
       data-launch-mode={launchContext.mode}
-      data-presentation-variant={launchContext.presentationVariant}
+      data-portal-mode={launchContext.mode}
     >
-      <PortalStartupSplash
-        status={startupAudioGate.status}
-        onEnableAudio={() => void startupAudioGate.enableAudio()}
-        onRetryAudio={() => void startupAudioGate.retryAudio()}
-        onContinueMuted={startupAudioGate.continueMuted}
-      />
-      {showLabChrome && renderMode === "config" && showInspectorToggle ? (
+      {startupSplash}
+      {showLabChrome && showInspectorToggle ? (
         <div className="events">
           <button type="button" onClick={() => setInspectorOpen((open) => !open)}>
             {inspectorOpen ? "Hide Inspector" : "Show Inspector"}
@@ -1261,11 +1235,9 @@ export default function App(props: AppProps): JSX.Element {
       ) : null}
 
       {showLabChrome ? <ShellLabControls
-        renderMode={renderMode}
         inspectorOpen={inspectorOpen}
         devToolsOpen={devToolsOpen}
         onDevToolsOpenChange={setDevToolsOpen}
-        onRenderModeChange={setRenderModeAndPersist}
         DevToolsPanelComponent={DevToolsPanelComponent}
         diagnosticsEnabled={diagnosticsEnabled}
         diagnosticsVerbose={diagnosticsVerbose}
@@ -1390,9 +1362,7 @@ export default function App(props: AppProps): JSX.Element {
 
       {error ? <section className="error">{error}</section> : null}
 
-      {renderMode === "lab" && planWithSlotModeOverrides ? <ResolvedPlanView plan={planWithSlotModeOverrides} /> : null}
-
-      {renderMode === "config" && planWithSlotModeOverrides ? (
+      {planWithSlotModeOverrides ? (
         <ConfigDrivenLayoutPreview
           plan={planWithSlotModeOverrides}
           slotDefinitions={contracts.uiSlots.slots}
@@ -1413,7 +1383,7 @@ export default function App(props: AppProps): JSX.Element {
         />
       ) : null}
 
-      {renderMode === "lab" ? (
+      {showLabChrome ? (
         <DiagnosticsConsoleComponent
           enabled={diagnosticsEnabled}
           entries={diagnosticsEntries}

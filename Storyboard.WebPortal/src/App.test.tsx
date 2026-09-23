@@ -92,6 +92,21 @@ const { contracts, authenticateMock, currentPrincipalMock, discoverGamesMock, ge
       statusStrip: { kind: "status", infrastructure: false, collapsible: true, hideable: true }
     },
     allowedSlotModes: ["visible", "hidden", "collapsed", "disabled", "readonly"]
+  },
+  portalModes: {
+    defaultModeKey: "normal",
+    modes: {
+      normal: {
+        formFactorKey: "desktop",
+        skeletonLayoutKey: "desktopStandard",
+        compositionProfileKey: "standard"
+      },
+      devsimulator: {
+        formFactorKey: "desktop",
+        skeletonLayoutKey: "desktopStandard",
+        compositionProfileKey: "standard"
+      }
+    }
   }
 } satisfies OrchestrationContracts,
   authenticateMock: vi.fn(),
@@ -254,31 +269,30 @@ afterEach(() => {
 });
 
 describe("App override behavior", () => {
-  it("shows config-driven preview when rm=config is set", async () => {
-    window.history.replaceState({}, "", "/?rm=config");
+  it("always renders the configuration-driven Portal layout", async () => {
+    window.history.replaceState({}, "", "/");
 
     render(<App />);
 
-    expect(await screen.findByText("renderMode=config")).toBeInTheDocument();
-    expect(screen.queryByText("Shell Frame")).not.toBeInTheDocument();
-    expect(screen.queryByText("Config-Driven Layout Preview")).not.toBeInTheDocument();
+    expect(await screen.findByRole("main")).toHaveClass("mode-config");
+    expect(document.querySelector("[data-skeleton-layout]")).not.toBeNull();
+    expect(screen.queryByText("Resolved Plan")).not.toBeInTheDocument();
   });
 
   it("applies slot-key query mode overrides using hidden/visible values", async () => {
-    window.history.replaceState({}, "", "/?rm=config&statusStrip=hidden");
+    window.history.replaceState({}, "", "/?statusStrip=hidden");
 
     render(<App />);
 
-    expect(await screen.findByText("renderMode=config")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Application status bar" })).not.toBeInTheDocument();
   });
 
   it("ignores feature-key query mode overrides and applies slot-key-only visibility control", async () => {
-    window.history.replaceState({}, "", "/?rm=config&globalStatus=hidden");
+    window.history.replaceState({}, "", "/?globalStatus=hidden");
 
     render(<App />);
 
-    expect(await screen.findByText("renderMode=config")).toBeInTheDocument();
+    await screen.findByRole("main");
     expect(screen.getByRole("region", { name: "Application status bar" })).toBeInTheDocument();
   });
 
@@ -339,8 +353,6 @@ describe("App override behavior", () => {
       expect(authenticateMock).toHaveBeenCalledTimes(1);
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Discover Games" }));
-
     await waitFor(() => {
       expect(discoverGamesMock).toHaveBeenCalledTimes(1);
     });
@@ -352,11 +364,11 @@ describe("App override behavior", () => {
     });
 
     expect(screen.getByText("activeSessionId=s-1")).toBeInTheDocument();
-    expect(screen.getByText("Start session succeeded: Session.Start.Success")).toBeInTheDocument();
+    expect(screen.getAllByText("Start session succeeded: Session.Start.Success").length).toBeGreaterThan(0);
   });
 
   it("automatically bootstraps from the devsimulator launch URL", async () => {
-    window.history.replaceState({}, "", "/client/?mode=devsimulator&username=dev");
+    window.history.replaceState({}, "", "/client/?mode=devsimulator&username=dev&autoStartSession=true");
 
     render(<App />);
 
@@ -366,21 +378,25 @@ describe("App override behavior", () => {
       expect(startSessionMock).toHaveBeenCalledTimes(1);
     });
 
-    expect(window.location.search).toBe("?mode=devsimulator&username=dev");
-    expect(document.querySelector('main[data-launch-mode="devsimulator"]')).toHaveAttribute("data-presentation-variant", "development");
+    expect(window.location.search).toBe("?mode=devsimulator&username=dev&autoStartSession=true");
+    expect(document.querySelector('main[data-launch-mode="devsimulator"]')).toHaveAttribute("data-portal-mode", "devsimulator");
     expect(screen.queryByText("Storyboard Shell Lab")).not.toBeInTheDocument();
     expect(document.querySelector("[data-skeleton-layout]")).not.toBeNull();
     expect(screen.getByText("session=s-1")).toBeInTheDocument();
     expect(screen.getByText("Start session succeeded: Session.Start.Success")).toBeInTheDocument();
   });
 
-  it("allows the lab renderer to be explicitly requested for a development launch", async () => {
-    window.history.replaceState({}, "", "/client/?mode=devsimulator&username=dev&rm=lab");
+  it("authenticates from a username without starting a session unless requested", async () => {
+    window.history.replaceState({}, "", "/client/?mode=devsimulator&username=dev");
 
     render(<App />);
 
-    expect(await screen.findByText("Storyboard Shell Lab")).toBeInTheDocument();
-    expect(document.querySelector('main[data-launch-mode="devsimulator"]')).toHaveAttribute("data-presentation-variant", "development");
+    await waitFor(() => {
+      expect(authenticateMock).toHaveBeenCalledWith("dev", "");
+    });
+
+    expect(discoverGamesMock).not.toHaveBeenCalled();
+    expect(startSessionMock).not.toHaveBeenCalled();
   });
 
   it("attaches to the existing owner session during automatic bootstrap", async () => {
@@ -401,7 +417,7 @@ describe("App override behavior", () => {
         isOwner: true
       }
     });
-    window.history.replaceState({}, "", "/client/?mode=devsimulator&username=dev");
+    window.history.replaceState({}, "", "/client/?mode=devsimulator&username=dev&autoStartSession=true");
 
     render(<App />);
 
@@ -429,8 +445,8 @@ describe("App override behavior", () => {
       expect(authenticateMock).toHaveBeenCalledTimes(1);
     });
 
-    expect(screen.getByText("phase=Failed")).toBeInTheDocument();
-    expect(screen.getByText("operation=auth")).toBeInTheDocument();
+    expect(screen.getAllByText("phase=Failed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("operation=auth").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Sign-in failed: Identity.Authenticate.InvalidCredentials (bad credentials)").length).toBeGreaterThan(0);
   });
 
@@ -443,7 +459,7 @@ describe("App override behavior", () => {
       expect(authenticateMock).toHaveBeenCalledTimes(1);
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "List Sessions" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "List Sessions" })[0]);
     await waitFor(() => {
       expect(listSessionsMock).toHaveBeenCalledTimes(1);
     });
@@ -461,6 +477,6 @@ describe("App override behavior", () => {
     });
 
     expect(screen.getByText("activeSessionId=(none)")).toBeInTheDocument();
-    expect(screen.getByText("Leave session succeeded: Session.Leave.Success")).toBeInTheDocument();
+    expect(screen.getAllByText("Leave session succeeded: Session.Leave.Success").length).toBeGreaterThan(0);
   });
 });

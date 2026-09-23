@@ -4,6 +4,7 @@ import type {
   FeatureCatalog,
   FormFactorFeatureImplementations,
   OrchestrationContracts,
+  PortalModes,
   SkeletonLayouts,
   TemplateSlotGridPlacement,
   ThemeContract,
@@ -202,13 +203,14 @@ function resolveDefaultBasePath(): string {
 }
 
 export async function loadOrchestrationContracts(basePath = resolveDefaultBasePath()): Promise<OrchestrationContracts> {
-  const [featureMap, stateCompositions, skeletonLayouts, implementations, featureCatalog, uiSlots, themeContract] = await Promise.all([
+  const [featureMap, stateCompositions, skeletonLayouts, implementations, featureCatalog, uiSlots, portalModes, themeContract] = await Promise.all([
     fetchJson<ExperienceStateFeatureMap>(`${basePath}/experience-state-featuremap.v1.json`),
     fetchJson<ExperienceStateCompositions>(`${basePath}/experience-state-compositions.v1.json`),
     fetchJson<SkeletonLayouts>(`${basePath}/skeleton-layouts.v1.json`),
     fetchJson<FormFactorFeatureImplementations>(`${basePath}/form-factor-feature-implementations.v1.json`),
     fetchJson<FeatureCatalog>(`${basePath}/feature-catalog.v1.json`),
     fetchJson<UiSlots>(`${basePath}/ui-slots.v1.json`),
+    fetchJson<PortalModes>(`${basePath}/portal-modes.v1.json`),
     fetchJson<ThemeContract>(`${basePath}/theme-contract.v1.json`)
   ]);
 
@@ -221,6 +223,7 @@ export async function loadOrchestrationContracts(basePath = resolveDefaultBasePa
     implementations,
     featureCatalog,
     uiSlots,
+    portalModes,
     themeContract
   };
 

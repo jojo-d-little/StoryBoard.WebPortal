@@ -17,17 +17,12 @@ type PreviewContext = {
   formFactorKey: string;
   compositionProfileKey: string;
   skeletonLayoutKey: string;
-  renderMode: RenderMode;
 };
 
-type RenderMode = "lab" | "config";
-
 interface ShellLabControlsProps {
-  renderMode: RenderMode;
   inspectorOpen: boolean;
   devToolsOpen: boolean;
   onDevToolsOpenChange: (nextOpen: boolean) => void;
-  onRenderModeChange: (nextMode: RenderMode) => void;
   DevToolsPanelComponent: ComponentType<ComponentProps<typeof DevToolsPanel>>;
   diagnosticsEnabled: boolean;
   diagnosticsVerbose: boolean;
@@ -90,15 +85,13 @@ interface ShellLabControlsProps {
 
 export function ShellLabControls(props: ShellLabControlsProps): JSX.Element {
   return (
-    <section className={`controls ${props.renderMode === "config" ? "inspector" : ""} ${props.renderMode === "config" && !props.inspectorOpen ? "collapsed" : ""}`}>
-      <h1>Storyboard Shell Lab</h1>
-      <p className="subtitle">Phase 1 placeholder shell for state/layout/implementation resolution.</p>
+    <section className={`controls inspector ${!props.inspectorOpen ? "collapsed" : ""}`}>
+      <h1>Portal Developer Tools</h1>
+      <p className="subtitle">Developer controls for state, layout, implementation resolution, and host diagnostics.</p>
       <div className="events">
         <button type="button" onClick={() => props.onDevToolsOpenChange(!props.devToolsOpen)}>
           {props.devToolsOpen ? "Hide Dev Tools" : "Show Dev Tools"}
         </button>
-        <button type="button" onClick={() => props.onRenderModeChange("lab")} disabled={props.renderMode === "lab"}>Lab Renderer</button>
-        <button type="button" onClick={() => props.onRenderModeChange("config")} disabled={props.renderMode === "config"}>Config Renderer Preview</button>
       </div>
 
       {props.devToolsOpen ? (
@@ -178,7 +171,6 @@ export function ShellLabControls(props: ShellLabControlsProps): JSX.Element {
       />
 
       <div className="meta">
-        <span>renderMode={props.renderMode}</span>
         <span>effective.formFactor={props.effectiveOverrides.formFactor.value || "(default)"}</span>
         <span>source.formFactor={props.effectiveOverrides.formFactor.source}</span>
         <span>effective.composition={props.effectiveOverrides.composition.value || "(default)"}</span>

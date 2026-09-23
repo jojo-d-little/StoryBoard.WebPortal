@@ -9,7 +9,6 @@ interface PreviewContext {
   formFactorKey: string;
   compositionProfileKey: string;
   skeletonLayoutKey: string;
-  renderMode: "lab" | "config";
 }
 
 type ThemeColorTokenKey = keyof ThemeContract["tokens"]["color"];
@@ -463,7 +462,6 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
               {props.previewContext ? (
                 <div className="slot-control-item preview-context-card">
                   <strong>Preview Context</strong>
-                  <span>render mode: {props.previewContext.renderMode}</span>
                   <span>state: {props.previewContext.experienceState}</span>
                   <span>form factor: {props.previewContext.formFactorKey}</span>
                   <span>composition: {props.previewContext.compositionProfileKey}</span>

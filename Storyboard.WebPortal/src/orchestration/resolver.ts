@@ -29,6 +29,7 @@ function resolveImplementationMapping(mapping: FeatureImplementationMapping | un
 function resolveCompositionProfileKey(
   contracts: OrchestrationContracts,
   experienceState: string,
+  modeCompositionProfileKey: string,
   compositionProfileOverride?: string
 ): string {
   const stateProfiles = contracts.stateCompositions.stateProfiles[experienceState];
@@ -37,6 +38,7 @@ function resolveCompositionProfileKey(
   }
 
   const defaultProfileKey = stateProfiles.defaultProfile
+    || modeCompositionProfileKey
     || contracts.featureMap.resolutionDefaults.defaultCompositionProfileKey;
 
   if (!compositionProfileOverride) {
@@ -57,6 +59,7 @@ function resolveCompositionProfileKey(
 function resolveSkeletonLayoutKey(
   contracts: OrchestrationContracts,
   formFactorKey: string,
+  modeSkeletonLayoutKey: string,
   skeletonLayoutOverride?: string
 ): string {
   if (skeletonLayoutOverride) {
@@ -72,7 +75,7 @@ function resolveSkeletonLayoutKey(
     return skeletonLayoutOverride;
   }
 
-  const defaultLayoutKey = contracts.featureMap.resolutionDefaults.defaultSkeletonLayoutKey;
+  const defaultLayoutKey = modeSkeletonLayoutKey || contracts.featureMap.resolutionDefaults.defaultSkeletonLayoutKey;
   const defaultLayout = contracts.skeletonLayouts.skeletonLayouts[defaultLayoutKey];
   if (!defaultLayout) {
     throw new Error(`Unknown default skeleton layout '${defaultLayoutKey}'.`);
@@ -94,19 +97,30 @@ export function resolveShellPlan(contracts: OrchestrationContracts, input: Resol
     throw new Error(`Unknown experience state '${input.experienceState}'.`);
   }
 
-  const formFactorKey = input.formFactorOverride ?? contracts.featureMap.resolutionDefaults.defaultFormFactorKey;
+  const modeKey = input.modeKey ?? contracts.portalModes.defaultModeKey;
+  const mode = contracts.portalModes.modes[modeKey];
+  if (!mode) {
+    throw new Error(`Unknown Portal mode '${modeKey}'.`);
+  }
+
+  const formFactorKey = input.formFactorOverride ?? mode.formFactorKey ?? contracts.featureMap.resolutionDefaults.defaultFormFactorKey;
   const formFactor = contracts.implementations.formFactors[formFactorKey];
   if (!formFactor) {
     throw new Error(`Unknown form factor '${formFactorKey}'.`);
   }
 
-  const compositionProfileKey = resolveCompositionProfileKey(contracts, input.experienceState, input.compositionProfileOverride);
+  const compositionProfileKey = resolveCompositionProfileKey(
+    contracts,
+    input.experienceState,
+    mode.compositionProfileKey,
+    input.compositionProfileOverride
+  );
   const compositionProfile = contracts.stateCompositions.stateProfiles[input.experienceState]?.profiles[compositionProfileKey];
   if (!compositionProfile) {
     throw new Error(`Unknown composition profile '${compositionProfileKey}' for state '${input.experienceState}'.`);
   }
 
-  const skeletonLayoutKey = resolveSkeletonLayoutKey(contracts, formFactorKey, input.skeletonLayoutOverride);
+  const skeletonLayoutKey = resolveSkeletonLayoutKey(contracts, formFactorKey, mode.skeletonLayoutKey, input.skeletonLayoutOverride);
   const skeletonLayout = contracts.skeletonLayouts.skeletonLayouts[skeletonLayoutKey];
   if (skeletonLayout.formFactorKey !== formFactorKey) {
     throw new Error(`Layout '${skeletonLayoutKey}' is not compatible with form factor '${formFactorKey}'.`);
@@ -166,6 +180,7 @@ export function resolveShellPlan(contracts: OrchestrationContracts, input: Resol
     : undefined;
 
   return {
+    modeKey,
     experienceState: input.experienceState,
     formFactorKey,
     compositionProfileKey,

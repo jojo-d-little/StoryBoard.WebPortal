@@ -25,7 +25,6 @@ type PreviewContext = {
   formFactorKey: string;
   compositionProfileKey: string;
   skeletonLayoutKey: string;
-  renderMode: "lab" | "config";
 };
 
 interface ConfigSlotFeatureRendererProps {

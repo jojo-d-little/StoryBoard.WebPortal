@@ -12,6 +12,15 @@ export function validateOrchestrationContracts(contracts: OrchestrationContracts
   const stateProfileKeys = new Set(Object.keys(contracts.stateCompositions.stateProfiles));
   const skeletonLayoutKeys = new Set(Object.keys(contracts.skeletonLayouts.skeletonLayouts));
   const formFactorKeys = new Set(Object.keys(contracts.implementations.formFactors));
+  const modeKeys = new Set(Object.keys(contracts.portalModes.modes));
+
+  if (modeKeys.size === 0) {
+    throw new Error("Contracts must define at least one Portal mode.");
+  }
+
+  if (!modeKeys.has(contracts.portalModes.defaultModeKey)) {
+    throw new Error(`defaultModeKey '${contracts.portalModes.defaultModeKey}' is not a known Portal mode.`);
+  }
 
   if (!states.has(contracts.featureMap.initialExperienceState)) {
     throw new Error(`initialExperienceState '${contracts.featureMap.initialExperienceState}' is not a known experience state.`);
@@ -23,6 +32,28 @@ export function validateOrchestrationContracts(contracts: OrchestrationContracts
 
   if (!formFactorKeys.has(contracts.featureMap.resolutionDefaults.defaultFormFactorKey)) {
     throw new Error(`defaultFormFactorKey '${contracts.featureMap.resolutionDefaults.defaultFormFactorKey}' is not a known form factor.`);
+  }
+
+  for (const [modeKey, mode] of Object.entries(contracts.portalModes.modes)) {
+    if (!formFactorKeys.has(mode.formFactorKey)) {
+      throw new Error(`Portal mode '${modeKey}' references unknown form factor '${mode.formFactorKey}'.`);
+    }
+
+    const layout = contracts.skeletonLayouts.skeletonLayouts[mode.skeletonLayoutKey];
+    if (!layout) {
+      throw new Error(`Portal mode '${modeKey}' references unknown skeleton layout '${mode.skeletonLayoutKey}'.`);
+    }
+
+    if (layout.formFactorKey !== mode.formFactorKey) {
+      throw new Error(`Portal mode '${modeKey}' skeleton layout '${mode.skeletonLayoutKey}' is incompatible with form factor '${mode.formFactorKey}'.`);
+    }
+
+    for (const [stateKey, stateProfiles] of Object.entries(contracts.stateCompositions.stateProfiles)) {
+      const profileKey = stateProfiles.defaultProfile ?? mode.compositionProfileKey ?? contracts.featureMap.resolutionDefaults.defaultCompositionProfileKey;
+      if (!stateProfiles.profiles[profileKey]) {
+        throw new Error(`Portal mode '${modeKey}' cannot resolve composition profile '${profileKey}' for state '${stateKey}'.`);
+      }
+    }
   }
 
   for (const [slotKey, slotDefinition] of Object.entries(contracts.uiSlots.slots)) {

@@ -1,10 +1,14 @@
 export type PortalLaunchMode = "normal" | "devsimulator";
-export type PortalPresentationVariant = "standard" | "development";
 
 export interface PortalLaunchContext {
   mode: PortalLaunchMode;
-  presentationVariant: PortalPresentationVariant;
   username: string;
+  autoStartSession: boolean;
+}
+
+function readTrueFlag(params: URLSearchParams, name: string): boolean {
+  const value = (params.get(name) || "").trim().toLowerCase();
+  return value === "true" || value === "1" || value === "yes";
 }
 
 export function readPortalLaunchContext(search: string = window.location.search): PortalLaunchContext {
@@ -15,7 +19,7 @@ export function readPortalLaunchContext(search: string = window.location.search)
 
   return {
     mode,
-    presentationVariant: mode === "devsimulator" ? "development" : "standard",
-    username: (params.get("username") || "").trim()
+    username: (params.get("username") || "").trim(),
+    autoStartSession: readTrueFlag(params, "autoStartSession")
   };
 }

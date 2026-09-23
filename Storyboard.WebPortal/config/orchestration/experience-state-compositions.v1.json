@@ -5,7 +5,6 @@
   },
   "stateProfiles": {
     "Bootstrapping": {
-      "defaultProfile": "standard",
       "profiles": {
         "standard": {
           "slotAssignments": [
@@ -36,7 +35,6 @@
       }
     },
     "SignedOut": {
-      "defaultProfile": "standard",
       "profiles": {
         "standard": {
           "slotAssignments": [
@@ -71,7 +69,6 @@
       }
     },
     "SignedIn": {
-      "defaultProfile": "standard",
       "profiles": {
         "standard": {
           "slotAssignments": [
@@ -116,7 +113,6 @@
       }
     },
     "SessionActive": {
-      "defaultProfile": "standard",
       "profiles": {
         "standard": {
           "slotAssignments": [
@@ -164,7 +160,6 @@
       }      
     },
     "SessionDisconnected": {
-      "defaultProfile": "standard",
       "profiles": {
         "standard": {
           "slotAssignments": [

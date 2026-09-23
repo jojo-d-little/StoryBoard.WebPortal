@@ -97,6 +97,21 @@ const contracts: OrchestrationContracts = {
       statusStrip: { kind: "status", infrastructure: false, collapsible: true, hideable: true }
     },
     allowedSlotModes: ["visible", "hidden", "collapsed", "disabled", "readonly"]
+  },
+  portalModes: {
+    defaultModeKey: "normal",
+    modes: {
+      normal: {
+        formFactorKey: "desktop",
+        skeletonLayoutKey: "desktopStandard",
+        compositionProfileKey: "standard"
+      },
+      devsimulator: {
+        formFactorKey: "desktop",
+        skeletonLayoutKey: "desktopStandard",
+        compositionProfileKey: "standard"
+      }
+    }
   }
 };
 
@@ -108,6 +123,18 @@ describe("resolveShellPlan", () => {
     expect(plan.skeletonLayoutKey).toBe("desktopStandard");
     expect(plan.slots).toHaveLength(2);
     expect(plan.slots.find((x) => x.slotKey === "primarySurface")?.implementationKey).toBe("gameDiscoveryDesktopV1");
+  });
+
+  it("resolves the requested Portal mode before applying explicit overrides", () => {
+    const plan = resolveShellPlan(contracts, {
+      modeKey: "devsimulator",
+      experienceState: "SignedIn"
+    });
+
+    expect(plan.modeKey).toBe("devsimulator");
+    expect(plan.formFactorKey).toBe("desktop");
+    expect(plan.skeletonLayoutKey).toBe("desktopStandard");
+    expect(plan.compositionProfileKey).toBe("standard");
   });
 
   it("applies form factor override", () => {

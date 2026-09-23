@@ -147,6 +147,15 @@ export interface ThemeContract {
   };
 }
 
+export interface PortalModes {
+  defaultModeKey: string;
+  modes: Record<string, {
+    formFactorKey: string;
+    skeletonLayoutKey: string;
+    compositionProfileKey: string;
+  }>;
+}
+
 export interface OrchestrationContracts {
   featureMap: ExperienceStateFeatureMap;
   stateCompositions: ExperienceStateCompositions;
@@ -154,11 +163,13 @@ export interface OrchestrationContracts {
   implementations: FormFactorFeatureImplementations;
   featureCatalog: FeatureCatalog;
   uiSlots: UiSlots;
+  portalModes: PortalModes;
   themeContract?: ThemeContract;
 }
 
 export interface ResolutionInput {
   experienceState: string;
+  modeKey?: string;
   formFactorOverride?: string;
   compositionProfileOverride?: string;
   skeletonLayoutOverride?: string;
@@ -175,6 +186,7 @@ export interface ResolvedSlot {
 }
 
 export interface ResolvedPlan {
+  modeKey?: string;
   experienceState: string;
   formFactorKey: string;
   compositionProfileKey: string;

@@ -1,0 +1,19 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "configVersion": "1.0.0"
+  },
+  "defaultModeKey": "normal",
+  "modes": {
+    "normal": {
+      "formFactorKey": "desktop",
+      "skeletonLayoutKey": "desktopStandard",
+      "compositionProfileKey": "standard"
+    },
+    "devsimulator": {
+      "formFactorKey": "desktop",
+      "skeletonLayoutKey": "desktopStandard",
+      "compositionProfileKey": "standard"
+    }
+  }
+}

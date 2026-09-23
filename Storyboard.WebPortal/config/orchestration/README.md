@@ -10,7 +10,7 @@ At startup, the Portal loads the JSON files in this directory through `src/orche
 
 The loader:
 
-1. Loads the feature map, state compositions, skeleton layouts, implementation mappings, feature catalog, slot registry, and theme contract.
+1. Loads the feature map, state compositions, skeleton layouts, implementation mappings, feature catalog, slot registry, Portal modes, and theme contract.
 2. Hydrates each configured skeleton template by reading its HTML and extracting slot names, grid placement, CSS, root metadata, and slot class names.
 3. Validates cross-file references.
 4. Returns one `OrchestrationContracts` object to the resolver and Portal components.
@@ -18,16 +18,15 @@ The loader:
 The resolver then follows this sequence:
 
 ```text
-experience state
-  + form factor
-  + composition profile
-  + compatible skeleton layout
+Portal mode
+  + experience state
+  + optional developer overrides
   -> slot assignments
   -> concrete feature implementations
   -> rendered template and theme
 ```
 
-The current resolver is deterministic. Defaults come from `experience-state-featuremap.v1.json`; the Portal may apply explicit development/lab overrides for form factor, composition profile, and skeleton layout.
+The current resolver is deterministic. The selected Portal mode supplies the UI defaults for form factor, skeleton layout, and composition profile. State-specific profile defaults and explicit developer overrides are resolved according to the resolver precedence rules. The Portal always renders the configuration-driven layout; the former Lab renderer is no longer a Portal rendering path.
 
 ## Core constructs
 
@@ -55,6 +54,20 @@ This file also owns:
 
 State is the correct construct for questions such as “is the user signed in?” or “is there an active session?” It is not the correct construct for “is this desktop?” or “is this a development launch?”
 
+### Portal mode
+
+Defined in `portal-modes.v1.json`.
+
+A Portal mode is a named UI configuration policy. Each mode explicitly identifies:
+
+- a `formFactorKey`;
+- a `skeletonLayoutKey`;
+- a baseline `compositionProfileKey`.
+
+The mode is the Portal’s single external UI-selection input. Designer should pass a mode key such as `devsimulator`; it should not pass internal skeleton, form-factor, composition, feature, or implementation keys.
+
+Mode configuration owns UI selection only. It does not own authentication, discovery, or session start/attach behavior. Those behaviors are controlled by the launch handoff parameters described below.
+
 ### State composition profile
 
 Defined in `experience-state-compositions.v1.json` under `stateProfiles`.
@@ -69,7 +82,7 @@ A profile may also define preferred input focus.
 
 Examples in the current configuration include `standard`, `immersive`, and `mobile`. These are alternative compositions for a state. They are not automatically device profiles, security profiles, deployment environments, or authentication modes, even when their names suggest one of those uses.
 
-The current resolver selects the state’s `defaultProfile`, falling back to the global `defaultCompositionProfileKey`. A composition profile override is valid only if that profile exists for the current state.
+The current resolver selects the mode’s `compositionProfileKey` as the baseline, allows a state’s `defaultProfile` to override that baseline, and falls back to the global `defaultCompositionProfileKey` when neither is provided. A composition profile override is valid only if that profile exists for the current state.
 
 Use a composition profile when the question is:
 
@@ -161,25 +174,21 @@ The `schemas/` directory contains JSON Schema documents intended to validate the
 
 ## What the current model does not express yet
 
-### Production versus development
+### Mode and bootstrap behavior
 
-There is currently no first-class production/development or presentation-environment axis in `OrchestrationContracts`. The Portal now has a separate application-level launch context that can derive a presentation variant, but that variant is not yet part of the declarative resolver contract.
+The current model deliberately separates UI selection from startup behavior:
 
-The following concepts are separate today:
+- `mode=devsimulator` selects the `devsimulator` entry in `portal-modes.v1.json` and therefore selects its form factor, skeleton, and composition defaults.
+- `username=<url-encoded-user>` requests username-based automatic authentication. It is non-secret; no password, bearer token, or credential handle is passed in the URL.
+- `autoStartSession=true` explicitly requests automatic discovery followed by session start/attach. The Portal requires exactly one enabled discovered game before taking that action. Without this parameter, username bootstrap may authenticate but will not automatically start a session.
 
-- `mode=devsimulator` is a launch/bootstrap context consumed by the Portal. It selects automatic username-only authentication, discovery, and session start/attach behavior, and derives the application-level `development` presentation variant. It is not passed into `resolveShellPlan`.
-- `rm=config` is an App-level renderer override. It selects the configuration-driven layout renderer instead of the Shell Lab view. A development launch defaults to that renderer; `rm=lab` is an explicit escape hatch for the Shell Lab. Neither value is an orchestration contract, state, profile, skeleton, or environment declaration.
-- `ff`, `cp`, and `sk` are Portal override parameters for form factor, composition profile, and skeleton layout. They are currently lab/debug controls and are not a production presentation policy.
+The current Designer handoff is therefore:
 
-Therefore, `rm=config` must not be treated as “production mode,” and an existing composition profile must not be overloaded to mean “development UI.”
+```text
+/client/?mode=devsimulator&username=<url-encoded-user>&autoStartSession=true
+```
 
-If production and development need different user-facing compositions, the likely future design is a separate presentation/environment context—possibly a named variant resolved before or alongside state/profile selection. The exact name and contract are intentionally undecided. Candidate semantics include:
-
-- deployment/capability context, such as production versus development;
-- presentation variant, such as player-facing versus diagnostic development shell;
-- launch intent, such as normal portal versus Designer-launched simulator.
-
-These are related but not identical decisions. They should not be collapsed into form factor, because development versus production is not a viewport characteristic.
+`rm` has been removed. The configuration-driven renderer is now the only Portal rendering path. `ff`, `cp`, and `sk` are not part of the Designer handoff; they remain temporary developer override mechanisms while the interactive Dev Tools controls are being completed.
 
 ## Mobile/desktop guidance
 
@@ -200,10 +209,10 @@ The Designer should pass launch intent and non-secret context, not internal layo
 Current development launch shape:
 
 ```text
-/client/?mode=devsimulator&username=<url-encoded-user>
+/client/?mode=devsimulator&username=<url-encoded-user>&autoStartSession=true
 ```
 
-The Portal uses that context to choose the approved bootstrap behavior and the default development presentation. It resolves the UI from Portal configuration rather than requiring Designer to know `skeletonLayoutKey`, `compositionProfileKey`, or concrete implementation keys.
+The Portal uses `mode` to resolve the UI from Portal configuration and uses the explicit bootstrap parameters to decide whether to authenticate and start/attach a session. Designer does not need to know `skeletonLayoutKey`, `formFactorKey`, `compositionProfileKey`, or concrete implementation keys.
 
 If a future Designer preference needs to choose a presentation variant, that should be represented as an explicit, documented variant key. It should not expose arbitrary internal component or slot names as a cross-application contract.
 
@@ -215,9 +224,10 @@ When adding a feature or changing the shell, use this order:
 2. Update `experience-state-featuremap.v1.json` for states, transitions, defaults, or operation vocabulary.
 3. Update `skeleton-layouts.v1.json` and the corresponding template for structural changes.
 4. Update `experience-state-compositions.v1.json` for state/profile slot assignments and modes.
-5. Update `form-factor-feature-implementations.v1.json` for responsive implementation coverage.
-6. Update the relevant schema and TypeScript types when the contract shape changes.
-7. Run validation, tests, and build before committing.
+5. Update `portal-modes.v1.json` when a named Portal mode needs different form-factor, skeleton, or composition defaults.
+6. Update `form-factor-feature-implementations.v1.json` for responsive implementation coverage.
+7. Update the relevant schema and TypeScript types when the contract shape changes.
+8. Run validation, tests, and build before committing.
 
 Boundary rules:
 

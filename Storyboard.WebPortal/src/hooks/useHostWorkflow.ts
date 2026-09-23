@@ -65,6 +65,7 @@ interface UseHostWorkflowOptions {
   baseUrlOverride: string;
   developmentBootstrap: {
     username: string;
+    autoStartSession: boolean;
   } | null;
   startupAudioStatus: PortalStartupAudioStatus;
   pollIntervalMs: number;
@@ -735,7 +736,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
   }, [authUsername, credentialHandle, options.addDiagnostic, options.contracts, options.developmentBootstrap, signInToHost]);
 
   useEffect(() => {
-    if (!options.developmentBootstrap || !credentialHandle || developmentBootstrapDiscoveryStartedRef.current) {
+    if (!options.developmentBootstrap || !options.developmentBootstrap.autoStartSession || !credentialHandle || developmentBootstrapDiscoveryStartedRef.current) {
       return;
     }
 
@@ -747,7 +748,8 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
   }, [credentialHandle, fetchDiscoveredGames, options.addDiagnostic, options.developmentBootstrap]);
 
   useEffect(() => {
-    if (!options.developmentBootstrap || !credentialHandle || !options.startupAudioStatus || options.startupAudioStatus === "checking" || options.startupAudioStatus === "needs-user-action" || options.startupAudioStatus === "denied" || activeSessionId || developmentBootstrapSessionStartedRef.current) {
+    const startupAudioReady = options.startupAudioStatus === "enabled" || options.startupAudioStatus === "muted";
+    if (!options.developmentBootstrap || !options.developmentBootstrap.autoStartSession || !credentialHandle || !startupAudioReady || activeSessionId || developmentBootstrapSessionStartedRef.current) {
       return;
     }
 

@@ -85,6 +85,16 @@ function createContracts(): OrchestrationContracts {
         statusStrip: { kind: "status", infrastructure: false, collapsible: true, hideable: true }
       },
       allowedSlotModes: ["visible", "hidden", "collapsed", "disabled", "readonly"]
+    },
+    portalModes: {
+      defaultModeKey: "normal",
+      modes: {
+        normal: {
+          formFactorKey: "desktop",
+          skeletonLayoutKey: "desktopStandard",
+          compositionProfileKey: "standard"
+        }
+      }
     }
   };
 }
