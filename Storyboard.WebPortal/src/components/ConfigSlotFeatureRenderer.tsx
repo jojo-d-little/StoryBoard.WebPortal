@@ -4,6 +4,7 @@ import { CommandHandlerV1 } from "./CommandHandlerV1";
 import { DevToolsPanel } from "./DevToolsPanel";
 import { DiagnosticsConsole, type DiagnosticsEntry } from "./DiagnosticsConsole";
 import type { DiagnosticsWorkspaceProps } from "./DiagnosticsWorkspace";
+import type { PortalTraceExportMetadata } from "../diagnostics/portalTraceExport";
 import { GameDiscoveryV1 } from "./GameDiscoveryV1";
 import { GameDetailsV1 } from "./GameDetailsV1";
 import { IdentityBootstrapStatusV1 } from "./IdentityBootstrapStatusV1";
@@ -47,6 +48,7 @@ interface ConfigSlotFeatureRendererProps {
   pollIntervalMs: number;
   heartbeatEveryNPolls: number;
   diagnosticsEntries: DiagnosticsEntry[];
+  diagnosticsExportMetadata: PortalTraceExportMetadata;
   onClearDiagnostics: () => void;
   onDiagnosticsEnabledChange: (value: boolean) => void;
   onDiagnosticsVerboseChange: (value: boolean) => void;
@@ -93,6 +95,7 @@ export function ConfigSlotFeatureRenderer(props: ConfigSlotFeatureRendererProps)
     pollIntervalMs,
     heartbeatEveryNPolls,
     diagnosticsEntries,
+    diagnosticsExportMetadata,
     onClearDiagnostics,
     onDiagnosticsEnabledChange,
     onDiagnosticsVerboseChange,
@@ -215,6 +218,7 @@ export function ConfigSlotFeatureRenderer(props: ConfigSlotFeatureRendererProps)
         enabled={diagnosticsEnabled}
         entries={diagnosticsEntries}
         categoryFilters={diagnosticsCategoryFilters}
+        exportMetadata={diagnosticsExportMetadata}
         onClear={onClearDiagnostics}
       />
     );

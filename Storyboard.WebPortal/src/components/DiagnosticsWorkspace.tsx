@@ -1,5 +1,11 @@
+import { useState } from "react";
 import type { JSX } from "react";
-import type { PortalTraceSource } from "../diagnostics/portalTrace";
+import type { PortalTraceEvent, PortalTraceSource } from "../diagnostics/portalTrace";
+import {
+  formatPortalTraceExport,
+  type PortalTraceExportFormat,
+  type PortalTraceExportMetadata
+} from "../diagnostics/portalTraceExport";
 
 export type DiagnosticsProfile = "Off" | "Focused" | "Normal" | "Verbose" | "Custom";
 
@@ -21,6 +27,8 @@ export interface DiagnosticsWorkspaceProps {
   scopeOptions: DiagnosticsWorkspaceScopeOption[];
   categoryOptions: DiagnosticsWorkspaceCategoryOption[];
   entryCount: number;
+  entries: PortalTraceEvent[];
+  exportMetadata: PortalTraceExportMetadata;
   droppedCount: number;
   captureStartedUtc?: string;
   captureStoppedUtc?: string;
@@ -39,10 +47,88 @@ function formatBoundary(value?: string): string {
   return value || "(none)";
 }
 
+type ExportStatus =
+  | { level: "info" | "warn"; message: string }
+  | null;
+
+function formatTimestampForFileName(date: Date): string {
+  const yyyy = String(date.getFullYear());
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mi = String(date.getMinutes()).padStart(2, "0");
+  const ss = String(date.getSeconds()).padStart(2, "0");
+  return `${yyyy}${mm}${dd}-${hh}${mi}${ss}`;
+}
+
 export function DiagnosticsWorkspace(props: DiagnosticsWorkspaceProps): JSX.Element {
+  const [exportStatus, setExportStatus] = useState<ExportStatus>(null);
   const captureState = props.capturing
     ? props.droppedCount > 0 ? "Truncated" : "Capturing"
     : props.captureStoppedUtc ? "Stopped" : "Off";
+
+  async function copyFullExport(format: PortalTraceExportFormat): Promise<void> {
+    if (props.entries.length === 0) {
+      setExportStatus({ level: "warn", message: "No diagnostics to export." });
+      return;
+    }
+
+    const payload = formatPortalTraceExport(props.entries, props.exportMetadata, format);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(payload);
+      } else {
+        const fallback = document.createElement("textarea");
+        fallback.value = payload;
+        fallback.setAttribute("readonly", "readonly");
+        fallback.style.position = "fixed";
+        fallback.style.opacity = "0";
+        document.body.appendChild(fallback);
+        fallback.focus();
+        fallback.select();
+        const copied = document.execCommand("copy");
+        document.body.removeChild(fallback);
+        if (!copied) {
+          throw new Error("Copy command was not accepted by the browser.");
+        }
+      }
+
+      setExportStatus({
+        level: "info",
+        message: `Copied complete ${format === "ndjson" ? "NDJSON" : "text"} export (${props.entries.length} entries).`
+      });
+    } catch (error) {
+      const errorText = error instanceof Error ? error.message : String(error);
+      setExportStatus({ level: "warn", message: `Copy failed: ${errorText}` });
+    }
+  }
+
+  function saveFullExport(format: PortalTraceExportFormat): void {
+    if (props.entries.length === 0) {
+      setExportStatus({ level: "warn", message: "No diagnostics to export." });
+      return;
+    }
+
+    const payload = formatPortalTraceExport(props.entries, props.exportMetadata, format);
+    const extension = format === "ndjson" ? "ndjson" : "log";
+    const mimeType = format === "ndjson" ? "application/x-ndjson" : "text/plain";
+    const fileName = `portal-trace-${formatTimestampForFileName(new Date())}.${extension}`;
+    const blob = new Blob([payload], { type: `${mimeType};charset=utf-8` });
+    const url = URL.createObjectURL(blob);
+
+    try {
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setExportStatus({ level: "info", message: `Saved complete ${format === "ndjson" ? "NDJSON" : "text"} export to ${fileName}.` });
+    } finally {
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
+  }
 
   return (
     <section className="diagnostics-workspace" aria-label="Diagnostics workspace">
@@ -63,6 +149,18 @@ export function DiagnosticsWorkspace(props: DiagnosticsWorkspaceProps): JSX.Elem
         <button type="button" onClick={props.onHideConsole} disabled={!props.consoleVisible}>Hide Console</button>
         <button type="button" onClick={props.onClear} disabled={props.entryCount === 0}>Clear</button>
       </div>
+
+      <div className="events diagnostics-workspace-actions" role="group" aria-label="Complete trace export">
+        <button type="button" onClick={() => void copyFullExport("text")} disabled={props.entryCount === 0}>Copy Full Trace</button>
+        <button type="button" onClick={() => saveFullExport("text")} disabled={props.entryCount === 0}>Save Full Text</button>
+        <button type="button" onClick={() => saveFullExport("ndjson")} disabled={props.entryCount === 0}>Save Full NDJSON</button>
+      </div>
+
+      {exportStatus ? (
+        <p className={`subtitle diagnostics-export-status ${exportStatus.level === "warn" ? "is-warning" : "is-info"}`}>
+          {exportStatus.message}
+        </p>
+      ) : null}
 
       <div className="meta diagnostics-workspace-meta">
         <span>capture.start={formatBoundary(props.captureStartedUtc)}</span>

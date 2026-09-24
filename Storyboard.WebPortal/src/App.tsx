@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import packageJson from "../package.json";
 import { loadOrchestrationContracts } from "./orchestration/loader";
 import { resolveShellPlan, tryTransition } from "./orchestration/resolver";
 import type { OrchestrationContracts, ResolvedSlot, SlotMode, ThemeContract } from "./orchestration/types";
@@ -9,6 +10,7 @@ import type { DiagnosticsWorkspaceProps, DiagnosticsProfile } from "./components
 import { appendPortalTraceEvent, normalizePortalTraceEvent } from "./diagnostics/portalTrace";
 import { buildDiagnosticsScopeOptions, getDiagnosticsProfileScope } from "./diagnostics/diagnosticsScope";
 import type { PortalTraceSource } from "./diagnostics/portalTrace";
+import { buildPortalTraceExportMetadata, type PortalTraceExportMetadata } from "./diagnostics/portalTraceExport";
 import { ConfigSlotFeatureRenderer } from "./components/ConfigSlotFeatureRenderer";
 import { useHostWorkflow } from "./hooks/useHostWorkflow";
 import { usePortalStartupAudioGate } from "./hooks/usePortalStartupAudioGate";
@@ -141,6 +143,8 @@ const DEFAULT_DIAGNOSTIC_CATEGORY_OPTIONS: DiagnosticCategoryOption[] = [
 const DEFAULT_DIAGNOSTIC_CATEGORY_LABEL_BY_KEY = new Map(
   DEFAULT_DIAGNOSTIC_CATEGORY_OPTIONS.map((option) => [option.category, option.label])
 );
+
+const PORTAL_BUILD_IDENTITY = `${packageJson.name}@${packageJson.version}`;
 
 function getQueryParam(name: string): string | undefined {
   const value = new URLSearchParams(window.location.search).get(name);
@@ -465,12 +469,35 @@ export default function App(props: AppProps): JSX.Element {
       }));
   }, [diagnosticsCategoryFilters, diagnosticsEntries]);
 
+  const diagnosticsExportMetadata = useMemo<PortalTraceExportMetadata>(() => buildPortalTraceExportMetadata(
+    diagnosticsEntries,
+    {
+      buildIdentity: PORTAL_BUILD_IDENTITY,
+      captureStartedUtc: diagnosticsCaptureStartedUtc,
+      captureStoppedUtc: diagnosticsCaptureStoppedUtc,
+      profile: diagnosticsProfile,
+      scope: Object.entries(diagnosticsScope)
+        .filter(([, enabled]) => enabled)
+        .map(([source]) => source),
+      droppedCount: diagnosticsDroppedCount
+    }
+  ), [
+    diagnosticsCaptureStartedUtc,
+    diagnosticsCaptureStoppedUtc,
+    diagnosticsDroppedCount,
+    diagnosticsEntries,
+    diagnosticsProfile,
+    diagnosticsScope
+  ]);
+
   const diagnosticsWorkspace = useMemo<DiagnosticsWorkspaceProps>(() => ({
     capturing: diagnosticsEnabled,
     profile: diagnosticsProfile,
     scopeOptions: buildDiagnosticsScopeOptions(diagnosticsScope),
     categoryOptions: diagnosticsCategoryOptions,
     entryCount: diagnosticsEntries.length,
+    entries: diagnosticsEntries,
+    exportMetadata: diagnosticsExportMetadata,
     droppedCount: diagnosticsDroppedCount,
     captureStartedUtc: diagnosticsCaptureStartedUtc,
     captureStoppedUtc: diagnosticsCaptureStoppedUtc,
@@ -519,7 +546,8 @@ export default function App(props: AppProps): JSX.Element {
     diagnosticsConsoleVisible,
     diagnosticsDroppedCount,
     diagnosticsEnabled,
-    diagnosticsEntries.length,
+    diagnosticsEntries,
+    diagnosticsExportMetadata,
     diagnosticsProfile,
     diagnosticsScope,
     hideDiagnosticsConsole,
@@ -1012,6 +1040,7 @@ export default function App(props: AppProps): JSX.Element {
         pollIntervalMs={pollIntervalMs}
         heartbeatEveryNPolls={heartbeatEveryNPolls}
         diagnosticsEntries={diagnosticsEntries}
+        diagnosticsExportMetadata={diagnosticsExportMetadata}
         onClearDiagnostics={clearDiagnostics}
         onDiagnosticsEnabledChange={setDiagnosticsEnabled}
         onDiagnosticsVerboseChange={setDiagnosticsVerbose}
@@ -1104,6 +1133,7 @@ export default function App(props: AppProps): JSX.Element {
     DevToolsPanelComponent,
     diagnosticsEnabled,
     diagnosticsEntries,
+    diagnosticsExportMetadata,
     diagnosticsCategoryFilters,
     diagnosticsWorkspace,
     diagnosticsVerbose,

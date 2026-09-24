@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PortalTraceEvent, PortalTraceSeverity } from "../diagnostics/portalTrace";
+import {
+  derivePortalTraceExportMetadata,
+  formatPortalTraceExport,
+  formatPortalTraceEntryText,
+  type PortalTraceExportMetadata
+} from "../diagnostics/portalTraceExport";
 
 export type DiagnosticsLevel = PortalTraceSeverity;
 export type DiagnosticsEntry = PortalTraceEvent;
@@ -8,30 +14,13 @@ interface DiagnosticsConsoleProps {
   enabled: boolean;
   entries: DiagnosticsEntry[];
   categoryFilters?: Record<string, boolean>;
+  exportMetadata: PortalTraceExportMetadata;
   onClear: () => void;
 }
 
 type ExportStatus =
   | { level: "info" | "warn"; message: string }
   | null;
-
-function formatEntry(entry: DiagnosticsEntry): string[] {
-  const sourceAndCategory = `${entry.source}/${entry.category}`;
-  const eventLabel = entry.phase ? `${entry.event}/${entry.phase}` : entry.event;
-  const durationLabel = entry.durationMs === undefined ? "" : ` (${entry.durationMs}ms)`;
-  const header = `[${entry.timestampUtc}] #${entry.sequence} [${entry.severity.toUpperCase()}] ${sourceAndCategory} ${eventLabel}${durationLabel}: ${entry.message}`;
-  if (!entry.details && !entry.correlation) {
-    return [header];
-  }
-
-  const detailLines = JSON.stringify({
-    ...(entry.correlation ? { correlation: entry.correlation } : {}),
-    ...(entry.details ? { details: entry.details } : {})
-  }, null, 2)
-    .split(/\r?\n/)
-    .map((line) => `  ${line}`);
-  return [header, ...detailLines];
-}
 
 export function DiagnosticsConsole(props: DiagnosticsConsoleProps): JSX.Element {
   const terminalRef = useRef<HTMLPreElement | null>(null);
@@ -63,8 +52,11 @@ export function DiagnosticsConsole(props: DiagnosticsConsoleProps): JSX.Element 
       return "";
     }
 
-    const chronologicalEntries = [...filteredEntries].reverse();
-    return chronologicalEntries.flatMap((entry) => formatEntry(entry)).join("\n");
+    return filteredEntries
+      .slice()
+      .reverse()
+      .flatMap((entry) => formatPortalTraceEntryText(entry))
+      .join("\n");
   }, [filteredEntries]);
 
   useEffect(() => {
@@ -77,9 +69,10 @@ export function DiagnosticsConsole(props: DiagnosticsConsoleProps): JSX.Element 
 
   const canExport = terminalText.trim().length > 0;
 
-  function buildExportText(): string {
-    return `${terminalText}\n`;
-  }
+  const visibleExportMetadata = useMemo(
+    () => derivePortalTraceExportMetadata(filteredEntries, props.exportMetadata, "visible-filtered"),
+    [filteredEntries, props.exportMetadata]
+  );
 
   async function copyToClipboard(): Promise<void> {
     if (!canExport) {
@@ -87,7 +80,7 @@ export function DiagnosticsConsole(props: DiagnosticsConsoleProps): JSX.Element 
       return;
     }
 
-    const payload = buildExportText();
+    const payload = formatPortalTraceExport(filteredEntries, visibleExportMetadata, "text");
 
     try {
       if (navigator.clipboard?.writeText) {
@@ -108,7 +101,7 @@ export function DiagnosticsConsole(props: DiagnosticsConsoleProps): JSX.Element 
         }
       }
 
-      setExportStatus({ level: "info", message: `Copied ${filteredEntries.length} diagnostics entries.` });
+      setExportStatus({ level: "info", message: `Copied visible/filtered text export (${filteredEntries.length} entries).` });
     } catch (error) {
       const errorText = error instanceof Error ? error.message : String(error);
       setExportStatus({ level: "warn", message: `Copy failed: ${errorText}` });
@@ -131,10 +124,10 @@ export function DiagnosticsConsole(props: DiagnosticsConsoleProps): JSX.Element 
       return;
     }
 
-    const payload = buildExportText();
+    const payload = formatPortalTraceExport(filteredEntries, visibleExportMetadata, "text");
     const blob = new Blob([payload], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const fileName = `diagnostics-${formatTimestampForFileName(new Date())}.log`;
+    const fileName = `portal-trace-visible-${formatTimestampForFileName(new Date())}.log`;
 
     try {
       const link = document.createElement("a");
@@ -144,7 +137,7 @@ export function DiagnosticsConsole(props: DiagnosticsConsoleProps): JSX.Element 
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      setExportStatus({ level: "info", message: `Saved ${filteredEntries.length} diagnostics entries to ${fileName}.` });
+      setExportStatus({ level: "info", message: `Saved visible/filtered text export (${filteredEntries.length} entries) to ${fileName}.` });
     } finally {
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
     }
@@ -166,8 +159,8 @@ export function DiagnosticsConsole(props: DiagnosticsConsoleProps): JSX.Element 
           <input type="checkbox" checked={showError} onChange={(e) => setShowError(e.target.checked)} />
           ERROR
         </label>
-        <button type="button" onClick={() => void copyToClipboard()} disabled={!canExport}>Copy</button>
-        <button type="button" onClick={saveToFile} disabled={!canExport}>Save</button>
+        <button type="button" onClick={() => void copyToClipboard()} disabled={!canExport}>Copy Visible</button>
+        <button type="button" onClick={saveToFile} disabled={!canExport}>Save Visible Text</button>
         <button type="button" onClick={props.onClear}>Clear</button>
       </div>
 

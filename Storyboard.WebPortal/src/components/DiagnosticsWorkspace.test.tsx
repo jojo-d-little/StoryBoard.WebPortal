@@ -3,11 +3,22 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { PortalTraceEvent } from "../diagnostics/portalTrace";
 import { DiagnosticsWorkspace, type DiagnosticsWorkspaceProps } from "./DiagnosticsWorkspace";
 
 afterEach(() => {
   cleanup();
 });
+
+const testEntries: PortalTraceEvent[] = Array.from({ length: 4 }, (_, index) => ({
+  sequence: index + 1,
+  timestampUtc: "2026-09-23T17:00:00.000Z",
+  source: "commands",
+  category: "command",
+  severity: "info",
+  event: "test-event",
+  message: `test-${index + 1}`
+}));
 
 function buildProps(overrides: Partial<DiagnosticsWorkspaceProps> = {}): DiagnosticsWorkspaceProps {
   return {
@@ -21,6 +32,21 @@ function buildProps(overrides: Partial<DiagnosticsWorkspaceProps> = {}): Diagnos
       { category: "command", label: "Command", enabled: true }
     ],
     entryCount: 4,
+    entries: testEntries,
+    exportMetadata: {
+      format: "portal-trace",
+      formatVersion: "1.0",
+      exportView: "complete-buffer",
+      buildIdentity: "storyboard-webportal@0.1.3",
+      profile: "Normal",
+      scope: ["commands", "renderer"],
+      bufferEntryCount: 4,
+      exportedEntryCount: 4,
+      droppedCount: 1,
+      completeness: "truncated",
+      sessionIds: [],
+      gameIds: []
+    },
     droppedCount: 1,
     captureStartedUtc: "2026-09-23T17:00:00.000Z",
     captureStoppedUtc: undefined,
@@ -50,6 +76,10 @@ describe("DiagnosticsWorkspace", () => {
     expect(screen.getByRole("button", { name: "Stop Trace" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Show Console" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Hide Console" })).toBeDisabled();
+    expect(screen.getByRole("group", { name: "Complete trace export" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy Full Trace" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Save Full Text" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Save Full NDJSON" })).toBeEnabled();
   });
 
   it("routes direct trace, visibility, clear, profile, scope, and filter actions", () => {
