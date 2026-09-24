@@ -783,7 +783,9 @@ input:disabled {
     var(--storyboard-ui-grid-row-1)
     var(--storyboard-ui-grid-row-2)
     var(--storyboard-ui-grid-row-3)
-    var(--storyboard-ui-grid-row-4);
+    var(--storyboard-ui-grid-row-4)
+    var(--storyboard-ui-grid-row-5)
+    var(--storyboard-ui-grid-row-6);
 }
 
 .storyboard-ui-layout-stage {
@@ -802,6 +804,8 @@ input:disabled {
   --storyboard-ui-grid-row-2: minmax(0, 1fr);
   --storyboard-ui-grid-row-3: minmax(0, 1fr);
   --storyboard-ui-grid-row-4: auto;
+  --storyboard-ui-grid-row-5: auto;
+  --storyboard-ui-grid-row-6: auto;
   min-height: calc(100vh - 2.5rem);
   height: 100%;
   max-height: 100%;
@@ -1019,6 +1023,26 @@ input:disabled {
 
 .config-slot-meta {
   color: var(--theme-color-secondary-text);
+}
+
+.inline-slot-collapse-indicator {
+  margin: 0;
+}
+
+.inline-slot-collapse-indicator.edge-top {
+  margin-bottom: 0.45rem;
+}
+
+.inline-slot-collapse-indicator.edge-bottom {
+  margin-top: 0.45rem;
+}
+
+.inline-slot-collapse-indicator.edge-left {
+  margin-right: 0.45rem;
+}
+
+.inline-slot-collapse-indicator.edge-right {
+  margin-left: 0.45rem;
 }
 
 .config-feature-placeholder {
@@ -1432,6 +1456,24 @@ input:disabled {
 .storyboard-ui-component-slot.collapsed[data-collapse-edge="bottom"],
 .storyboard-ui-component-slot.collapsed[data-collapse-edge="right"] {
   justify-content: flex-end;
+}
+
+.storyboard-ui-component-slot.inline-collapsible {
+  display: flex;
+}
+
+.storyboard-ui-component-slot.inline-collapsible[data-collapse-axis="horizontal"] {
+  flex-direction: column;
+}
+
+.storyboard-ui-component-slot.inline-collapsible[data-collapse-axis="vertical"] {
+  flex-direction: row;
+}
+
+.storyboard-ui-component-slot.inline-collapsible > .inline-slot-content {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
 }
 
 .storyboard-collapsed-indicator {

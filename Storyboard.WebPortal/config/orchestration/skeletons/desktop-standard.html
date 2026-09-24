@@ -3,10 +3,10 @@
   <head>
     <style>
       /*
-        Desktop standard skeleton contract (4x4 grid example)
+        Desktop standard skeleton contract (4x6 grid)
 
         Grid cells are addressed as row/column indices:
-        - Rows: 1..4 (top to bottom)
+        - Rows: 1..6 (top to bottom)
         - Columns: 1..4 (left to right)
 
         Slot placement for parity with existing desktop layout:
@@ -15,7 +15,8 @@
         - utilityPanel:      row 3, col 1, rowSpan 1, colSpan 1
         - primarySurface:    row 2, col 2, rowSpan 2, colSpan 3
         - statusStrip:       row 4, col 1, rowSpan 1, colSpan 1
-        - diagnosticsDrawer: row 4, col 2, rowSpan 1, colSpan 3
+        - devToolsDrawer:    row 5, col 1, rowSpan 1, colSpan 4
+        - diagnosticsDrawer: row 6, col 1, rowSpan 1, colSpan 4
       */
       .storyboard-ui-layout-root.desktop-standard {
         --storyboard-ui-grid-col-1: minmax(220px, 1fr);
@@ -26,6 +27,8 @@
         --storyboard-ui-grid-row-2: minmax(275px, 1fr);
         --storyboard-ui-grid-row-3: auto;
         --storyboard-ui-grid-row-4: auto;
+        --storyboard-ui-grid-row-5: auto;
+        --storyboard-ui-grid-row-6: auto;
         --slot-min-playfield-width: 425px;
         --slot-min-playfield-height: 325px;
       }
@@ -65,8 +68,8 @@
         <footer class="layout-bottom-left" data-slot="statusStrip" data-storyboard-grid-cell="r4 c1" data-storyboard-grid-span="r1 c4"></footer>
       </div>
 
-      <section class="layout-bottom-diags" data-slot="diagnosticsDrawer"></section>
-      <section class="layout-overlay-devtools" data-slot="devToolsDrawer"></section>
+      <section class="layout-developer-tools" data-slot="devToolsDrawer" data-storyboard-grid-cell="r5 c1" data-storyboard-grid-span="r1 c4"></section>
+      <section class="layout-developer-diagnostics" data-slot="diagnosticsDrawer" data-storyboard-grid-cell="r6 c1" data-storyboard-grid-span="r1 c4"></section>
       <section class="layout-overlay-modal" data-slot="modalLayer"></section>
       <section class="layout-overlay-nonmodal" data-slot="nonModalLayer"></section>
       <section class="layout-overlay-toast" data-slot="toastLayer"></section>

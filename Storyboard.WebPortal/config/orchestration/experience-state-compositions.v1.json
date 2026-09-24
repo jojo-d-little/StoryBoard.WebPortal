@@ -97,7 +97,7 @@
           "slotAssignments": [
             { "slotKey": "topBar", "featureKey": "topBarMenu", "mode": "collapsed" },
             { "slotKey": "primarySurface", "featureKey": "gameDiscovery", "mode": "visible" },
-            { "slotKey": "secondaryPanel", "featureKey": "gameDetails", "mode": "collapsed" },
+            { "slotKey": "secondaryPanel", "featureKey": "gameDetails", "mode": "visible" },
             { "slotKey": "utilityPanel", "mode": "hidden" },
             { "slotKey": "statusStrip", "featureKey": "globalStatus", "mode": "collapsed" },
             { "slotKey": "modalLayer", "mode": "hidden" },
@@ -110,7 +110,7 @@
           "slotAssignments": [
             { "slotKey": "topBar", "featureKey": "topBarMenu", "mode": "collapsed" },
             { "slotKey": "primarySurface", "featureKey": "gameDiscovery", "mode": "visible" },
-            { "slotKey": "secondaryPanel", "featureKey": "gameDetails", "mode": "collapsed" },
+            { "slotKey": "secondaryPanel", "featureKey": "gameDetails", "mode": "visible" },
             { "slotKey": "utilityPanel", "mode": "hidden" },
             { "slotKey": "statusStrip", "featureKey": "globalStatus", "mode": "collapsed" },
             { "slotKey": "modalLayer", "mode": "hidden" },

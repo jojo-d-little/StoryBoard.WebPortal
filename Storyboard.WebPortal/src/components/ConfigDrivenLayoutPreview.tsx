@@ -72,11 +72,13 @@ function renderSlot(
   plan: ResolvedPlan,
   slotKey: string,
   label: string,
+  slotDefinition: UiSlotDefinition | undefined,
   renderFeature: (slot: ResolvedSlot) => JSX.Element | null,
   isExpanded: boolean,
   onToggleExpanded: (slot: string) => void,
   showTechnicalDetails: boolean,
   collapseToEdge: CollapseEdge,
+  onRequestSlotModeChange?: (slotKey: string, mode: ResolvedSlot["mode"]) => void,
   fillCell: boolean = false
 ): JSX.Element | null {
   const slot = getSlot(plan, slotKey);
@@ -98,18 +100,37 @@ function renderSlot(
     return null;
   }
 
+  const visibleCollapseIndicator = slotDefinition?.collapsible && onRequestSlotModeChange ? (
+    <button
+      type="button"
+      className={`storyboard-collapsed-indicator axis-${collapseAxis} edge-${collapseToEdge} inline-slot-collapse-indicator`}
+      onClick={(event) => {
+        event.stopPropagation();
+        onRequestSlotModeChange(slotKey, "collapsed");
+      }}
+      aria-label={`Collapse ${label}`}
+      title={`Collapse ${label}`}
+    />
+  ) : null;
+
+  const visibleSlotContent = (
+    <>
+      {showTechnicalDetailsContent ? <h3>{label}</h3> : null}
+      {showTechnicalDetailsContent ? <p className="config-slot-meta">slot={slotKey} | mode={mode}</p> : null}
+      {showTechnicalDetailsContent ? <p className="config-slot-meta">feature={slot?.featureKey ?? "(none)"} | implementation={slot?.implementationKey ?? "(none)"}</p> : null}
+      {renderedFeature}
+    </>
+  );
+  const inlineSlotContent = <div className="inline-slot-content">{visibleSlotContent}</div>;
+
   return (
     <article
-      className={`storyboard-ui-component-slot ${fillCell ? "fill-cell" : ""} ${stateClass} ${isExpanded ? "expanded" : ""} ${showTechnicalDetails ? "technical" : "clean"}`}
+      className={`storyboard-ui-component-slot ${fillCell ? "fill-cell" : ""} ${stateClass} ${isExpanded ? "expanded" : ""} ${showTechnicalDetails ? "technical" : "clean"} ${visibleCollapseIndicator ? "inline-collapsible" : ""}`.trim()}
       data-mode={mode}
       data-slot-key={slotKey}
       data-collapse-edge={collapseToEdge}
       data-collapse-axis={collapseAxis}
     >
-      {showTechnicalDetailsContent ? <h3>{label}</h3> : null}
-      {showTechnicalDetailsContent ? <p className="config-slot-meta">slot={slotKey} | mode={mode}</p> : null}
-      {showTechnicalDetailsContent ? <p className="config-slot-meta">feature={slot?.featureKey ?? "(none)"} | implementation={slot?.implementationKey ?? "(none)"}</p> : null}
-
       {isCollapsed ? (() => {
         const collapsedIndicator = (
           <button
@@ -146,7 +167,11 @@ function renderSlot(
             {collapsedIndicator}
           </>
         );
-      })() : renderedFeature}
+      })() : visibleCollapseIndicator ? (
+        isTrailingEdge
+          ? <>{inlineSlotContent}{visibleCollapseIndicator}</>
+          : <>{visibleCollapseIndicator}{inlineSlotContent}</>
+      ) : visibleSlotContent}
     </article>
   );
 }
@@ -1125,11 +1150,13 @@ export function ConfigDrivenLayoutPreview(props: ConfigDrivenLayoutPreviewProps)
                 props.plan,
                 activeUndockedNonModalOverlaySlot.slot.slotKey,
                 getSlotDisplayLabel(activeUndockedNonModalOverlaySlot.slot.slotKey),
+                activeUndockedNonModalOverlaySlot.slotDefinition,
                 props.renderFeature,
                 Boolean(expandedCollapsedSlots[activeUndockedNonModalOverlaySlot.slot.slotKey]),
                 toggleExpanded,
                 shouldShowSlotTechnicalDetails(activeUndockedNonModalOverlaySlot.slot.slotKey),
-                getSlotCollapseToEdge(activeUndockedNonModalOverlaySlot.slot.slotKey)
+                getSlotCollapseToEdge(activeUndockedNonModalOverlaySlot.slot.slotKey),
+                props.onRequestSlotModeChange
               )}
             </div>
           ) : (
@@ -1146,11 +1173,13 @@ export function ConfigDrivenLayoutPreview(props: ConfigDrivenLayoutPreviewProps)
                 props.plan,
                 slot.slotKey,
                 getSlotDisplayLabel(slot.slotKey),
+                props.slotDefinitions[slot.slotKey],
                 props.renderFeature,
                 Boolean(expandedCollapsedSlots[slot.slotKey]),
                 toggleExpanded,
                 shouldShowSlotTechnicalDetails(slot.slotKey),
                 getSlotCollapseToEdge(slot.slotKey),
+                props.onRequestSlotModeChange,
                 true
               );
 
@@ -1181,11 +1210,13 @@ export function ConfigDrivenLayoutPreview(props: ConfigDrivenLayoutPreviewProps)
                 props.plan,
                 slot.slotKey,
                 getSlotDisplayLabel(slot.slotKey),
+                props.slotDefinitions[slot.slotKey],
                 props.renderFeature,
                 Boolean(expandedCollapsedSlots[slot.slotKey]),
                 toggleExpanded,
                 shouldShowSlotTechnicalDetails(slot.slotKey),
                 getSlotCollapseToEdge(slot.slotKey),
+                props.onRequestSlotModeChange,
                 true
               );
 
@@ -1237,11 +1268,13 @@ export function ConfigDrivenLayoutPreview(props: ConfigDrivenLayoutPreviewProps)
                   props.plan,
                   entry.slot.slotKey,
                   getSlotDisplayLabel(entry.slot.slotKey),
+                  entry.slotDefinition,
                   props.renderFeature,
                   Boolean(expandedCollapsedSlots[entry.slot.slotKey]),
                   toggleExpanded,
                   shouldShowSlotTechnicalDetails(entry.slot.slotKey),
-                  getSlotCollapseToEdge(entry.slot.slotKey)
+                  getSlotCollapseToEdge(entry.slot.slotKey),
+                  props.onRequestSlotModeChange
                 )}
               </div>
             ))}
@@ -1297,11 +1330,13 @@ export function ConfigDrivenLayoutPreview(props: ConfigDrivenLayoutPreviewProps)
                         props.plan,
                         slotKey,
                         getSlotDisplayLabel(slotKey),
+                        props.slotDefinitions[slotKey],
                         props.renderFeature,
                         Boolean(expandedCollapsedSlots[slotKey]),
                         toggleExpanded,
                         shouldShowSlotTechnicalDetails(slotKey),
-                        getSlotCollapseToEdge(slotKey)
+                        getSlotCollapseToEdge(slotKey),
+                        props.onRequestSlotModeChange
                       )}
                     </div>
                   </div>
@@ -1320,11 +1355,13 @@ export function ConfigDrivenLayoutPreview(props: ConfigDrivenLayoutPreviewProps)
                   props.plan,
                   entry.slot.slotKey,
                   getSlotDisplayLabel(entry.slot.slotKey),
+                  entry.slotDefinition,
                   props.renderFeature,
                   Boolean(expandedCollapsedSlots[entry.slot.slotKey]),
                   toggleExpanded,
                   shouldShowSlotTechnicalDetails(entry.slot.slotKey),
-                  getSlotCollapseToEdge(entry.slot.slotKey)
+                  getSlotCollapseToEdge(entry.slot.slotKey),
+                  props.onRequestSlotModeChange
                 )}
               </div>
             ))}

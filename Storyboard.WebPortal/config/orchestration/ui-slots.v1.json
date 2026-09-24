@@ -22,47 +22,32 @@
     "secondaryPanel": {
       "kind": "content-secondary",
       "infrastructure": false,
-      "collapsible": true,
-      "hideable": true,
-      "behaviorHints": {
-        "collapseToEdge": "left"
-      }
+      "collapsible": false,
+      "hideable": true
     },
     "utilityPanel": {
       "kind": "content-utility",
       "infrastructure": false,
-      "collapsible": true,
-      "hideable": true,
-      "behaviorHints": {
-        "collapseToEdge": "left"
-      }
+      "collapsible": false,
+      "hideable": true
     },
     "diagnosticsDrawer": {
-      "kind": "overlay-nonmodal",
+      "kind": "content-utility",
       "infrastructure": true,
       "collapsible": false,
       "hideable": true,
       "behaviorHints": {
-        "role": "nonmodal-layer",
-        "presentation": "overlay-nonmodal",
-        "backdrop": "none",
-        "dismissOnEscape": false,
-        "dismissOnBackdropClick": false,
-        "stackOrder": 870
+        "presentation": "inline"
       }
     },
     "devToolsDrawer": {
-      "kind": "overlay-nonmodal",
+      "kind": "content-utility",
       "infrastructure": true,
-      "collapsible": false,
+      "collapsible": true,
       "hideable": true,
       "behaviorHints": {
-        "role": "nonmodal-layer",
-        "presentation": "overlay-nonmodal",
-        "backdrop": "none",
-        "dismissOnEscape": false,
-        "dismissOnBackdropClick": false,
-        "stackOrder": 875
+        "presentation": "inline",
+        "collapseToEdge": "bottom"
       }
     },
     "modalLayer": {

@@ -111,13 +111,25 @@ const { contracts, authenticateMock, currentPrincipalMock, discoverGamesMock, ge
         family: "desktop",
         formFactorKey: "desktop",
         templatePath: "skeletons/desktop-standard.html",
-        templateSlots: ["primarySurface", "statusStrip", "devToolsDrawer", "diagnosticsDrawer"]
+        templateSlots: ["primarySurface", "statusStrip", "devToolsDrawer", "diagnosticsDrawer"],
+        templateSlotGridPlacements: {
+          primarySurface: { rowStart: 2, colStart: 2, rowSpan: 2, colSpan: 3 },
+          statusStrip: { rowStart: 4, colStart: 1, rowSpan: 1, colSpan: 1 },
+          devToolsDrawer: { rowStart: 5, colStart: 1, rowSpan: 1, colSpan: 4 },
+          diagnosticsDrawer: { rowStart: 6, colStart: 1, rowSpan: 1, colSpan: 4 }
+        }
       },
       mobileStandard: {
         family: "mobile",
         formFactorKey: "mobilePortrait",
         templatePath: "skeletons/mobile-portrait.html",
-        templateSlots: ["primarySurface", "statusStrip", "devToolsDrawer", "diagnosticsDrawer"]
+        templateSlots: ["primarySurface", "statusStrip", "devToolsDrawer", "diagnosticsDrawer"],
+        templateSlotGridPlacements: {
+          primarySurface: { rowStart: 2, colStart: 2, rowSpan: 2, colSpan: 3 },
+          statusStrip: { rowStart: 4, colStart: 1, rowSpan: 1, colSpan: 1 },
+          devToolsDrawer: { rowStart: 5, colStart: 1, rowSpan: 1, colSpan: 4 },
+          diagnosticsDrawer: { rowStart: 6, colStart: 1, rowSpan: 1, colSpan: 4 }
+        }
       }
     }
   },
@@ -158,18 +170,18 @@ const { contracts, authenticateMock, currentPrincipalMock, discoverGamesMock, ge
       primarySurface: { kind: "content-primary", infrastructure: false, collapsible: false, hideable: false },
       statusStrip: { kind: "status", infrastructure: false, collapsible: true, hideable: true },
       devToolsDrawer: {
-        kind: "overlay-nonmodal",
+        kind: "content-utility",
         infrastructure: true,
-        collapsible: false,
+        collapsible: true,
         hideable: true,
-        behaviorHints: { role: "nonmodal-layer", presentation: "overlay-nonmodal", backdrop: "none", stackOrder: 875 }
+        behaviorHints: { presentation: "inline", collapseToEdge: "bottom" }
       },
       diagnosticsDrawer: {
-        kind: "overlay-nonmodal",
+        kind: "content-utility",
         infrastructure: true,
         collapsible: false,
         hideable: true,
-        behaviorHints: { role: "nonmodal-layer", presentation: "overlay-nonmodal", backdrop: "none", stackOrder: 870 }
+        behaviorHints: { presentation: "inline" }
       }
     },
     allowedSlotModes: ["visible", "hidden", "collapsed", "disabled", "readonly"]

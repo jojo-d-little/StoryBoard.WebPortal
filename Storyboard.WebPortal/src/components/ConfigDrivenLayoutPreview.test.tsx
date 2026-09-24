@@ -647,6 +647,118 @@ describe("ConfigDrivenLayoutPreview grid reflow", () => {
     expect(diagnosticsOverlay).not.toBeNull();
   });
 
+  it("places inline developer slots into the configured fifth and sixth rows", () => {
+    const plan: ResolvedPlan = {
+      experienceState: "SessionActive",
+      formFactorKey: "desktop",
+      compositionProfileKey: "devsimulator",
+      compositionProfileName: "devsimulator",
+      skeletonLayoutKey: "desktopStandard",
+      slots: [
+        { slotKey: "primarySurface", mode: "visible", featureKey: "sessionPlaySurface", implementationKey: "sessionPlaySurfaceV1" },
+        { slotKey: "devToolsDrawer", mode: "visible", featureKey: "devToolsPanel", implementationKey: "devToolsPanelV1" },
+        { slotKey: "diagnosticsDrawer", mode: "visible", featureKey: "diagnosticsConsole", implementationKey: "diagnosticsConsoleV1" }
+      ]
+    };
+
+    const templateSlotGridPlacements: Record<string, TemplateSlotGridPlacement> = {
+      primarySurface: { rowStart: 2, colStart: 1, rowSpan: 2, colSpan: 4 },
+      devToolsDrawer: { rowStart: 5, colStart: 1, rowSpan: 1, colSpan: 4 },
+      diagnosticsDrawer: { rowStart: 6, colStart: 1, rowSpan: 1, colSpan: 4 }
+    };
+
+    const slotDefinitions: Record<string, UiSlotDefinition> = {
+      primarySurface: { kind: "content-primary", infrastructure: false, collapsible: false, hideable: false },
+      devToolsDrawer: {
+        kind: "content-utility",
+        infrastructure: true,
+        collapsible: true,
+        hideable: true,
+        behaviorHints: { presentation: "inline", collapseToEdge: "bottom" }
+      },
+      diagnosticsDrawer: {
+        kind: "content-utility",
+        infrastructure: true,
+        collapsible: false,
+        hideable: true,
+        behaviorHints: { presentation: "inline" }
+      }
+    };
+
+    const onRequestSlotModeChange = vi.fn();
+    const { container } = render(
+      <ConfigDrivenLayoutPreview
+        plan={plan}
+        slotDefinitions={slotDefinitions}
+        templateSlotGridPlacements={templateSlotGridPlacements}
+        templateSlotClassNames={{}}
+        showSlotTechnicalDetailsDefault={false}
+        slotTechnicalDetailsOverrides={{}}
+        onRequestSlotModeChange={onRequestSlotModeChange}
+        renderFeature={(slot) => <div>{slot.slotKey}</div>}
+      />
+    );
+
+    const devToolsCell = container.querySelector('.storyboard-ui-layout-grid [data-slot-key="devToolsDrawer"]') as HTMLElement | null;
+    const diagnosticsCell = container.querySelector('.storyboard-ui-layout-grid [data-slot-key="diagnosticsDrawer"]') as HTMLElement | null;
+
+    expect(devToolsCell?.style.gridRow).toBe("5 / span 1");
+    expect(diagnosticsCell?.style.gridRow).toBe("6 / span 1");
+    expect(container.querySelector('.config-overlay-layer[data-slot-key="devToolsDrawer"]')).toBeNull();
+    expect(container.querySelector('.config-overlay-layer[data-slot-key="diagnosticsDrawer"]')).toBeNull();
+
+    const devToolsCollapseIndicator = container.querySelector(
+      '[data-slot-key="devToolsDrawer"] .inline-slot-collapse-indicator'
+    ) as HTMLButtonElement | null;
+
+    expect(devToolsCollapseIndicator?.className).toContain("axis-horizontal");
+    expect(devToolsCollapseIndicator?.className).toContain("edge-bottom");
+    fireEvent.click(devToolsCollapseIndicator as HTMLButtonElement);
+    expect(onRequestSlotModeChange).toHaveBeenCalledWith("devToolsDrawer", "collapsed");
+  });
+
+  it("places a visible left-edge collapse indicator beside the feature", () => {
+    const plan: ResolvedPlan = {
+      experienceState: "SignedIn",
+      formFactorKey: "desktop",
+      compositionProfileKey: "standard",
+      compositionProfileName: "standard",
+      skeletonLayoutKey: "desktopStandard",
+      slots: [
+        { slotKey: "secondaryPanel", mode: "visible", featureKey: "gameDetails", implementationKey: "gameDetailsV1" }
+      ]
+    };
+
+    const { container } = render(
+      <ConfigDrivenLayoutPreview
+        plan={plan}
+        slotDefinitions={{
+          secondaryPanel: {
+            kind: "content-secondary",
+            infrastructure: false,
+            collapsible: true,
+            hideable: true,
+            behaviorHints: { collapseToEdge: "left" }
+          }
+        }}
+        templateSlotGridPlacements={{ secondaryPanel: { rowStart: 2, colStart: 1, rowSpan: 2, colSpan: 1 } }}
+        templateSlotClassNames={{}}
+        showSlotTechnicalDetailsDefault={false}
+        slotTechnicalDetailsOverrides={{}}
+        onRequestSlotModeChange={vi.fn()}
+        renderFeature={(slot) => <div data-testid="panel-feature">{slot.slotKey}</div>}
+      />
+    );
+
+    const slot = container.querySelector('[data-slot-key="secondaryPanel"] .storyboard-ui-component-slot') as HTMLElement | null;
+    const indicator = slot?.querySelector('.inline-slot-collapse-indicator') as HTMLElement | null;
+
+    expect(indicator?.className).toContain("axis-vertical");
+    expect(indicator?.className).toContain("edge-left");
+    expect(slot?.firstElementChild).toBe(indicator);
+    expect(slot?.querySelector('[data-testid="panel-feature"]')).not.toBeNull();
+  });
+
   it("centers a newly shown docked non-modal overlay", async () => {
     const getBoundingClientRectSpy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function mockGetBoundingClientRect(this: HTMLElement): DOMRect {
       if (this.classList.contains("config-overlay-stage")) {
