@@ -19,6 +19,19 @@
             { "slotKey": "diagnosticsDrawer", "featureKey": "diagnosticsConsole", "mode": "hidden" }
           ]
         },
+        "devsimulator": {
+          "slotAssignments": [
+            { "slotKey": "primarySurface", "featureKey": "identityBootstrapStatus", "mode": "visible" },
+            { "slotKey": "statusStrip", "featureKey": "globalStatus", "mode": "visible" },
+            { "slotKey": "modalLayer", "mode": "hidden" },
+            { "slotKey": "nonModalLayer", "mode": "hidden" },
+            { "slotKey": "devToolsDrawer", "featureKey": "devToolsPanel", "mode": "visible" },
+            { "slotKey": "topBar", "mode": "hidden" },
+            { "slotKey": "secondaryPanel", "mode": "hidden" },
+            { "slotKey": "utilityPanel", "mode": "hidden" },
+            { "slotKey": "diagnosticsDrawer", "featureKey": "diagnosticsConsole", "mode": "hidden" }
+          ]
+        },
         "immersive": {
           "slotAssignments": [
             { "slotKey": "primarySurface", "featureKey": "identityBootstrapStatus", "mode": "visible" },
@@ -43,6 +56,16 @@
             { "slotKey": "statusStrip", "featureKey": "globalStatus", "mode": "visible" },
             { "slotKey": "nonModalLayer", "mode": "hidden" },
             { "slotKey": "devToolsDrawer", "featureKey": "devToolsPanel", "mode": "hidden" },
+            { "slotKey": "diagnosticsDrawer", "featureKey": "diagnosticsConsole", "mode": "hidden" }
+          ]
+        },
+        "devsimulator": {
+          "slotAssignments": [
+            { "slotKey": "topBar", "featureKey": "topBarMenu", "mode": "visible" },
+            { "slotKey": "primarySurface", "featureKey": "authSignIn", "mode": "visible" },
+            { "slotKey": "statusStrip", "featureKey": "globalStatus", "mode": "visible" },
+            { "slotKey": "nonModalLayer", "mode": "hidden" },
+            { "slotKey": "devToolsDrawer", "featureKey": "devToolsPanel", "mode": "visible" },
             { "slotKey": "diagnosticsDrawer", "featureKey": "diagnosticsConsole", "mode": "hidden" }
           ]
         },
@@ -80,6 +103,19 @@
             { "slotKey": "modalLayer", "mode": "hidden" },
             { "slotKey": "nonModalLayer", "mode": "hidden" },
             { "slotKey": "devToolsDrawer", "featureKey": "devToolsPanel", "mode": "hidden" },
+            { "slotKey": "diagnosticsDrawer", "featureKey": "diagnosticsConsole", "mode": "hidden" }
+          ]
+        },
+        "devsimulator": {
+          "slotAssignments": [
+            { "slotKey": "topBar", "featureKey": "topBarMenu", "mode": "collapsed" },
+            { "slotKey": "primarySurface", "featureKey": "gameDiscovery", "mode": "visible" },
+            { "slotKey": "secondaryPanel", "featureKey": "gameDetails", "mode": "collapsed" },
+            { "slotKey": "utilityPanel", "mode": "hidden" },
+            { "slotKey": "statusStrip", "featureKey": "globalStatus", "mode": "collapsed" },
+            { "slotKey": "modalLayer", "mode": "hidden" },
+            { "slotKey": "nonModalLayer", "mode": "hidden" },
+            { "slotKey": "devToolsDrawer", "featureKey": "devToolsPanel", "mode": "visible" },
             { "slotKey": "diagnosticsDrawer", "featureKey": "diagnosticsConsole", "mode": "hidden" }
           ]
         },
@@ -131,6 +167,23 @@
             "focusedInputId": "command-handler-v1-input"
           }
         },
+        "devsimulator": {
+          "slotAssignments": [
+            { "slotKey": "topBar", "featureKey": "topBarMenu", "mode": "collapsed" },
+            { "slotKey": "primarySurface", "featureKey": "sessionPlaySurface", "mode": "visible" },
+            { "slotKey": "secondaryPanel", "featureKey": "commandHandler", "mode": "visible" },
+            { "slotKey": "utilityPanel", "featureKey": "inGameToolsMenu", "mode": "visible" },
+            { "slotKey": "statusStrip", "featureKey": "globalStatus", "mode": "collapsed" },
+            { "slotKey": "modalLayer", "mode": "hidden" },
+            { "slotKey": "nonModalLayer", "mode": "hidden" },
+            { "slotKey": "devToolsDrawer", "featureKey": "devToolsPanel", "mode": "visible" },
+            { "slotKey": "diagnosticsDrawer", "featureKey": "diagnosticsConsole", "mode": "hidden" }
+          ],
+          "preferredInputFocus": {
+            "featureKey": "commandHandler",
+            "focusedInputId": "command-handler-v1-input"
+          }
+        },
         "immersive": {
           "slotAssignments": [
             { "slotKey": "primarySurface", "featureKey": "sessionPlaySurface", "mode": "visible" },
@@ -170,6 +223,19 @@
             { "slotKey": "modalLayer", "mode": "hidden" },
             { "slotKey": "nonModalLayer", "mode": "hidden" },
             { "slotKey": "devToolsDrawer", "featureKey": "devToolsPanel", "mode": "hidden" },
+            { "slotKey": "diagnosticsDrawer", "featureKey": "diagnosticsConsole", "mode": "hidden" },
+            { "slotKey": "utilityPanel", "mode": "hidden" }
+          ]
+        },
+        "devsimulator": {
+          "slotAssignments": [
+            { "slotKey": "primarySurface", "featureKey": "interruptionRecovery", "mode": "readonly" },
+            { "slotKey": "secondaryPanel", "mode": "hidden" },
+            { "slotKey": "topBar", "featureKey": "topBarMenu", "mode": "visible" },
+            { "slotKey": "statusStrip", "featureKey": "globalStatus", "mode": "visible" },
+            { "slotKey": "modalLayer", "mode": "hidden" },
+            { "slotKey": "nonModalLayer", "mode": "hidden" },
+            { "slotKey": "devToolsDrawer", "featureKey": "devToolsPanel", "mode": "visible" },
             { "slotKey": "diagnosticsDrawer", "featureKey": "diagnosticsConsole", "mode": "hidden" },
             { "slotKey": "utilityPanel", "mode": "hidden" }
           ]

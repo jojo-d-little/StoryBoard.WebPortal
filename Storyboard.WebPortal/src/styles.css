@@ -663,6 +663,46 @@ input:disabled {
   margin: 0;
 }
 
+.diagnostics-workspace {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.diagnostics-workspace-status,
+.diagnostics-workspace-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  font-size: 0.82rem;
+}
+
+.diagnostics-workspace-status {
+  border: var(--theme-size-border-thickness) solid var(--theme-color-border-primary);
+  border-radius: var(--theme-shape-radius-base);
+  padding: 0.5rem 0.6rem;
+  background: var(--theme-color-control-background);
+}
+
+.diagnostics-workspace-status strong {
+  color: var(--theme-color-chrome-primary);
+}
+
+.diagnostics-workspace-actions {
+  margin-top: 0.15rem;
+}
+
+.diagnostics-workspace details {
+  border-top: 1px solid var(--theme-color-border-primary);
+  padding-top: 0.55rem;
+}
+
+.diagnostics-workspace summary {
+  cursor: pointer;
+  color: var(--theme-color-chrome-primary);
+  font-weight: 600;
+}
+
 .devtools-section h3 {
   margin-bottom: 0.35rem;
 }

@@ -3,6 +3,7 @@ import { AuthSignInV1 } from "./AuthSignInV1";
 import { CommandHandlerV1 } from "./CommandHandlerV1";
 import { DevToolsPanel } from "./DevToolsPanel";
 import { DiagnosticsConsole, type DiagnosticsEntry } from "./DiagnosticsConsole";
+import type { DiagnosticsWorkspaceProps } from "./DiagnosticsWorkspace";
 import { GameDiscoveryV1 } from "./GameDiscoveryV1";
 import { GameDetailsV1 } from "./GameDetailsV1";
 import { IdentityBootstrapStatusV1 } from "./IdentityBootstrapStatusV1";
@@ -41,6 +42,8 @@ interface ConfigSlotFeatureRendererProps {
     label: string;
     enabled: boolean;
   }>;
+  diagnosticsCategoryFilters: Record<string, boolean>;
+  diagnosticsWorkspace: DiagnosticsWorkspaceProps;
   pollIntervalMs: number;
   heartbeatEveryNPolls: number;
   diagnosticsEntries: DiagnosticsEntry[];
@@ -85,6 +88,8 @@ export function ConfigSlotFeatureRenderer(props: ConfigSlotFeatureRendererProps)
     hostApiBaseUrlOverride,
     maxDiagnosticsEntries,
     diagnosticsCategoryOptions,
+    diagnosticsCategoryFilters,
+    diagnosticsWorkspace,
     pollIntervalMs,
     heartbeatEveryNPolls,
     diagnosticsEntries,
@@ -209,6 +214,7 @@ export function ConfigSlotFeatureRenderer(props: ConfigSlotFeatureRendererProps)
       <DiagnosticsConsoleComponent
         enabled={diagnosticsEnabled}
         entries={diagnosticsEntries}
+        categoryFilters={diagnosticsCategoryFilters}
         onClear={onClearDiagnostics}
       />
     );
@@ -222,6 +228,7 @@ export function ConfigSlotFeatureRenderer(props: ConfigSlotFeatureRendererProps)
         hostApiBaseUrlOverride={hostApiBaseUrlOverride}
         maxDiagnosticsEntries={maxDiagnosticsEntries}
         diagnosticsCategoryOptions={diagnosticsCategoryOptions}
+        diagnosticsWorkspace={diagnosticsWorkspace}
         pollIntervalMs={pollIntervalMs}
         heartbeatEveryNPolls={heartbeatEveryNPolls}
         onDiagnosticsEnabledChange={onDiagnosticsEnabledChange}

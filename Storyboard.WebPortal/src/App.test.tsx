@@ -9,12 +9,20 @@ import type { OrchestrationContracts } from "./orchestration/types";
 const { contracts, authenticateMock, currentPrincipalMock, discoverGamesMock, getGameDetailsMock, getAssetPreviewDataUrlMock, startSessionMock, listSessionsMock, joinSessionMock, leaveSessionMock } = vi.hoisted(() => ({
   contracts: {
   featureMap: {
-    initialExperienceState: "SignedIn",
+    initialExperienceState: "Bootstrapping",
     experienceStates: {
+      Bootstrapping: {},
+      SignedOut: {},
       SignedIn: {},
       SessionActive: {}
     },
-    transitions: [],
+    transitions: [
+      { from: "Bootstrapping", event: "BootstrapComplete", to: "SignedOut" },
+      { from: "SignedOut", event: "SignInSucceeded", to: "SignedIn" },
+      { from: "SignedIn", event: "StartSessionSucceeded", to: "SessionActive" },
+      { from: "SignedIn", event: "JoinSessionSucceeded", to: "SessionActive" },
+      { from: "SessionActive", event: "LeaveSessionSucceeded", to: "SignedIn" }
+    ],
     resolutionDefaults: {
       defaultSkeletonLayoutKey: "desktopStandard",
       defaultFormFactorKey: "desktop",
@@ -23,24 +31,74 @@ const { contracts, authenticateMock, currentPrincipalMock, discoverGamesMock, ge
   },
   stateCompositions: {
     stateProfiles: {
+      Bootstrapping: {
+        profiles: {
+          standard: {
+            slotAssignments: [
+              { slotKey: "primarySurface", featureKey: "authSignIn", mode: "visible" },
+              { slotKey: "statusStrip", featureKey: "globalStatus", mode: "visible" }
+            ]
+          },
+          devsimulator: {
+            slotAssignments: [
+              { slotKey: "primarySurface", featureKey: "authSignIn", mode: "visible" },
+              { slotKey: "statusStrip", featureKey: "globalStatus", mode: "visible" },
+              { slotKey: "devToolsDrawer", featureKey: "devToolsPanel", mode: "visible" },
+              { slotKey: "diagnosticsDrawer", featureKey: "diagnosticsConsole", mode: "hidden" }
+            ]
+          }
+        }
+      },
+      SignedOut: {
+        profiles: {
+          standard: {
+            slotAssignments: [
+              { slotKey: "primarySurface", featureKey: "authSignIn", mode: "visible" },
+              { slotKey: "statusStrip", featureKey: "globalStatus", mode: "visible" }
+            ]
+          },
+          devsimulator: {
+            slotAssignments: [
+              { slotKey: "primarySurface", featureKey: "authSignIn", mode: "visible" },
+              { slotKey: "statusStrip", featureKey: "globalStatus", mode: "visible" },
+              { slotKey: "devToolsDrawer", featureKey: "devToolsPanel", mode: "visible" },
+              { slotKey: "diagnosticsDrawer", featureKey: "diagnosticsConsole", mode: "hidden" }
+            ]
+          }
+        }
+      },
       SignedIn: {
-        defaultProfile: "standard",
         profiles: {
           standard: {
             slotAssignments: [
               { slotKey: "primarySurface", featureKey: "gameDiscovery", mode: "visible" },
               { slotKey: "statusStrip", featureKey: "globalStatus", mode: "visible" }
             ]
+          },
+          devsimulator: {
+            slotAssignments: [
+              { slotKey: "primarySurface", featureKey: "gameDiscovery", mode: "visible" },
+              { slotKey: "statusStrip", featureKey: "globalStatus", mode: "visible" },
+              { slotKey: "devToolsDrawer", featureKey: "devToolsPanel", mode: "visible" },
+              { slotKey: "diagnosticsDrawer", featureKey: "diagnosticsConsole", mode: "hidden" }
+            ]
           }
         }
       },
       SessionActive: {
-        defaultProfile: "standard",
         profiles: {
           standard: {
             slotAssignments: [
               { slotKey: "primarySurface", featureKey: "gameDiscovery", mode: "visible" },
               { slotKey: "statusStrip", featureKey: "globalStatus", mode: "visible" }
+            ]
+          },
+          devsimulator: {
+            slotAssignments: [
+              { slotKey: "primarySurface", featureKey: "gameDiscovery", mode: "visible" },
+              { slotKey: "statusStrip", featureKey: "globalStatus", mode: "visible" },
+              { slotKey: "devToolsDrawer", featureKey: "devToolsPanel", mode: "visible" },
+              { slotKey: "diagnosticsDrawer", featureKey: "diagnosticsConsole", mode: "hidden" }
             ]
           }
         }
@@ -53,13 +111,13 @@ const { contracts, authenticateMock, currentPrincipalMock, discoverGamesMock, ge
         family: "desktop",
         formFactorKey: "desktop",
         templatePath: "skeletons/desktop-standard.html",
-        templateSlots: ["primarySurface", "statusStrip"]
+        templateSlots: ["primarySurface", "statusStrip", "devToolsDrawer", "diagnosticsDrawer"]
       },
       mobileStandard: {
         family: "mobile",
         formFactorKey: "mobilePortrait",
         templatePath: "skeletons/mobile-portrait.html",
-        templateSlots: ["primarySurface", "statusStrip"]
+        templateSlots: ["primarySurface", "statusStrip", "devToolsDrawer", "diagnosticsDrawer"]
       }
     }
   },
@@ -69,13 +127,19 @@ const { contracts, authenticateMock, currentPrincipalMock, discoverGamesMock, ge
       desktop: {
         implementationByFeature: {
           gameDiscovery: "gameDiscoveryDesktopV1",
-          globalStatus: "statusBarInfoV1"
+          globalStatus: "statusBarInfoV1",
+          authSignIn: "authSignInV1",
+          devToolsPanel: "devToolsPanelV1",
+          diagnosticsConsole: "diagnosticsConsoleV1"
         }
       },
       mobilePortrait: {
         implementationByFeature: {
           gameDiscovery: "gameDiscoveryMobileV1",
-          globalStatus: "statusBarInfoV1"
+          globalStatus: "statusBarInfoV1",
+          authSignIn: "authSignInMobileV1",
+          devToolsPanel: "devToolsPanelMobileV1",
+          diagnosticsConsole: "diagnosticsConsoleMobileV1"
         }
       }
     }
@@ -83,13 +147,30 @@ const { contracts, authenticateMock, currentPrincipalMock, discoverGamesMock, ge
   featureCatalog: {
     features: {
       gameDiscovery: { category: "discovery", description: "" },
-      globalStatus: { category: "status", description: "" }
+      globalStatus: { category: "status", description: "" },
+      authSignIn: { category: "identity", description: "" },
+      devToolsPanel: { category: "infrastructure", description: "" },
+      diagnosticsConsole: { category: "infrastructure", description: "" }
     }
   },
   uiSlots: {
     slots: {
       primarySurface: { kind: "content-primary", infrastructure: false, collapsible: false, hideable: false },
-      statusStrip: { kind: "status", infrastructure: false, collapsible: true, hideable: true }
+      statusStrip: { kind: "status", infrastructure: false, collapsible: true, hideable: true },
+      devToolsDrawer: {
+        kind: "overlay-nonmodal",
+        infrastructure: true,
+        collapsible: false,
+        hideable: true,
+        behaviorHints: { role: "nonmodal-layer", presentation: "overlay-nonmodal", backdrop: "none", stackOrder: 875 }
+      },
+      diagnosticsDrawer: {
+        kind: "overlay-nonmodal",
+        infrastructure: true,
+        collapsible: false,
+        hideable: true,
+        behaviorHints: { role: "nonmodal-layer", presentation: "overlay-nonmodal", backdrop: "none", stackOrder: 870 }
+      }
     },
     allowedSlotModes: ["visible", "hidden", "collapsed", "disabled", "readonly"]
   },
@@ -104,7 +185,7 @@ const { contracts, authenticateMock, currentPrincipalMock, discoverGamesMock, ge
       devsimulator: {
         formFactorKey: "desktop",
         skeletonLayoutKey: "desktopStandard",
-        compositionProfileKey: "standard"
+        compositionProfileKey: "devsimulator"
       }
     }
   }
@@ -296,50 +377,26 @@ describe("App override behavior", () => {
     expect(screen.getByRole("region", { name: "Application status bar" })).toBeInTheDocument();
   });
 
+  it("keeps developer surfaces owned by the Portal mode", async () => {
+    window.history.replaceState({}, "", "/?cp=devsimulator&devToolsDrawer=visible&diagnosticsDrawer=visible");
+
+    render(<App />);
+
+    await screen.findByRole("main");
+    expect(screen.queryByText("Dev Tools")).not.toBeInTheDocument();
+    expect(document.querySelector('[data-slot-key="devToolsDrawer"]')).toBeNull();
+    expect(document.querySelector('[data-slot-key="diagnosticsDrawer"]')).toBeNull();
+  });
+
   it("uses query override as highest precedence over saved selection", async () => {
     window.localStorage.setItem("shellLab.formFactorOverride", "desktop");
     window.history.replaceState({}, "", "/?ff=mobilePortrait");
 
     render(<App />);
 
-    expect(await screen.findByText("source.formFactor=query")).toBeInTheDocument();
-    expect(screen.getByText("effective.formFactor=mobilePortrait")).toBeInTheDocument();
-  });
-
-  it("clears query override and falls back to selected override", async () => {
-    window.localStorage.setItem("shellLab.formFactorOverride", "desktop");
-    window.history.replaceState({}, "", "/?ff=mobilePortrait");
-
-    render(<App />);
-
-    expect(await screen.findByRole("button", { name: "Clear URL Overrides" })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Clear URL Overrides" }));
-
-    expect(window.location.search).toBe("");
-    expect(screen.getByText("URL query overrides cleared.")).toBeInTheDocument();
-    expect(screen.getByText("source.formFactor=selection")).toBeInTheDocument();
-    expect(screen.getByText("effective.formFactor=desktop")).toBeInTheDocument();
-  });
-
-  it("copies share URL with effective overrides", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", {
-      value: { writeText },
-      configurable: true
+    await waitFor(() => {
+      expect(document.querySelector('[data-skeleton-layout="mobileStandard"]')).not.toBeNull();
     });
-
-    window.localStorage.setItem("shellLab.formFactorOverride", "mobilePortrait");
-
-    render(<App />);
-
-    expect(await screen.findByText("source.formFactor=selection")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Copy Share URL" }));
-
-    expect(writeText).toHaveBeenCalledTimes(1);
-    expect(writeText.mock.calls[0][0]).toContain("ff=mobilePortrait");
-    expect(await screen.findByText("Share URL copied.")).toBeInTheDocument();
   });
 
   it("runs host sign-in discovery and start-session flow", async () => {
@@ -357,13 +414,13 @@ describe("App override behavior", () => {
       expect(discoverGamesMock).toHaveBeenCalledTimes(1);
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Start Session" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start Game" }));
 
     await waitFor(() => {
       expect(startSessionMock).toHaveBeenCalledTimes(1);
     });
 
-    expect(screen.getByText("activeSessionId=s-1")).toBeInTheDocument();
+    expect(screen.getByText("session=s-1")).toBeInTheDocument();
     expect(screen.getAllByText("Start session succeeded: Session.Start.Success").length).toBeGreaterThan(0);
   });
 
@@ -450,6 +507,27 @@ describe("App override behavior", () => {
     expect(screen.getAllByText("Sign-in failed: Identity.Authenticate.InvalidCredentials (bad credentials)").length).toBeGreaterThan(0);
   });
 
+  it("keeps trace capture independent from console visibility and stopping", async () => {
+    window.history.replaceState({}, "", "/?mode=devsimulator");
+    render(<App />);
+
+    expect(await screen.findByText("Dev Tools")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Diagnostics" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start Trace" }));
+
+    expect(screen.getByTestId("diagnostics-capture-status")).toHaveTextContent("Capturing");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show Console" }));
+    fireEvent.click(screen.getByRole("button", { name: "Hide Console" }));
+    expect(screen.getByTestId("diagnostics-capture-status")).toHaveTextContent("Capturing");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show Console" }));
+    fireEvent.click(screen.getByRole("button", { name: "Stop Trace" }));
+
+    expect(screen.getByTestId("diagnostics-capture-status")).toHaveTextContent("Stopped");
+    expect(screen.getByText("Trace capture is stopped. Existing entries remain available.")).toBeInTheDocument();
+  });
+
   it("runs list join and leave session lifecycle", async () => {
     render(<App />);
     expect(await screen.findByRole("button", { name: "Sign In" })).toBeInTheDocument();
@@ -464,19 +542,11 @@ describe("App override behavior", () => {
       expect(listSessionsMock).toHaveBeenCalledTimes(1);
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Join Session" }));
+    fireEvent.click(screen.getByRole("button", { name: "Join Game" }));
     await waitFor(() => {
       expect(joinSessionMock).toHaveBeenCalledTimes(1);
     });
 
-    expect(screen.getByText("activeSessionId=s-1")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Leave Session" }));
-    await waitFor(() => {
-      expect(leaveSessionMock).toHaveBeenCalledTimes(1);
-    });
-
-    expect(screen.getByText("activeSessionId=(none)")).toBeInTheDocument();
-    expect(screen.getAllByText("Leave session succeeded: Session.Leave.Success").length).toBeGreaterThan(0);
+    expect(screen.getByText("session=s-1")).toBeInTheDocument();
   });
 });

@@ -99,7 +99,6 @@ export function SessionPlaySurfaceRendererV1(props: SessionPlaySurfaceRendererV1
     rendererRef.current = createGameRenderer(mountRef.current, {
       diagnosticsSink: (event: GameRendererDiagnosticsEvent) => {
         props.onReportRendererDiagnostic(event);
-        console.debug("[gameRenderer]", event.level, event.category, event.message, event.details);
       },
       onRoomTransitionStateChanged: props.onReportRoomTransitionState
     });

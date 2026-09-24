@@ -42,6 +42,20 @@ export interface HostApiClientOptions {
   baseUrl?: string;
   tenantId?: string;
   orgId?: string;
+  onTraceEvent?: (event: HostApiTraceEvent) => void;
+}
+
+export interface HostApiTraceEvent {
+  phase: "completed" | "failed";
+  method: "POST";
+  path: string;
+  durationMs: number;
+  status?: number;
+  correlationId?: string;
+  requestId?: string;
+  sessionId?: string;
+  gameId?: string;
+  details?: Record<string, unknown>;
 }
 
 const defaultBaseUrl = (import.meta.env.VITE_HOST_API_BASE_URL as string | undefined) || window.location.origin;
@@ -51,11 +65,13 @@ export class HostApiClient {
   private readonly baseUrl: string;
   private readonly tenantId: string;
   private readonly orgId: string;
+  private readonly onTraceEvent?: (event: HostApiTraceEvent) => void;
 
   constructor(options?: HostApiClientOptions) {
     this.baseUrl = options?.baseUrl || defaultBaseUrl;
     this.tenantId = options?.tenantId || "local-tenant";
     this.orgId = options?.orgId || "local-org";
+    this.onTraceEvent = options?.onTraceEvent;
   }
 
   async authenticate(username: string, password: string): Promise<HostAuthenticateResponse> {
@@ -367,27 +383,63 @@ export class HostApiClient {
   }
 
   private async postJson<T>(path: string, payload: unknown): Promise<T> {
-    const response = await fetch(new URL(path, this.baseUrl).toString(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
+    const context = this.readTraceContext(payload);
+    const payloadRecord = this.asRecord(payload);
+    const startedAtMs = Date.now();
+    let traceEmitted = false;
 
-    if (!response.ok) {
-      throw new Error(`Host API call failed (${response.status}) for ${path}.`);
+    const emitTrace = (phase: HostApiTraceEvent["phase"], status?: number, details?: Record<string, unknown>): void => {
+      traceEmitted = true;
+      this.onTraceEvent?.({
+        phase,
+        method: "POST",
+        path,
+        durationMs: Math.max(0, Date.now() - startedAtMs),
+        ...(status !== undefined ? { status } : {}),
+        ...(context?.correlationId ? { correlationId: context.correlationId } : {}),
+        ...(context?.requestId ? { requestId: context.requestId } : {}),
+        ...(context?.sessionId ? { sessionId: context.sessionId } : {}),
+        ...this.readOptionalTraceIdentity(payloadRecord),
+        ...(details ? { details } : {})
+      });
+    };
+
+    try {
+      const response = await fetch(new URL(path, this.baseUrl).toString(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(context?.correlationId ? { "X-Correlation-Id": context.correlationId } : {})
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const error = new Error(`Host API call failed (${response.status}) for ${path}.`);
+        emitTrace("failed", response.status, { message: error.message });
+        throw error;
+      }
+
+      const data = (await response.json()) as T;
+      emitTrace("completed", response.status);
+      return data;
+    } catch (error) {
+      if (!traceEmitted) {
+        emitTrace("failed", undefined, {
+          message: error instanceof Error ? error.message : String(error)
+        });
+      }
+
+      throw error;
     }
-
-    return (await response.json()) as T;
   }
 
-  private buildContext(correlationId: string, principalHandle = "", sessionId: string | null = null): HostRequestContext {
+  private buildContext(_operationName: string, principalHandle = "", sessionId: string | null = null): HostRequestContext {
     const requestId = this.generateUuid();
 
     return {
       requestId,
-      correlationId,
+      correlationId: this.generateUuid(),
       principalHandle,
       tenantId: this.tenantId,
       orgId: this.orgId,
@@ -396,6 +448,30 @@ export class HostApiClient {
       idempotencyKey: requestId,
       traceFlags: ""
     };
+  }
+
+  private readTraceContext(input: unknown): {
+    requestId: string;
+    correlationId: string;
+    sessionId: string;
+  } | null {
+    const record = this.asRecord(input);
+    const nestedContext = this.readObject(record, ["context", "Context"]);
+    const context = Object.keys(nestedContext).length > 0 ? nestedContext : record;
+    const requestId = this.readString(context, ["requestId", "RequestId"]);
+    const correlationId = this.readString(context, ["correlationId", "CorrelationId"]);
+    const sessionId = this.readString(context, ["sessionId", "SessionId"]);
+
+    if (!requestId || !correlationId) {
+      return null;
+    }
+
+    return { requestId, correlationId, sessionId };
+  }
+
+  private readOptionalTraceIdentity(input: Record<string, unknown>): { gameId?: string } {
+    const gameId = this.readString(input, ["gameId", "GameId"]);
+    return gameId ? { gameId } : {};
   }
 
   private generateUuid(): string {

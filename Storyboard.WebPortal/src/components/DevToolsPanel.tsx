@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { SlotMode, ThemeContract } from "../orchestration/types";
 import type { WebPortalAssetCacheStats } from "../cache/webPortalAssetCache";
+import { DiagnosticsWorkspace, type DiagnosticsWorkspaceProps } from "./DiagnosticsWorkspace";
 
 type SlotModeOverrides = Record<string, SlotMode>;
 type SlotTechnicalDetailsOverrides = Record<string, boolean>;
@@ -119,10 +120,6 @@ const HUD_THEME_TYPOGRAPHY_DESCRIPTIONS: Record<HudThemeTypographyTokenKey, { la
   }
 };
 
-const REQUIRED_DIAGNOSTICS_CATEGORIES: Array<{ category: string; label: string }> = [
-  { category: "timing-sync", label: "Timing Sync" }
-];
-
 interface DevToolsPanelProps {
   diagnosticsEnabled: boolean;
   diagnosticsVerbose: boolean;
@@ -133,6 +130,7 @@ interface DevToolsPanelProps {
     label: string;
     enabled: boolean;
   }>;
+  diagnosticsWorkspace: DiagnosticsWorkspaceProps;
   pollIntervalMs: number;
   heartbeatEveryNPolls: number;
   onDiagnosticsEnabledChange: (value: boolean) => void;
@@ -213,26 +211,6 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
   const hitRate = props.cacheStats.lookupRequests > 0
     ? (totalHits / props.cacheStats.lookupRequests) * 100
     : 0;
-  const diagnosticsCategoryOptions = useMemo(() => {
-    const mergedByCategory = new Map(
-      props.diagnosticsCategoryOptions.map((option) => [option.category.trim().toLowerCase(), option])
-    );
-
-    for (const fallbackOption of REQUIRED_DIAGNOSTICS_CATEGORIES) {
-      const normalizedCategory = fallbackOption.category.trim().toLowerCase();
-      if (!mergedByCategory.has(normalizedCategory)) {
-        mergedByCategory.set(normalizedCategory, {
-          category: fallbackOption.category,
-          label: fallbackOption.label,
-          enabled: true
-        });
-      }
-    }
-
-    return [...mergedByCategory.values()]
-      .sort((left, right) => left.category.localeCompare(right.category));
-  }, [props.diagnosticsCategoryOptions]);
-
   function formatBytes(bytes: number): string {
     if (!Number.isFinite(bytes) || bytes <= 0) {
       return "0 B";
@@ -361,79 +339,7 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
           ) : null}
 
           {activeSection === "diagnostics" ? (
-            <>
-              <h3>Diagnostics</h3>
-              <p className="subtitle">Controls for single-console diagnostics capture, category gating, verbosity, and retention.</p>
-
-              <div className="grid">
-                <label>
-                  <span>Diagnostics Enabled</span>
-                  <input
-                    type="checkbox"
-                    checked={props.diagnosticsEnabled}
-                    onChange={(e) => props.onDiagnosticsEnabledChange(e.target.checked)}
-                  />
-                </label>
-
-                <label>
-                  <span>Verbose Diagnostics Payloads</span>
-                  <input
-                    type="checkbox"
-                    checked={props.diagnosticsVerbose}
-                    onChange={(e) => props.onDiagnosticsVerboseChange(e.target.checked)}
-                  />
-                </label>
-
-                <label>
-                  Max Diagnostics Entries
-                  <input
-                    type="number"
-                    min={10}
-                    max={500}
-                    value={props.maxDiagnosticsEntries}
-                    onChange={(e) => {
-                      const parsed = Number.parseInt(e.target.value, 10);
-                      if (!Number.isNaN(parsed)) {
-                        props.onMaxDiagnosticsEntriesChange(parsed);
-                      }
-                    }}
-                  />
-                </label>
-              </div>
-
-              <div className="events" style={{ marginTop: "0.75rem" }}>
-                <button
-                  type="button"
-                  onClick={() => props.onSetAllDiagnosticsCategoriesEnabled(true)}
-                >
-                  All On
-                </button>
-                <button
-                  type="button"
-                  onClick={() => props.onSetAllDiagnosticsCategoriesEnabled(false)}
-                >
-                  All Off
-                </button>
-              </div>
-
-              <div className="diagnostics-category-table" aria-label="Diagnostics category filters">
-                <div className="diagnostics-category-table-header" role="row">
-                  <span role="columnheader">Key</span>
-                  <span role="columnheader">On</span>
-                </div>
-                {diagnosticsCategoryOptions.map((option) => (
-                  <label className="diagnostics-category-table-row" key={`diagnostic-category:${option.category}`}>
-                    <span className="diagnostics-category-key" title={option.label}>{option.category}</span>
-                    <input
-                      type="checkbox"
-                      checked={option.enabled}
-                      onChange={(e) => props.onDiagnosticsCategoryEnabledChange(option.category, e.target.checked)}
-                      aria-label={`Enable ${option.category}`}
-                    />
-                  </label>
-                ))}
-              </div>
-            </>
+            <DiagnosticsWorkspace {...props.diagnosticsWorkspace} />
           ) : null}
 
           {activeSection === "host" ? (

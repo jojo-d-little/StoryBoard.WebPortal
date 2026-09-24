@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadOrchestrationContracts } from "./orchestration/loader";
-import { listEventsFromState, resolveShellPlan, tryTransition } from "./orchestration/resolver";
+import { resolveShellPlan, tryTransition } from "./orchestration/resolver";
 import type { OrchestrationContracts, ResolvedSlot, SlotMode, ThemeContract } from "./orchestration/types";
 import { ConfigDrivenLayoutPreview } from "./components/ConfigDrivenLayoutPreview";
 import { DevToolsPanel } from "./components/DevToolsPanel";
 import { DiagnosticsConsole, type DiagnosticsEntry, type DiagnosticsLevel } from "./components/DiagnosticsConsole";
+import type { DiagnosticsWorkspaceProps, DiagnosticsProfile } from "./components/DiagnosticsWorkspace";
+import { appendPortalTraceEvent, normalizePortalTraceEvent } from "./diagnostics/portalTrace";
+import { buildDiagnosticsScopeOptions, getDiagnosticsProfileScope } from "./diagnostics/diagnosticsScope";
+import type { PortalTraceSource } from "./diagnostics/portalTrace";
 import { ConfigSlotFeatureRenderer } from "./components/ConfigSlotFeatureRenderer";
-import { ShellLabControls } from "./components/ShellLabControls";
 import { useHostWorkflow } from "./hooks/useHostWorkflow";
 import { usePortalStartupAudioGate } from "./hooks/usePortalStartupAudioGate";
 import { PortalStartupSplash } from "./components/PortalStartupSplash";
@@ -14,17 +17,9 @@ import { readPortalLaunchContext } from "./launch/portalLaunchContext";
 import { resolveTechnicalFeatureComponent } from "./orchestration/technicalFeatureImplementations";
 import { DEFAULT_WEB_PORTAL_SETTINGS, type WebPortalSettings } from "./settings/webPortalSettings";
 import {
-  buildShareUrl,
-  clearOverrideParams,
   resolveEffectiveOverrides,
   type QueryOverrides
 } from "./overrides/overrideResolution";
-
-const OVERRIDE_STORAGE_KEYS = {
-  formFactor: "shellLab.formFactorOverride",
-  composition: "shellLab.compositionOverride",
-  skeleton: "shellLab.skeletonOverride"
-} as const;
 
 const DEV_TOOLS_STORAGE_KEYS = {
   diagnosticsEnabled: "shellLab.devTools.diagnosticsEnabled",
@@ -33,6 +28,8 @@ const DEV_TOOLS_STORAGE_KEYS = {
   pollingSettingsOverrideEnabled: "shellLab.devTools.pollingSettingsOverrideEnabled",
   hostApiBaseUrlOverride: "shellLab.devTools.hostApiBaseUrlOverride",
   maxDiagnosticsEntries: "shellLab.devTools.maxDiagnosticsEntries",
+  diagnosticsProfile: "shellLab.devTools.diagnosticsProfile",
+  diagnosticsScope: "shellLab.devTools.diagnosticsScope",
   pollIntervalMs: "shellLab.devTools.pollIntervalMs",
   heartbeatEveryNPolls: "shellLab.devTools.heartbeatEveryNPolls"
 } as const;
@@ -124,7 +121,9 @@ const DEFAULT_DIAGNOSTIC_CATEGORY_OPTIONS: DiagnosticCategoryOption[] = [
   { category: "contracts", label: "Contracts" },
   { category: "discovery", label: "Discovery" },
   { category: "host-operation", label: "Host Operation" },
+  { category: "transport", label: "Transport" },
   { category: "session", label: "Session" },
+  { category: "session-delta", label: "Session Delta" },
   { category: "session-echo", label: "Session Echo" },
   { category: "session-render", label: "Session Render" },
   { category: "session-audio", label: "Session Audio" },
@@ -151,17 +150,23 @@ function getQueryParam(name: string): string | undefined {
 function readQueryOverrides(): QueryOverrides {
   return {
     ff: getQueryParam("ff") ?? "",
-    cp: getQueryParam("cp") ?? "",
+    // Composition is mode-owned. Do not allow a URL to promote normal mode
+    // into a developer composition.
+    cp: "",
     sk: getQueryParam("sk") ?? ""
   };
 }
 
-function readSlotModeQueryOverrides(): Record<string, QuerySlotMode> {
+function readSlotModeQueryOverrides(allowDeveloperSurfaces: boolean): Record<string, QuerySlotMode> {
   const params = new URLSearchParams(window.location.search);
   const overrides: Record<string, QuerySlotMode> = {};
 
   for (const [key, rawValue] of params.entries()) {
     if (!key || RESERVED_QUERY_PARAM_NAMES.has(key)) {
+      continue;
+    }
+
+    if (!allowDeveloperSurfaces && (key === "devToolsDrawer" || key === "diagnosticsDrawer")) {
       continue;
     }
 
@@ -180,10 +185,6 @@ function readPersistedOverride(storageKey: string): string {
   } catch {
     return "";
   }
-}
-
-function getInitialOverride(storageKey: string): string {
-  return readPersistedOverride(storageKey);
 }
 
 function readBooleanSetting(storageKey: string, defaultValue: boolean): boolean {
@@ -293,17 +294,27 @@ export default function App(props: AppProps): JSX.Element {
   }, [launchContext]);
   const [contracts, setContracts] = useState<OrchestrationContracts | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [shareMessage, setShareMessage] = useState<string>("");
-  const [queryOverrides, setQueryOverrides] = useState<QueryOverrides>(() => readQueryOverrides());
+  const queryOverrides = useMemo<QueryOverrides>(() => readQueryOverrides(), []);
   const [state, setState] = useState<string>("");
-  const [formFactorOverride, setFormFactorOverride] = useState<string>(() => getInitialOverride(OVERRIDE_STORAGE_KEYS.formFactor));
-  const [compositionOverride, setCompositionOverride] = useState<string>(() => getInitialOverride(OVERRIDE_STORAGE_KEYS.composition));
-  const [skeletonOverride, setSkeletonOverride] = useState<string>(() => getInitialOverride(OVERRIDE_STORAGE_KEYS.skeleton));
-  const [diagnosticsEnabled, setDiagnosticsEnabled] = useState<boolean>(() => readBooleanSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsEnabled, true));
+  const [diagnosticsEnabled, setDiagnosticsEnabled] = useState<boolean>(false);
   const [diagnosticsVerbose, setDiagnosticsVerbose] = useState<boolean>(() => readBooleanSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsVerbose, false));
   const [diagnosticsCategoryFilters, setDiagnosticsCategoryFilters] = useState<Record<string, boolean>>(() => readDiagnosticsCategoryFilterSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsCategoryFilters));
   const [hostApiBaseUrlOverride, setHostApiBaseUrlOverride] = useState<string>(() => readPersistedOverride(DEV_TOOLS_STORAGE_KEYS.hostApiBaseUrlOverride));
   const [maxDiagnosticsEntries, setMaxDiagnosticsEntries] = useState<number>(() => readNumberSetting(DEV_TOOLS_STORAGE_KEYS.maxDiagnosticsEntries, 150));
+  const [diagnosticsProfile, setDiagnosticsProfile] = useState<DiagnosticsProfile>(() => {
+    const persisted = readPersistedOverride(DEV_TOOLS_STORAGE_KEYS.diagnosticsProfile);
+    return persisted === "Off" || persisted === "Focused" || persisted === "Normal" || persisted === "Verbose" || persisted === "Custom"
+      ? persisted
+      : "Normal";
+  });
+  const [diagnosticsScope, setDiagnosticsScope] = useState<Record<PortalTraceSource, boolean>>(() => ({
+    ...getDiagnosticsProfileScope("Normal"),
+    ...(readDiagnosticsCategoryFilterSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsScope) as Partial<Record<PortalTraceSource, boolean>>)
+  }));
+  const [diagnosticsCaptureStartedUtc, setDiagnosticsCaptureStartedUtc] = useState<string | undefined>(undefined);
+  const [diagnosticsCaptureStoppedUtc, setDiagnosticsCaptureStoppedUtc] = useState<string | undefined>(undefined);
+  const [diagnosticsConsoleVisible, setDiagnosticsConsoleVisible] = useState<boolean>(false);
+  const [diagnosticsDroppedCount, setDiagnosticsDroppedCount] = useState<number>(0);
   const [pollingSettingsOverrideEnabled, setPollingSettingsOverrideEnabled] = useState<boolean>(() => readBooleanSetting(DEV_TOOLS_STORAGE_KEYS.pollingSettingsOverrideEnabled, false));
   const [pollIntervalMsOverride, setPollIntervalMsOverride] = useState<number>(() => readNumberSetting(
     DEV_TOOLS_STORAGE_KEYS.pollIntervalMs,
@@ -320,8 +331,6 @@ export default function App(props: AppProps): JSX.Element {
   const [themeColorValues, setThemeColorValues] = useState<ThemeColorTokens>(DEFAULT_THEME_COLORS);
   const [themeTypographyValues, setThemeTypographyValues] = useState<ThemeTypographyTokens>(DEFAULT_THEME_TYPOGRAPHY);
   const [diagnosticsEntries, setDiagnosticsEntries] = useState<DiagnosticsEntry[]>([]);
-  const [devToolsOpen, setDevToolsOpen] = useState<boolean>(false);
-  const [inspectorOpen, setInspectorOpen] = useState<boolean>(false);
   const isUndockedNonModalWindow = Boolean(window.opener) && Boolean(new URLSearchParams(window.location.search).get("undocked"));
   const liveControlsChannelRef = useRef<BroadcastChannel | null>(null);
   const liveThemeColorsChannelRef = useRef<BroadcastChannel | null>(null);
@@ -333,6 +342,8 @@ export default function App(props: AppProps): JSX.Element {
   const liveThemeColorsSourceIdRef = useRef<string>(Math.random().toString(36).slice(2));
   const liveDiagnosticsSourceIdRef = useRef<string>(Math.random().toString(36).slice(2));
   const diagnosticsEntriesRef = useRef<DiagnosticsEntry[]>([]);
+  const diagnosticsSequenceRef = useRef<number>(0);
+  const diagnosticsDroppedCountRef = useRef<number>(0);
 
   const [preferredInputFocusRestoreEpoch, setPreferredInputFocusRestoreEpoch] = useState<number>(0);
   const preferredInputFocusLockUntilMsRef = useRef<number>(0);
@@ -354,21 +365,78 @@ export default function App(props: AppProps): JSX.Element {
       return;
     }
 
-    const detailText = details && diagnosticsVerbose ? JSON.stringify(details, null, 2) : undefined;
-    const entry: DiagnosticsEntry = {
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      timestamp: new Date().toISOString(),
+    const entry = normalizePortalTraceEvent({
       level,
       category,
       message,
-      details: detailText
-    };
+      details
+    }, diagnosticsSequenceRef.current + 1);
+    diagnosticsSequenceRef.current = entry.sequence;
 
     setDiagnosticsEntries((previous) => {
-      const next = [entry, ...previous];
-      return next.slice(0, Math.max(10, Math.min(500, maxDiagnosticsEntries)));
+      const retention = appendPortalTraceEvent(
+        previous,
+        entry,
+        Math.max(10, Math.min(500, maxDiagnosticsEntries))
+      );
+      diagnosticsDroppedCountRef.current += retention.droppedCount;
+      if (retention.droppedCount > 0) {
+        setDiagnosticsDroppedCount((previous) => previous + retention.droppedCount);
+      }
+      return retention.entries;
     });
-  }, [diagnosticsCategoryFilters, diagnosticsEnabled, diagnosticsVerbose, maxDiagnosticsEntries]);
+  }, [diagnosticsEnabled, diagnosticsScope, maxDiagnosticsEntries]);
+
+  const startDiagnosticsTrace = useCallback((): void => {
+    setDiagnosticsEnabled(true);
+    setDiagnosticsCaptureStartedUtc(new Date().toISOString());
+    setDiagnosticsCaptureStoppedUtc(undefined);
+    diagnosticsDroppedCountRef.current = 0;
+    setDiagnosticsDroppedCount(0);
+  }, []);
+
+  const stopDiagnosticsTrace = useCallback((): void => {
+    setDiagnosticsEnabled(false);
+    setDiagnosticsCaptureStoppedUtc(new Date().toISOString());
+  }, []);
+
+  const showDiagnosticsConsole = useCallback((): void => {
+    setDiagnosticsConsoleVisible(true);
+    setSlotModeOverrides((previous) => ({
+      ...previous,
+      diagnosticsDrawer: "visible"
+    }));
+  }, []);
+
+  const hideDiagnosticsConsole = useCallback((): void => {
+    setDiagnosticsConsoleVisible(false);
+    setSlotModeOverrides((previous) => ({
+      ...previous,
+      diagnosticsDrawer: "hidden"
+    }));
+  }, []);
+
+  const clearDiagnostics = useCallback((): void => {
+    setDiagnosticsEntries([]);
+    diagnosticsEntriesRef.current = [];
+    diagnosticsDroppedCountRef.current = 0;
+    setDiagnosticsDroppedCount(0);
+  }, []);
+
+  const changeDiagnosticsProfile = useCallback((profile: DiagnosticsProfile): void => {
+    setDiagnosticsProfile(profile);
+    if (profile !== "Custom") {
+      setDiagnosticsScope(getDiagnosticsProfileScope(profile));
+    }
+  }, []);
+
+  const changeDiagnosticsScope = useCallback((source: PortalTraceSource, enabled: boolean): void => {
+    setDiagnosticsProfile("Custom");
+    setDiagnosticsScope((previous) => ({
+      ...previous,
+      [source]: enabled
+    }));
+  }, []);
 
   const diagnosticsCategoryOptions = useMemo(() => {
     const byCategory = new Map<string, DiagnosticCategoryOption>();
@@ -396,6 +464,69 @@ export default function App(props: AppProps): JSX.Element {
         enabled: diagnosticsCategoryFilters[option.category] ?? true
       }));
   }, [diagnosticsCategoryFilters, diagnosticsEntries]);
+
+  const diagnosticsWorkspace = useMemo<DiagnosticsWorkspaceProps>(() => ({
+    capturing: diagnosticsEnabled,
+    profile: diagnosticsProfile,
+    scopeOptions: buildDiagnosticsScopeOptions(diagnosticsScope),
+    categoryOptions: diagnosticsCategoryOptions,
+    entryCount: diagnosticsEntries.length,
+    droppedCount: diagnosticsDroppedCount,
+    captureStartedUtc: diagnosticsCaptureStartedUtc,
+    captureStoppedUtc: diagnosticsCaptureStoppedUtc,
+    consoleVisible: diagnosticsConsoleVisible,
+    onStartTrace: startDiagnosticsTrace,
+    onStopTrace: stopDiagnosticsTrace,
+    onShowConsole: showDiagnosticsConsole,
+    onHideConsole: hideDiagnosticsConsole,
+    onClear: clearDiagnostics,
+    onProfileChange: changeDiagnosticsProfile,
+    onScopeEnabledChange: changeDiagnosticsScope,
+    onCategoryEnabledChange: (category, enabled) => {
+      const normalizedCategory = category.trim().toLowerCase();
+      if (!normalizedCategory) {
+        return;
+      }
+
+      setDiagnosticsCategoryFilters((previous) => {
+        if (enabled) {
+          if (!(normalizedCategory in previous)) {
+            return previous;
+          }
+
+          const next = { ...previous };
+          delete next[normalizedCategory];
+          return next;
+        }
+
+        if (previous[normalizedCategory] === false) {
+          return previous;
+        }
+
+        return {
+          ...previous,
+          [normalizedCategory]: false
+        };
+      });
+    }
+  }), [
+    changeDiagnosticsProfile,
+    changeDiagnosticsScope,
+    clearDiagnostics,
+    diagnosticsCaptureStartedUtc,
+    diagnosticsCaptureStoppedUtc,
+    diagnosticsCategoryOptions,
+    diagnosticsConsoleVisible,
+    diagnosticsDroppedCount,
+    diagnosticsEnabled,
+    diagnosticsEntries.length,
+    diagnosticsProfile,
+    diagnosticsScope,
+    hideDiagnosticsConsole,
+    showDiagnosticsConsole,
+    startDiagnosticsTrace,
+    stopDiagnosticsTrace
+  ]);
 
   useEffect(() => {
     diagnosticsEntriesRef.current = diagnosticsEntries;
@@ -677,22 +808,6 @@ export default function App(props: AppProps): JSX.Element {
   }, [contracts]);
 
   useEffect(() => {
-    window.localStorage.setItem(OVERRIDE_STORAGE_KEYS.formFactor, formFactorOverride);
-  }, [formFactorOverride]);
-
-  useEffect(() => {
-    window.localStorage.setItem(OVERRIDE_STORAGE_KEYS.composition, compositionOverride);
-  }, [compositionOverride]);
-
-  useEffect(() => {
-    window.localStorage.setItem(OVERRIDE_STORAGE_KEYS.skeleton, skeletonOverride);
-  }, [skeletonOverride]);
-
-  useEffect(() => {
-    window.localStorage.setItem(DEV_TOOLS_STORAGE_KEYS.diagnosticsEnabled, String(diagnosticsEnabled));
-  }, [diagnosticsEnabled]);
-
-  useEffect(() => {
     window.localStorage.setItem(DEV_TOOLS_STORAGE_KEYS.diagnosticsVerbose, String(diagnosticsVerbose));
   }, [diagnosticsVerbose]);
 
@@ -707,6 +822,14 @@ export default function App(props: AppProps): JSX.Element {
   useEffect(() => {
     window.localStorage.setItem(DEV_TOOLS_STORAGE_KEYS.maxDiagnosticsEntries, String(maxDiagnosticsEntries));
   }, [maxDiagnosticsEntries]);
+
+  useEffect(() => {
+    window.localStorage.setItem(DEV_TOOLS_STORAGE_KEYS.diagnosticsProfile, diagnosticsProfile);
+  }, [diagnosticsProfile]);
+
+  useEffect(() => {
+    window.localStorage.setItem(DEV_TOOLS_STORAGE_KEYS.diagnosticsScope, JSON.stringify(diagnosticsScope));
+  }, [diagnosticsScope]);
 
   useEffect(() => {
     window.localStorage.setItem(DEV_TOOLS_STORAGE_KEYS.pollingSettingsOverrideEnabled, String(pollingSettingsOverrideEnabled));
@@ -748,48 +871,16 @@ export default function App(props: AppProps): JSX.Element {
     return Object.keys(contracts.featureMap.experienceStates).sort();
   }, [contracts]);
 
-  const formFactors = useMemo(() => {
-    if (!contracts) {
-      return [];
-    }
-
-    return Object.keys(contracts.implementations.formFactors).sort();
-  }, [contracts]);
-
-  const compositionProfiles = useMemo(() => {
-    if (!contracts || !state) {
-      return [];
-    }
-
-    return Object.keys(contracts.stateCompositions.stateProfiles[state]?.profiles ?? {}).sort();
-  }, [contracts, state]);
-
-  const skeletonLayouts = useMemo(() => {
-    if (!contracts) {
-      return [];
-    }
-
-    return Object.keys(contracts.skeletonLayouts.skeletonLayouts).sort();
-  }, [contracts]);
-
-  const activeEvents = useMemo(() => {
-    if (!contracts || !state) {
-      return [];
-    }
-
-    return listEventsFromState(contracts, state);
-  }, [contracts, state]);
-
   const effectiveOverrides = useMemo(() => {
     return resolveEffectiveOverrides(
       queryOverrides,
       {
-        ff: formFactorOverride,
-        cp: compositionOverride,
-        sk: skeletonOverride
+        ff: "",
+        cp: "",
+        sk: ""
       }
     );
-  }, [queryOverrides, formFactorOverride, compositionOverride, skeletonOverride]);
+  }, [queryOverrides]);
 
   const plan = useMemo(() => {
     if (!contracts || !state) {
@@ -854,8 +945,10 @@ export default function App(props: AppProps): JSX.Element {
     );
   }, [contracts, activeFormFactorKey]);
 
-  const hasQueryOverrides = Boolean(queryOverrides.ff || queryOverrides.cp || queryOverrides.sk);
-  const slotModeQueryOverrides = readSlotModeQueryOverrides();
+  const slotModeQueryOverrides = useMemo(
+    () => readSlotModeQueryOverrides(launchContext.mode === "devsimulator"),
+    [launchContext.mode]
+  );
 
   const effectiveSlotModes = useMemo(() => {
     const modes: Record<string, SlotMode> = {};
@@ -914,10 +1007,12 @@ export default function App(props: AppProps): JSX.Element {
         hostApiBaseUrlOverride={hostApiBaseUrlOverride}
         maxDiagnosticsEntries={maxDiagnosticsEntries}
         diagnosticsCategoryOptions={diagnosticsCategoryOptions}
+        diagnosticsCategoryFilters={diagnosticsCategoryFilters}
+        diagnosticsWorkspace={diagnosticsWorkspace}
         pollIntervalMs={pollIntervalMs}
         heartbeatEveryNPolls={heartbeatEveryNPolls}
         diagnosticsEntries={diagnosticsEntries}
-        onClearDiagnostics={() => setDiagnosticsEntries([])}
+        onClearDiagnostics={clearDiagnostics}
         onDiagnosticsEnabledChange={setDiagnosticsEnabled}
         onDiagnosticsVerboseChange={setDiagnosticsVerbose}
         onHostApiBaseUrlOverrideChange={setHostApiBaseUrlOverride}
@@ -1009,6 +1104,8 @@ export default function App(props: AppProps): JSX.Element {
     DevToolsPanelComponent,
     diagnosticsEnabled,
     diagnosticsEntries,
+    diagnosticsCategoryFilters,
+    diagnosticsWorkspace,
     diagnosticsVerbose,
     hostApiBaseUrlOverride,
     hostWorkflow,
@@ -1027,24 +1124,9 @@ export default function App(props: AppProps): JSX.Element {
     handleThemeColorsReset,
     handleThemeTypographyChange,
     handleThemeTypographyReset,
-    handleCommandSubmitCompleted
+    handleCommandSubmitCompleted,
+    clearDiagnostics
   ]);
-
-  async function copyShareUrl(): Promise<void> {
-    const text = buildShareUrl(window.location.href, effectiveOverrides);
-    try {
-      await navigator.clipboard.writeText(text);
-      setShareMessage("Share URL copied.");
-    } catch {
-      setShareMessage(`Copy failed. URL: ${text}`);
-    }
-  }
-
-  function clearQueryOverrides(): void {
-    window.history.replaceState({}, "", clearOverrideParams(window.location.href));
-    setQueryOverrides(readQueryOverrides());
-    setShareMessage("URL query overrides cleared.");
-  }
 
   const planWithSlotModeOverrides = useMemo(() => {
     if (!plan.plan) {
@@ -1200,7 +1282,6 @@ export default function App(props: AppProps): JSX.Element {
   }, [contracts, planWithSlotModeOverrides]);
 
   const shellClassName = "shell mode-config";
-  const showLabChrome = launchContext.mode !== "devsimulator";
   const startupSplash = (
     <PortalStartupSplash
       status={startupAudioGate.status}
@@ -1226,140 +1307,6 @@ export default function App(props: AppProps): JSX.Element {
       data-portal-mode={launchContext.mode}
     >
       {startupSplash}
-      {showLabChrome && showInspectorToggle ? (
-        <div className="events">
-          <button type="button" onClick={() => setInspectorOpen((open) => !open)}>
-            {inspectorOpen ? "Hide Inspector" : "Show Inspector"}
-          </button>
-        </div>
-      ) : null}
-
-      {showLabChrome ? <ShellLabControls
-        inspectorOpen={inspectorOpen}
-        devToolsOpen={devToolsOpen}
-        onDevToolsOpenChange={setDevToolsOpen}
-        DevToolsPanelComponent={DevToolsPanelComponent}
-        diagnosticsEnabled={diagnosticsEnabled}
-        diagnosticsVerbose={diagnosticsVerbose}
-        hostApiBaseUrlOverride={hostApiBaseUrlOverride}
-        maxDiagnosticsEntries={maxDiagnosticsEntries}
-        diagnosticsCategoryOptions={diagnosticsCategoryOptions}
-        pollIntervalMs={pollIntervalMs}
-        heartbeatEveryNPolls={heartbeatEveryNPolls}
-        onDiagnosticsEnabledChange={setDiagnosticsEnabled}
-        onDiagnosticsVerboseChange={setDiagnosticsVerbose}
-        onHostApiBaseUrlOverrideChange={setHostApiBaseUrlOverride}
-        onMaxDiagnosticsEntriesChange={setMaxDiagnosticsEntries}
-        onDiagnosticsCategoryEnabledChange={(category, enabled) => {
-          const normalizedCategory = category.trim().toLowerCase();
-          if (!normalizedCategory) {
-            return;
-          }
-
-          setDiagnosticsCategoryFilters((previous) => {
-            if (enabled) {
-              if (!(normalizedCategory in previous)) {
-                return previous;
-              }
-
-              const next = { ...previous };
-              delete next[normalizedCategory];
-              return next;
-            }
-
-            if (previous[normalizedCategory] === false) {
-              return previous;
-            }
-
-            return {
-              ...previous,
-              [normalizedCategory]: false
-            };
-          });
-        }}
-        onSetAllDiagnosticsCategoriesEnabled={(enabled) => {
-          setDiagnosticsCategoryFilters(() => {
-            if (enabled) {
-              return {};
-            }
-
-            const next: Record<string, boolean> = {};
-            for (const option of diagnosticsCategoryOptions) {
-              next[option.category] = false;
-            }
-
-            return next;
-          });
-        }}
-        onPollIntervalMsChange={handlePollIntervalMsChange}
-        onHeartbeatEveryNPollsChange={handleHeartbeatEveryNPollsChange}
-        slotModeOverrides={slotModeOverrides}
-        onSlotModeOverrideChange={(slotKey, mode) => {
-          setSlotModeOverrides((previous) => {
-            if (!mode) {
-              const next = { ...previous };
-              delete next[slotKey];
-              return next;
-            }
-
-            return {
-              ...previous,
-              [slotKey]: mode
-            };
-          });
-        }}
-        effectiveSlotModes={effectiveSlotModes}
-        allowedSlotModes={contracts.uiSlots.allowedSlotModes}
-        showSlotTechnicalDetailsDefault={showSlotTechnicalDetailsDefault}
-        onShowSlotTechnicalDetailsDefaultChange={setShowSlotTechnicalDetailsDefault}
-        slotTechnicalDetailsOverrides={slotTechnicalDetailsOverrides}
-        onSlotTechnicalDetailsOverrideChange={(slotKey, showDetails) => {
-          setSlotTechnicalDetailsOverrides((previous) => ({
-            ...previous,
-            [slotKey]: showDetails
-          }));
-        }}
-        showInspectorToggle={showInspectorToggle}
-        onShowInspectorToggleChange={setShowInspectorToggle}
-        themeColorValues={themeColorValues}
-        onThemeColorChange={handleThemeColorChange}
-        onThemeColorsReset={handleThemeColorsReset}
-        themeTypographyValues={themeTypographyValues}
-        onThemeTypographyChange={handleThemeTypographyChange}
-        onThemeTypographyReset={handleThemeTypographyReset}
-        previewContext={previewContext}
-        state={state}
-        states={states}
-        formFactorOverride={formFactorOverride}
-        formFactors={formFactors}
-        compositionOverride={compositionOverride}
-        compositionProfiles={compositionProfiles}
-        skeletonOverride={skeletonOverride}
-        skeletonLayouts={skeletonLayouts}
-        onStateChange={setState}
-        onFormFactorChange={setFormFactorOverride}
-        onCompositionChange={setCompositionOverride}
-        onSkeletonChange={setSkeletonOverride}
-        onResetOverrides={() => {
-          setFormFactorOverride("");
-          setCompositionOverride("");
-          setSkeletonOverride("");
-        }}
-        onCopyShareUrl={copyShareUrl}
-        onClearQueryOverrides={clearQueryOverrides}
-        hasQueryOverrides={hasQueryOverrides}
-        effectiveOverrides={effectiveOverrides}
-        shareMessage={shareMessage}
-        activeEvents={activeEvents}
-        onTriggerEvent={(evt) => {
-          const next = tryTransition(contracts, state, evt);
-          if (next) {
-            setState(next);
-          }
-        }}
-        hostWorkflow={hostWorkflow}
-      /> : null}
-
       {error ? <section className="error">{error}</section> : null}
 
       {planWithSlotModeOverrides ? (
@@ -1383,13 +1330,6 @@ export default function App(props: AppProps): JSX.Element {
         />
       ) : null}
 
-      {showLabChrome ? (
-        <DiagnosticsConsoleComponent
-          enabled={diagnosticsEnabled}
-          entries={diagnosticsEntries}
-          onClear={() => setDiagnosticsEntries([])}
-        />
-      ) : null}
     </main>
   );
 }

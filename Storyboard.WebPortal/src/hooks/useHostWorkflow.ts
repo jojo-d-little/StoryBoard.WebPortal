@@ -390,9 +390,28 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
 
   const hostApiClient = useMemo(() => {
     return new HostApiClient({
-      baseUrl: options.baseUrlOverride || undefined
+      baseUrl: options.baseUrlOverride || undefined,
+      onTraceEvent: (event) => {
+        const level = event.phase === "failed"
+          ? event.status !== undefined && event.status >= 500 ? "error" : "warn"
+          : "info";
+
+        options.addDiagnostic(level, "transport", `Host API request ${event.phase}.`, {
+          event: "host-api-request",
+          phase: event.phase,
+          method: event.method,
+          path: event.path,
+          durationMs: event.durationMs,
+          status: event.status,
+          correlationId: event.correlationId,
+          requestId: event.requestId,
+          sessionId: event.sessionId,
+          gameId: event.gameId,
+          ...event.details
+        });
+      }
     });
-  }, [options.baseUrlOverride]);
+  }, [options.addDiagnostic, options.baseUrlOverride]);
 
   const {
     presentationCueCatalogRevision,

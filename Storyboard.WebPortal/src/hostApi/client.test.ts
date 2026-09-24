@@ -4,6 +4,49 @@ import { describe, expect, it, vi } from "vitest";
 import { HostApiClient } from "./client";
 
 describe("HostApiClient", () => {
+  it("uses a unique logical correlation id, sends it as a transport header, and reports request metadata", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        result: {
+          success: true,
+          code: "Discovery.Success",
+          diagnosticsMessages: []
+        },
+        totalAvailableCount: 0,
+        games: []
+      })
+    });
+    const traceEvents: Array<{ phase: string; correlationId?: string; requestId?: string; durationMs: number }> = [];
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new HostApiClient({
+      baseUrl: "http://127.0.0.1:5199",
+      onTraceEvent: (event) => traceEvents.push(event)
+    });
+    await client.discoverGames("cred-123");
+
+    const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const payload = JSON.parse(String(request.body)) as { context: { correlationId: string; requestId: string } };
+    const headers = request.headers as Record<string, string>;
+
+    expect(payload.context.correlationId).not.toBe("webportal-discover-games");
+    expect(payload.context.correlationId).toBeTruthy();
+    expect(payload.context.requestId).toBeTruthy();
+    expect(headers["X-Correlation-Id"]).toBe(payload.context.correlationId);
+    expect(traceEvents).toHaveLength(1);
+    expect(traceEvents[0]).toMatchObject({
+      phase: "completed",
+      correlationId: payload.context.correlationId,
+      requestId: payload.context.requestId
+    });
+    expect(traceEvents[0].durationMs).toBeGreaterThanOrEqual(0);
+
+    vi.unstubAllGlobals();
+  });
+
   it("maps authenticate response payload and supports PascalCase fields", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

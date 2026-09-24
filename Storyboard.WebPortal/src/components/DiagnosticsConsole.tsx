@@ -1,19 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { PortalTraceEvent, PortalTraceSeverity } from "../diagnostics/portalTrace";
 
-export type DiagnosticsLevel = "info" | "warn" | "error";
-
-export interface DiagnosticsEntry {
-  id: string;
-  timestamp: string;
-  level: DiagnosticsLevel;
-  category: string;
-  message: string;
-  details?: string;
-}
+export type DiagnosticsLevel = PortalTraceSeverity;
+export type DiagnosticsEntry = PortalTraceEvent;
 
 interface DiagnosticsConsoleProps {
   enabled: boolean;
   entries: DiagnosticsEntry[];
+  categoryFilters?: Record<string, boolean>;
   onClear: () => void;
 }
 
@@ -22,12 +16,20 @@ type ExportStatus =
   | null;
 
 function formatEntry(entry: DiagnosticsEntry): string[] {
-  const header = `[${entry.timestamp}] [${entry.level.toUpperCase()}] ${entry.category}: ${entry.message}`;
-  if (!entry.details) {
+  const sourceAndCategory = `${entry.source}/${entry.category}`;
+  const eventLabel = entry.phase ? `${entry.event}/${entry.phase}` : entry.event;
+  const durationLabel = entry.durationMs === undefined ? "" : ` (${entry.durationMs}ms)`;
+  const header = `[${entry.timestampUtc}] #${entry.sequence} [${entry.severity.toUpperCase()}] ${sourceAndCategory} ${eventLabel}${durationLabel}: ${entry.message}`;
+  if (!entry.details && !entry.correlation) {
     return [header];
   }
 
-  const detailLines = entry.details.split(/\r?\n/).map((line) => `  ${line}`);
+  const detailLines = JSON.stringify({
+    ...(entry.correlation ? { correlation: entry.correlation } : {}),
+    ...(entry.details ? { details: entry.details } : {})
+  }, null, 2)
+    .split(/\r?\n/)
+    .map((line) => `  ${line}`);
   return [header, ...detailLines];
 }
 
@@ -40,17 +42,21 @@ export function DiagnosticsConsole(props: DiagnosticsConsoleProps): JSX.Element 
 
   const filteredEntries = useMemo(() => {
     return props.entries.filter((entry) => {
-      if (entry.level === "info") {
+      if (props.categoryFilters && props.categoryFilters[entry.category] === false) {
+        return false;
+      }
+
+      if (entry.severity === "info") {
         return showInfo;
       }
 
-      if (entry.level === "warn") {
+      if (entry.severity === "warn") {
         return showWarn;
       }
 
       return showError;
     });
-  }, [props.entries, showInfo, showWarn, showError]);
+  }, [props.categoryFilters, props.entries, showInfo, showWarn, showError]);
 
   const terminalText = useMemo(() => {
     if (filteredEntries.length === 0) {
@@ -171,7 +177,7 @@ export function DiagnosticsConsole(props: DiagnosticsConsoleProps): JSX.Element 
         </p>
       ) : null}
 
-      {!props.enabled ? <p className="subtitle">Diagnostics are disabled in Dev Tools.</p> : null}
+      {!props.enabled ? <p className="subtitle">Trace capture is stopped. Existing entries remain available.</p> : null}
 
       {props.entries.length === 0 ? (
         <p className="subtitle">No diagnostics captured yet.</p>
