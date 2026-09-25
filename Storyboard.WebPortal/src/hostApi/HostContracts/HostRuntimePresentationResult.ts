@@ -1,13 +1,13 @@
 import type {
-  HostCommandPhaseChangeData,
-  HostCommandPresentationCueText,
-  HostRoomChangeData
-} from "./HostSessionDataEnvelope";
+  HostCommandPhaseChangeData
+} from "./HostCommandPhaseChangeData";
+import type { HostCommandPresentationCueText } from "./HostCommandPresentationCueText";
+import type { HostCommandRoomChangeData } from "./HostCommandRoomChangeData";
 import type { HostCommandSoundCue } from "./HostCommandSoundCue";
 
-export interface HostRuntimePresentationBaseline {
+export interface HostRuntimePresentationResult {
   sessionDeltaWatermark: string;
-  roomChange?: HostRoomChangeData;
+  roomChange?: HostCommandRoomChangeData;
   phaseChange?: HostCommandPhaseChangeData;
   soundCues: HostCommandSoundCue[];
   orderedTextPresentationSteps?: HostCommandPresentationCueText[];

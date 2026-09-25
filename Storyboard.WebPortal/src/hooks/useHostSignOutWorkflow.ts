@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { webPortalAssetCache } from "../cache/webPortalAssetCache";
 import type { DiagnosticsLevel } from "../components/DiagnosticsConsole";
-import type { HostDiscoveredGame } from "../hostApi/HostContracts";
+import type { HostGameDescriptor } from "../hostApi/HostContracts";
 import type { GameRenderSceneSnapshot } from "../gameRenderer";
 
 interface RendererScaleMetrics {
@@ -32,7 +32,7 @@ interface UseHostSignOutWorkflowOptions {
   refreshCacheStats: () => void;
   setCredentialHandle: (value: string) => void;
   setPrincipalName: (value: string) => void;
-  setDiscoverGames: (games: HostDiscoveredGame[]) => void;
+  setDiscoverGames: (games: HostGameDescriptor[]) => void;
   setSelectedGameId: (value: string) => void;
   setSelectedGameKey: (value: string) => void;
   setRequestedSessionName: (value: string) => void;

@@ -1,7 +1,7 @@
 import type { HostResultEnvelope } from "./HostResultEnvelope";
 
-export interface HostLeaveSessionResponse {
+export interface HostAuthenticateResult {
   result: HostResultEnvelope;
-  sessionId: string;
-  left: boolean;
+  principalName: string;
+  credentialHandle: string;
 }

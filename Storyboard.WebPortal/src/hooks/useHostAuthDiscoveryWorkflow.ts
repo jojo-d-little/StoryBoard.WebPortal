@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { HostApiClient } from "../hostApi/client";
-import type { HostDiscoveredGame, HostGameDetailsDescriptor } from "../hostApi/HostContracts";
+import type { HostGameDescriptor, HostGameDetailsDescriptor } from "../hostApi/HostContracts";
 import type { DiagnosticsLevel } from "../components/DiagnosticsConsole";
 import { ensureCredentialHandle } from "./hostWorkflowGuards";
 
@@ -21,7 +21,7 @@ interface UseHostAuthDiscoveryWorkflowOptions {
   hostApiClient: HostApiClient;
   setCredentialHandle: (value: string) => void;
   setPrincipalName: (value: string) => void;
-  setDiscoverGames: (games: HostDiscoveredGame[]) => void;
+  setDiscoverGames: (games: HostGameDescriptor[]) => void;
   setSelectedGameId: (value: string) => void;
   setSelectedGameKey: (value: string) => void;
   resetSessionSelections: () => void;

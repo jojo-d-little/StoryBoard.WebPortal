@@ -1,8 +1,8 @@
 import type { HostResultEnvelope } from "./HostResultEnvelope";
 import type { HostSessionDescriptor } from "./HostSessionDescriptor";
 
-export interface HostListSessionsResponse {
+export interface HostStartSessionResult {
   result: HostResultEnvelope;
-  sessions: HostSessionDescriptor[];
-  totalAvailableCount: number;
+  session: HostSessionDescriptor | null;
+  created: boolean;
 }

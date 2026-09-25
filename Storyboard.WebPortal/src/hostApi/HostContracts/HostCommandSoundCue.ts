@@ -1,10 +1,7 @@
-export type HostCommandSoundCueOperation = "Play" | "Cancel";
-
-export type HostSoundEffectLane = "Sfx" | "Ambient";
-
-export type HostSoundEffectRepeatMode = "None" | "RepeatForDuration" | "RepeatCount" | "UntilCanceled";
-
-export type HostSoundEffectReplayPolicy = "PlayAgain" | "CancelPreviousAtNextPlay" | "IgnoreIfAlreadyPlaying";
+import type { HostCommandSoundCueOperation } from "./HostCommandSoundCueOperation";
+import type { HostSoundEffectLane } from "./HostSoundEffectLane";
+import type { HostSoundEffectRepeatMode } from "./HostSoundEffectRepeatMode";
+import type { HostSoundEffectReplayPolicy } from "./HostSoundEffectReplayPolicy";
 
 export interface HostCommandSoundCue {
   operation: HostCommandSoundCueOperation;

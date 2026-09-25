@@ -6,7 +6,7 @@ import type { GameRendererRoomPoint } from "../gameRenderer";
 import type { GameRenderTravelDirection } from "../gameRenderer/contracts/sceneTypes";
 import type { GameRendererDiagnosticsEvent, GameRendererRoomTransitionState } from "../gameRenderer";
 import type {
-  HostDiscoveredGame,
+  HostGameDescriptor,
   HostGameDetailsDescriptor,
   HostPendingClarificationRequest,
   HostProcessCommandResult,
@@ -175,7 +175,7 @@ export interface HostWorkflowState {
   setAuthPassword: (value: string) => void;
   credentialHandle: string;
   principalName: string;
-  discoverGames: HostDiscoveredGame[];
+  discoverGames: HostGameDescriptor[];
   selectedGameId: string;
   selectedGameKey: string;
   setSelectedGame: (gameId: string, gameKey: string) => void;
@@ -348,7 +348,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
   const [authPassword, setAuthPassword] = useState<string>(() => options.developmentBootstrap ? "" : "admin");
   const [credentialHandle, setCredentialHandle] = useState<string>("");
   const [principalName, setPrincipalName] = useState<string>("");
-  const [discoverGames, setDiscoverGames] = useState<HostDiscoveredGame[]>([]);
+  const [discoverGames, setDiscoverGames] = useState<HostGameDescriptor[]>([]);
   const [selectedGameId, setSelectedGameId] = useState<string>("");
   const [selectedGameKey, setSelectedGameKey] = useState<string>("");
   const [requestedSessionName, setRequestedSessionName] = useState<string>("WebPortal Session");

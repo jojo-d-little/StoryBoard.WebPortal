@@ -3,54 +3,60 @@ export type { HostRequestContext } from "./HostRequestContext";
 export type { HostClarificationAnswer } from "./HostClarificationAnswer";
 export type { HostClarificationCandidate } from "./HostClarificationCandidate";
 export type { HostPendingClarificationRequest } from "./HostPendingClarificationRequest";
+
 export type { HostAuthenticateRequest } from "./HostAuthenticateRequest";
-export type { HostAuthenticateResponse } from "./HostAuthenticateResponse";
+export type { HostAuthenticateResult } from "./HostAuthenticateResult";
 export type { HostGetCurrentPrincipalRequest } from "./HostGetCurrentPrincipalRequest";
-export type { HostCurrentPrincipalResponse } from "./HostCurrentPrincipalResponse";
+export type { HostGetCurrentPrincipalResult } from "./HostGetCurrentPrincipalResult";
+
 export type { HostDiscoverGamesRequest } from "./HostDiscoverGamesRequest";
-export type { HostDiscoveredGame } from "./HostDiscoveredGame";
-export type { HostDiscoverGamesResponse } from "./HostDiscoverGamesResponse";
+export type { HostGameDescriptor } from "./HostGameDescriptor";
+export type { HostDiscoverGamesResult } from "./HostDiscoverGamesResult";
 export type { HostGameAccessDescriptor } from "./HostGameAccessDescriptor";
 export type { HostGameDetailsDescriptor } from "./HostGameDetailsDescriptor";
-export type { HostGetGameDetailsResponse } from "./HostGetGameDetailsResponse";
+export type { HostGetGameDetailsResult } from "./HostGetGameDetailsResult";
+
 export type { HostSessionDescriptor } from "./HostSessionDescriptor";
 export type { HostStartSessionRequest } from "./HostStartSessionRequest";
-export type { HostStartSessionResponse } from "./HostStartSessionResponse";
+export type { HostStartSessionResult } from "./HostStartSessionResult";
 export type { HostListSessionsRequest } from "./HostListSessionsRequest";
-export type { HostListSessionsResponse } from "./HostListSessionsResponse";
+export type { HostListSessionsResult } from "./HostListSessionsResult";
 export type { HostJoinSessionRequest } from "./HostJoinSessionRequest";
-export type { HostJoinSessionResponse } from "./HostJoinSessionResponse";
+export type { HostJoinSessionResult } from "./HostJoinSessionResult";
 export type { HostLeaveSessionRequest } from "./HostLeaveSessionRequest";
-export type { HostLeaveSessionResponse } from "./HostLeaveSessionResponse";
-export type { HostGameDiagnosticsLevel, HostProcessCommandRequest } from "./HostProcessCommandRequest";
-export type { HostProcessCommandResultCode, HostProcessCommandResult } from "./HostProcessCommandResult";
+export type { HostLeaveSessionResult } from "./HostLeaveSessionResult";
+
+export type { HostGameDiagnosticsLevel } from "./HostGameDiagnosticsLevel";
+export type { HostProcessCommandRequest } from "./HostProcessCommandRequest";
+export type { HostProcessCommandResultCode } from "./HostProcessCommandResultCode";
+export type { HostProcessCommandResult } from "./HostProcessCommandResult";
+
 export type { HostSessionDeltaBatchProfile } from "./HostSessionDeltaBatchProfile";
 export type { HostSessionDeltaPollResultCode } from "./HostSessionDeltaPollResultCode";
-export type {
-	HostCommandSoundCue,
-	HostCommandSoundCueOperation,
-	HostSoundEffectLane,
-	HostSoundEffectRepeatMode,
-	HostSoundEffectReplayPolicy
-} from "./HostCommandSoundCue";
+export type { HostSessionDeltaPollResult } from "./HostSessionDeltaPollResult";
+
+export type { HostCommandSoundCueOperation } from "./HostCommandSoundCueOperation";
+export type { HostSoundEffectLane } from "./HostSoundEffectLane";
+export type { HostSoundEffectRepeatMode } from "./HostSoundEffectRepeatMode";
+export type { HostSoundEffectReplayPolicy } from "./HostSoundEffectReplayPolicy";
+export type { HostCommandSoundCue } from "./HostCommandSoundCue";
+
+export type { HostPresentationCueType } from "./HostPresentationCueType";
+export type { HostRoomChangeTravelDirection } from "./HostRoomChangeTravelDirection";
+export type { HostRoomDisplayMode } from "./HostRoomDisplayMode";
+export type { HostRoomObjectChangeKind } from "./HostRoomObjectChangeKind";
+export type { HostMovementTravelVisualizationMode } from "./HostMovementTravelVisualizationMode";
+export type { HostCommandPresentationCue } from "./HostCommandPresentationCue";
+export type { HostCommandPresentationCueText } from "./HostCommandPresentationCueText";
+export type { HostCommandRenderableImage } from "./HostCommandRenderableImage";
+export type { HostCommandRoomDirectionalImage } from "./HostCommandRoomDirectionalImage";
+export type { HostCommandRenderableRoomObject } from "./HostCommandRenderableRoomObject";
+export type { HostCommandMoveLegTelemetry } from "./HostCommandMoveLegTelemetry";
+export type { HostCommandRoomObjectChange } from "./HostCommandRoomObjectChange";
+export type { HostCommandNewRoomSummary } from "./HostCommandNewRoomSummary";
+export type { HostCommandRoomChangeData } from "./HostCommandRoomChangeData";
+export type { HostCommandPhaseNodeSummary } from "./HostCommandPhaseNodeSummary";
+export type { HostCommandPhaseSummary } from "./HostCommandPhaseSummary";
+export type { HostCommandPhaseChangeData } from "./HostCommandPhaseChangeData";
 export type { HostSessionDataEnvelope } from "./HostSessionDataEnvelope";
-export type {
-	HostRenderableImage,
-	HostPresentationCueType,
-	HostPresentationCue,
-	HostCommandPresentationCueText,
-	HostCommandPhaseNodeSummary,
-	HostCommandPhaseSummary,
-	HostCommandPhaseChangeData,
-	HostRenderableRoomObject,
-	HostRoomObjectChange,
-	HostRoomObjectChangeKind,
-	HostCommandMoveLegTelemetry,
-	HostMovementTravelVisualizationMode,
-	HostRoomDisplayMode,
-	HostRoomDirectionalImage,
-	HostNewRoomSummary,
-	HostRoomChangeData
-} from "./HostSessionDataEnvelope";
-export type { HostSessionDeltaPollResponse } from "./HostSessionDeltaPollResponse";
-export type { HostRuntimePresentationBaseline } from "./HostRuntimePresentationBaseline";
+export type { HostRuntimePresentationResult } from "./HostRuntimePresentationResult";

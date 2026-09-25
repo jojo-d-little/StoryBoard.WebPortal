@@ -1,6 +1,6 @@
 import type { HostResultEnvelope } from "./HostResultEnvelope";
 
-export interface HostCurrentPrincipalResponse {
+export interface HostGetCurrentPrincipalResult {
   result: HostResultEnvelope;
   principalName: string;
 }

@@ -1,7 +1,6 @@
 import type { HostClarificationAnswer } from "./HostClarificationAnswer";
 import type { HostRequestContext } from "./HostRequestContext";
-
-export type HostGameDiagnosticsLevel = "None" | "Low" | "Medium" | "High";
+import type { HostGameDiagnosticsLevel } from "./HostGameDiagnosticsLevel";
 
 export interface HostProcessCommandRequest {
   context: HostRequestContext;

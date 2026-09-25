@@ -1,14 +1,5 @@
 import type { HostPendingClarificationRequest } from "./HostPendingClarificationRequest";
-
-export type HostProcessCommandResultCode =
-  | "Success"
-  | "ClarificationRequired"
-  | "NoMatch"
-  | "CorrelationIdCommandMismatch"
-  | "ClarificationAnswerMismatch"
-  | "ClarificationStateStale"
-  | "DuplicateCorrelationId"
-  | "Failure";
+import type { HostProcessCommandResultCode } from "./HostProcessCommandResultCode";
 
 export interface HostProcessCommandResult {
   commandId: string;

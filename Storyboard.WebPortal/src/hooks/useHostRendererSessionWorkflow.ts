@@ -3,7 +3,7 @@ import type { GameRenderSceneSnapshot, GameRendererRoomTransitionState } from ".
 import { mapHostPresentationToSceneSnapshot, mapHostSessionDataToSceneSnapshot } from "../gameRenderer/adapters";
 import type { DiagnosticsLevel } from "../components/DiagnosticsConsole";
 import { HostApiClient } from "../hostApi/client";
-import type { HostCommandSoundCue, HostRuntimePresentationBaseline, HostSessionDataEnvelope } from "../hostApi/HostContracts";
+import type { HostCommandSoundCue, HostRuntimePresentationResult, HostSessionDataEnvelope } from "../hostApi/HostContracts";
 import { useSessionDeltaPolling } from "./useSessionDeltaPolling";
 import { buildAssetCacheKey, webPortalAssetCache } from "../cache/webPortalAssetCache";
 import type { PresentationCueCatalogDocument } from "../gameRenderer/presentationCue/resolveMovementCueDuration";
@@ -698,7 +698,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   ]);
 
   const applySessionBaseline = useCallback(async (
-    baseline: HostRuntimePresentationBaseline,
+    baseline: HostRuntimePresentationResult,
     source: "startup" | "resync"
   ): Promise<void> => {
     const baselineWatermark = (baseline.sessionDeltaWatermark ?? "").trim();

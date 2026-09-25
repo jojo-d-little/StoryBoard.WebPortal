@@ -1,6 +1,6 @@
 import type {
   HostAuthenticateRequest,
-  HostAuthenticateResponse,
+  HostAuthenticateResult,
   HostCommandMoveLegTelemetry,
   HostCommandSoundCue,
   HostCommandSoundCueOperation,
@@ -9,32 +9,32 @@ import type {
   HostGameDiagnosticsLevel,
   HostPendingClarificationRequest,
   HostProcessCommandResult,
-  HostRuntimePresentationBaseline,
+  HostRuntimePresentationResult,
   HostSoundEffectLane,
   HostSoundEffectReplayPolicy,
   HostSoundEffectRepeatMode,
   HostSessionDataEnvelope,
   HostSessionDeltaBatchProfile,
-  HostSessionDeltaPollResponse,
+  HostSessionDeltaPollResult,
   HostSessionDeltaPollResultCode,
   HostDiscoverGamesRequest,
-  HostCurrentPrincipalResponse,
-  HostDiscoverGamesResponse,
-  HostDiscoveredGame,
+  HostGetCurrentPrincipalResult,
+  HostDiscoverGamesResult,
+  HostGameDescriptor,
   HostGameDetailsDescriptor,
-  HostGetGameDetailsResponse,
+  HostGetGameDetailsResult,
   HostGetCurrentPrincipalRequest,
   HostJoinSessionRequest,
-  HostJoinSessionResponse,
+  HostJoinSessionResult,
   HostLeaveSessionRequest,
-  HostLeaveSessionResponse,
+  HostLeaveSessionResult,
   HostListSessionsRequest,
-  HostListSessionsResponse,
-  HostRenderableImage,
+  HostListSessionsResult,
+  HostCommandRenderableImage,
   HostRequestContext,
   HostSessionDescriptor,
   HostStartSessionRequest,
-  HostStartSessionResponse,
+  HostStartSessionResult,
   HostResultEnvelope
 } from "./HostContracts";
 
@@ -74,7 +74,7 @@ export class HostApiClient {
     this.onTraceEvent = options?.onTraceEvent;
   }
 
-  async authenticate(username: string, password: string): Promise<HostAuthenticateResponse> {
+  async authenticate(username: string, password: string): Promise<HostAuthenticateResult> {
     const payload: HostAuthenticateRequest = {
       context: this.buildContext("webportal-authenticate"),
       username,
@@ -92,7 +92,7 @@ export class HostApiClient {
     };
   }
 
-  async getCurrentPrincipal(credentialHandle: string): Promise<HostCurrentPrincipalResponse> {
+  async getCurrentPrincipal(credentialHandle: string): Promise<HostGetCurrentPrincipalResult> {
     const payload: HostGetCurrentPrincipalRequest = {
       context: this.buildContext("webportal-current-principal", credentialHandle),
       credentialHandle
@@ -107,7 +107,7 @@ export class HostApiClient {
     };
   }
 
-  async discoverGames(credentialHandle: string, searchText = "", maxItems = 25): Promise<HostDiscoverGamesResponse> {
+  async discoverGames(credentialHandle: string, searchText = "", maxItems = 25): Promise<HostDiscoverGamesResult> {
     const payload: HostDiscoverGamesRequest = {
       context: this.buildContext("webportal-discover-games", credentialHandle),
       searchText,
@@ -125,7 +125,7 @@ export class HostApiClient {
     };
   }
 
-  async getGameDetails(credentialHandle: string, gameId: string, gameKey = ""): Promise<HostGetGameDetailsResponse> {
+  async getGameDetails(credentialHandle: string, gameId: string, gameKey = ""): Promise<HostGetGameDetailsResult> {
     const payload = {
       context: this.buildContext("webportal-game-details", credentialHandle),
       gameId,
@@ -237,7 +237,7 @@ export class HostApiClient {
     gameKey: string,
     requestedSessionName: string,
     requestedJoinPolicy: string
-  ): Promise<HostStartSessionResponse> {
+  ): Promise<HostStartSessionResult> {
     const payload: HostStartSessionRequest = {
       context: this.buildContext("webportal-start-session", credentialHandle),
       gameId,
@@ -265,7 +265,7 @@ export class HostApiClient {
       includeJoinableOnly?: boolean;
       maxItems?: number;
     }
-  ): Promise<HostListSessionsResponse> {
+  ): Promise<HostListSessionsResult> {
     const payload: HostListSessionsRequest = {
       context: this.buildContext("webportal-list-sessions", credentialHandle),
       gameId: options?.gameId || "00000000-0000-0000-0000-000000000000",
@@ -291,7 +291,7 @@ export class HostApiClient {
     sessionId: string,
     inviteCode = "",
     requestOwnerApproval = false
-  ): Promise<HostJoinSessionResponse> {
+  ): Promise<HostJoinSessionResult> {
     const payload: HostJoinSessionRequest = {
       context: this.buildContext("webportal-join-session", credentialHandle, sessionId),
       sessionId,
@@ -309,7 +309,7 @@ export class HostApiClient {
     };
   }
 
-  async leaveSession(credentialHandle: string, sessionId: string): Promise<HostLeaveSessionResponse> {
+  async leaveSession(credentialHandle: string, sessionId: string): Promise<HostLeaveSessionResult> {
     const payload: HostLeaveSessionRequest = {
       context: this.buildContext("webportal-leave-session", credentialHandle, sessionId),
       sessionId
@@ -350,7 +350,7 @@ export class HostApiClient {
     sessionId: string,
     watermark: string,
     batchProfile: HostSessionDeltaBatchProfile
-  ): Promise<HostSessionDeltaPollResponse> {
+  ): Promise<HostSessionDeltaPollResult> {
     const context = this.buildContext("webportal-session-deltas", credentialHandle, sessionId);
     const path = this.buildSessionDeltaPath("/api/v1/session/deltas", watermark, batchProfile);
     const data = await this.postJson<Record<string, unknown>>(path, context);
@@ -367,7 +367,7 @@ export class HostApiClient {
     credentialHandle: string,
     sessionId: string,
     diagnosticsLevel = "None"
-  ): Promise<HostRuntimePresentationBaseline> {
+  ): Promise<HostRuntimePresentationResult> {
     const context = this.buildContext("webportal-session-baseline", credentialHandle, sessionId);
     const path = this.buildSessionBaselinePath("/api/v1/session/baseline", diagnosticsLevel);
     const data = await this.postJson<Record<string, unknown>>(path, context);
@@ -493,7 +493,7 @@ export class HostApiClient {
     return `fallback-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 
-  private readDiscoveredGame(input: unknown): HostDiscoveredGame {
+  private readDiscoveredGame(input: unknown): HostGameDescriptor {
     const game = this.asRecord(input);
 
     return {
@@ -1116,7 +1116,7 @@ export class HostApiClient {
     });
   }
 
-  private readRenderableImage(source: Record<string, unknown>): HostRenderableImage {
+  private readRenderableImage(source: Record<string, unknown>): HostCommandRenderableImage {
     const additionalSituationalScale = this.readOptionalFiniteNumber(source, ["additionalSituationalScale", "AdditionalSituationalScale"]);
 
     return {

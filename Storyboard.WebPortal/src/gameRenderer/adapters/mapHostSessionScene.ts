@@ -1,4 +1,4 @@
-import type { HostCommandMoveLegTelemetry, HostRenderableRoomObject, HostRoomDisplayMode, HostSessionDataEnvelope } from "../../hostApi/HostContracts";
+import type { HostCommandMoveLegTelemetry, HostCommandRenderableRoomObject, HostRoomDisplayMode, HostSessionDataEnvelope } from "../../hostApi/HostContracts";
 import type { GameRenderDisplayMode, GameRenderMoveLegTelemetry, GameRenderRoomObject, GameRenderSceneSnapshot } from "../contracts/sceneTypes";
 import { buildDirectionalOverlayScene } from "../scene";
 
@@ -119,7 +119,7 @@ function resolveRoomBounds(source: HostPresentationSceneSource): { width: number
 }
 
 function mapRenderableRoomObject(
-  roomObject: HostRenderableRoomObject
+  roomObject: HostCommandRenderableRoomObject
 ): GameRenderRoomObject | null {
   const imagePath = roomObject.renderableImage.imagePath.trim();
   if (!imagePath) {

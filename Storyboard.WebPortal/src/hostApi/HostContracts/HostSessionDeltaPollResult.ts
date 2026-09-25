@@ -1,7 +1,7 @@
 import type { HostSessionDataEnvelope } from "./HostSessionDataEnvelope";
 import type { HostSessionDeltaPollResultCode } from "./HostSessionDeltaPollResultCode";
 
-export interface HostSessionDeltaPollResponse {
+export interface HostSessionDeltaPollResult {
   resultCode: HostSessionDeltaPollResultCode;
   sessionData: HostSessionDataEnvelope | null;
   sessionDeltaWatermark: string;

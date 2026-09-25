@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { DiagnosticsLevel } from "../components/DiagnosticsConsole";
 import { HostApiClient } from "../hostApi/client";
-import type { HostRuntimePresentationBaseline, HostSessionDataEnvelope } from "../hostApi/HostContracts";
+import type { HostRuntimePresentationResult, HostSessionDataEnvelope } from "../hostApi/HostContracts";
 
 interface SessionDeltaPollingSettings {
   pollIntervalMs: number;
@@ -19,7 +19,7 @@ interface UseSessionDeltaPollingOptions {
   isPaused?: () => boolean;
   allowInTest?: boolean;
   onSessionData?: (sessionData: HostSessionDataEnvelope) => void;
-  onResyncBaseline?: (baseline: HostRuntimePresentationBaseline) => void | Promise<void>;
+  onResyncBaseline?: (baseline: HostRuntimePresentationResult) => void | Promise<void>;
   addDiagnostic: (level: DiagnosticsLevel, category: string, message: string, details?: unknown) => void;
 }
 
