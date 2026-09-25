@@ -1,6 +1,11 @@
 import { useState } from "react";
 import type { SlotMode, ThemeContract } from "../orchestration/types";
 import type { WebPortalAssetCacheStats } from "../cache/webPortalAssetCache";
+import type {
+  PresentationIsolationCategory,
+  PresentationIsolationCategoryOption,
+  PresentationIsolationSettings
+} from "../gameRenderer/presentationIsolation";
 import { DiagnosticsWorkspace, type DiagnosticsWorkspaceProps } from "./DiagnosticsWorkspace";
 
 type SlotModeOverrides = Record<string, SlotMode>;
@@ -178,6 +183,10 @@ interface DevToolsPanelProps {
   onAmbientMutedChange: (value: boolean) => void;
   ambientVolumePercent: number;
   onAmbientVolumePercentChange: (value: number) => void;
+  presentationIsolationSettings: PresentationIsolationSettings;
+  presentationIsolationCategoryOptions: PresentationIsolationCategoryOption[];
+  onPresentationIsolationEnabledChange: (value: boolean) => void;
+  onPresentationIsolationCategoryEnabledChange: (category: PresentationIsolationCategory, value: boolean) => void;
   roomTransitionCueOptions: Array<{
     effectKey: string;
     displayName: string;
@@ -202,7 +211,7 @@ interface DevToolsPanelProps {
 }
 
 export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
-  const [activeSection, setActiveSection] = useState<"host" | "diagnostics" | "polling" | "layout" | "theme" | "cache" | "audio" | "roomTransitions">("polling");
+  const [activeSection, setActiveSection] = useState<"host" | "diagnostics" | "polling" | "layout" | "theme" | "cache" | "presentationEffects" | "audio" | "roomTransitions">("polling");
   const [clearingPersistentCache, setClearingPersistentCache] = useState<boolean>(false);
   const slotKeys = Object.keys(props.effectiveSlotModes).sort();
   const themeColorKeys = Object.keys(THEME_COLOR_DESCRIPTIONS) as ThemeColorTokenKey[];
@@ -279,6 +288,13 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
             onClick={() => setActiveSection("cache")}
           >
             Cache
+          </button>
+          <button
+            type="button"
+            className={activeSection === "presentationEffects" ? "active" : ""}
+            onClick={() => setActiveSection("presentationEffects")}
+          >
+            Presentation Effects
           </button>
           <button
             type="button"
@@ -538,6 +554,40 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                 <li>TTL expirations: {props.cacheStats.ttlExpirations}</li>
                 <li>Parse failures: {props.cacheStats.parseFailures}</li>
                 <li>IndexedDB errors: {props.cacheStats.indexedDbErrors}</li>
+              </ul>
+            </>
+          ) : null}
+
+          {activeSection === "presentationEffects" ? (
+            <>
+              <h3>Presentation Effects</h3>
+              <p className="subtitle">Portal-local renderer controls for this development session. Host state, cues, and diagnostics continue while effects are suppressed.</p>
+
+              <div className="grid">
+                <label>
+                  <span>Presentation Effects Enabled</span>
+                  <input
+                    type="checkbox"
+                    checked={props.presentationIsolationSettings.enabled}
+                    onChange={(e) => props.onPresentationIsolationEnabledChange(e.target.checked)}
+                  />
+                </label>
+
+                {props.presentationIsolationCategoryOptions.map((option) => (
+                  <label key={option.key}>
+                    <span>{option.label}</span>
+                    <input
+                      type="checkbox"
+                      checked={props.presentationIsolationSettings.categories[option.key]}
+                      onChange={(e) => props.onPresentationIsolationCategoryEnabledChange(option.key, e.target.checked)}
+                    />
+                  </label>
+                ))}
+              </div>
+
+              <ul className="devtools-status-list" aria-label="Presentation isolation status">
+                <li>Scope: Portal renderer/client only</li>
+                <li>Catalog categories: {props.presentationIsolationCategoryOptions.map((option) => option.catalogCategory).join(", ") || "(none)"}</li>
               </ul>
             </>
           ) : null}

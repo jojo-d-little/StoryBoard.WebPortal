@@ -44,6 +44,13 @@ import {
   type ResolvedStyledPointEffect
 } from "../gameRenderer/presentationCue/resolveMovementCueDuration";
 import type { PortalStartupAudioStatus } from "./usePortalStartupAudioGate";
+import {
+  DEFAULT_PRESENTATION_ISOLATION_SETTINGS,
+  resolvePresentationIsolationCategoryOptions,
+  type PresentationIsolationCategory,
+  type PresentationIsolationCategoryOption,
+  type PresentationIsolationSettings
+} from "../gameRenderer/presentationIsolation";
 
 export type HostOperationKey =
   | "none"
@@ -251,6 +258,10 @@ export interface HostWorkflowState {
   setAmbientMuted: (value: boolean) => void;
   ambientVolumePercent: number;
   setAmbientVolumePercent: (value: number) => void;
+  presentationIsolationSettings: PresentationIsolationSettings;
+  presentationIsolationCategoryOptions: PresentationIsolationCategoryOption[];
+  setPresentationIsolationEnabled: (value: boolean) => void;
+  setPresentationIsolationCategoryEnabled: (category: PresentationIsolationCategory, value: boolean) => void;
   roomTransitionCueOptions: RoomTransitionCueOption[];
   selectedRoomTransitionCueEffectKey: string;
   setSelectedRoomTransitionCueEffectKey: (effectKey: string) => void;
@@ -370,6 +381,10 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
   const [sfxVolumePercent, setSfxVolumePercent] = useState<number>(options.audioDefaults.lanes.sfx.volumePercent);
   const [ambientMuted, setAmbientMuted] = useState<boolean>(options.audioDefaults.lanes.ambient.muted);
   const [ambientVolumePercent, setAmbientVolumePercent] = useState<number>(options.audioDefaults.lanes.ambient.volumePercent);
+  const [presentationIsolationSettings, setPresentationIsolationSettings] = useState<PresentationIsolationSettings>(() => ({
+    enabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.enabled,
+    categories: { ...DEFAULT_PRESENTATION_ISOLATION_SETTINGS.categories }
+  }));
   const [gameplayInteractionSubstate, setGameplayInteractionSubstate] = useState<GameplayInteractionSubstate>("DefaultClick");
   const [waypointDraftCount, setWaypointDraftCount] = useState<number>(0);
   const [waypointRendererBridge, setWaypointRendererBridge] = useState<WaypointInteractionRendererBridge | null>(null);
@@ -452,6 +467,38 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     );
   }, [getCurrentPresentationCueCatalog, waypointPointPlacementCueEffectKey, presentationCueCatalogRevision]);
 
+  const presentationIsolationCategoryOptions = useMemo(
+    () => resolvePresentationIsolationCategoryOptions(getCurrentPresentationCueCatalog()),
+    [getCurrentPresentationCueCatalog, presentationCueCatalogRevision]
+  );
+
+  const setPresentationIsolationEnabled = useCallback((value: boolean): void => {
+    setPresentationIsolationSettings((previous) => ({
+      ...previous,
+      enabled: value
+    }));
+    options.addDiagnostic("info", "presentation-cues", "Updated global Portal presentation isolation setting.", {
+      enabled: value
+    });
+  }, [options.addDiagnostic]);
+
+  const setPresentationIsolationCategoryEnabled = useCallback((
+    category: PresentationIsolationCategory,
+    value: boolean
+  ): void => {
+    setPresentationIsolationSettings((previous) => ({
+      ...previous,
+      categories: {
+        ...previous.categories,
+        [category]: value
+      }
+    }));
+    options.addDiagnostic("info", "presentation-cues", "Updated Portal presentation isolation category setting.", {
+      category,
+      enabled: value
+    });
+  }, [options.addDiagnostic]);
+
   const {
     roomTransitionCueOptions,
     selectedRoomTransitionCueEffectKey,
@@ -492,6 +539,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     clearPhasePresentationState
   } = useSessionPhasePresentationWorkflow({
     activeSessionId,
+    presentationIsolationSettings,
     addDiagnostic: options.addDiagnostic,
     appendSessionOutputLines,
     resolveTextPresentationCue: (step) => {
@@ -1092,6 +1140,10 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     setAmbientMuted,
     ambientVolumePercent,
     setAmbientVolumePercent,
+    presentationIsolationSettings,
+    presentationIsolationCategoryOptions,
+    setPresentationIsolationEnabled,
+    setPresentationIsolationCategoryEnabled,
     roomTransitionCueOptions,
     selectedRoomTransitionCueEffectKey,
     setSelectedRoomTransitionCueEffectKey,

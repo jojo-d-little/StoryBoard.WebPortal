@@ -28,6 +28,7 @@ export function SessionPlaySurfaceHostV1(props: SessionPlaySurfaceHostV1Props): 
     <SessionPlaySurfaceRendererV1
       activeSessionId={props.hostWorkflow.activeSessionId}
       sceneSnapshot={props.hostWorkflow.rendererSceneSnapshot}
+      presentationIsolationSettings={props.hostWorkflow.presentationIsolationSettings}
       roomTransitionPreparationEpoch={props.hostWorkflow.roomTransitionPreparationEpoch}
       gameplayInteractionSubstate={props.hostWorkflow.gameplayInteractionSubstate}
       waypointDraftCount={props.hostWorkflow.waypointDraftCount}

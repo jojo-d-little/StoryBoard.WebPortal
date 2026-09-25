@@ -4,6 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useSessionPhasePresentationWorkflow } from "./useSessionPhasePresentationWorkflow";
 import type { HostSessionDataEnvelope } from "../hostApi/HostContracts";
+import { DEFAULT_PRESENTATION_ISOLATION_SETTINGS } from "../gameRenderer/presentationIsolation";
 
 function createBaseSessionData(): HostSessionDataEnvelope {
   return {
@@ -188,5 +189,64 @@ describe("useSessionPhasePresentationWorkflow", () => {
       motionOutMs: 300,
       isManualDismiss: false
     });
+  });
+
+  it("clears active text presentation and preserves cue diagnostics when text is disabled", () => {
+    const addDiagnostic = vi.fn();
+    const isolationSettings = {
+      ...DEFAULT_PRESENTATION_ISOLATION_SETTINGS,
+      categories: {
+        ...DEFAULT_PRESENTATION_ISOLATION_SETTINGS.categories,
+        text: true
+      }
+    };
+
+    const { result, rerender } = renderHook(
+      (settings) => useSessionPhasePresentationWorkflow({
+        activeSessionId: "session-1",
+        presentationIsolationSettings: settings,
+        addDiagnostic,
+        appendSessionOutputLines: vi.fn(),
+        resolveTextPresentationCue: () => ({
+          target: "hud-overlay" as const,
+          isManualDismiss: true,
+          durationMs: 0
+        })
+      }),
+      { initialProps: isolationSettings }
+    );
+
+    const sessionData = createBaseSessionData();
+    sessionData.orderedTextPresentationSteps = [
+      {
+        category: "Text",
+        effectKey: "text.hud.page",
+        bodyText: "HUD line",
+        presentationCueEffectKey: "text.hud.page"
+      }
+    ];
+
+    act(() => {
+      result.current.consumeSessionDeltaPhasePresentation(sessionData);
+    });
+    expect(result.current.hudOverlayEntries).toHaveLength(1);
+
+    act(() => {
+      rerender({
+        ...isolationSettings,
+        categories: {
+          ...isolationSettings.categories,
+          text: false
+        }
+      });
+    });
+
+    expect(result.current.hudOverlayEntries).toHaveLength(0);
+    expect(addDiagnostic).toHaveBeenCalledWith(
+      "info",
+      "presentation-cues",
+      "Applied ordered phase text presentation steps.",
+      expect.objectContaining({ textPresentationEnabled: true })
+    );
   });
 });

@@ -13,6 +13,11 @@ import {
   type StyledPointEffectController,
   type StyledPointEffectIntent
 } from "./effects/styledPoint/StyledPointEffectController";
+import {
+  DEFAULT_PRESENTATION_ISOLATION_SETTINGS,
+  isPresentationCategoryEnabled,
+  type PresentationIsolationSettings
+} from "../presentationIsolation";
 import type { Ticker } from "pixi.js";
 import { Application, Assets, Container, Graphics, Sprite } from "pixi.js";
 
@@ -22,6 +27,7 @@ export interface CreateGameRendererOptions {
   diagnosticsSink?: GameRendererDiagnosticsSink;
   intentSink?: GameRendererIntentSink;
   onRoomTransitionStateChanged?: (state: GameRendererRoomTransitionState) => void;
+  presentationIsolationSettings?: PresentationIsolationSettings;
 }
 
 export type GameRendererInteractionMode = "CommandClick" | "WaypointMoveSetup";
@@ -44,6 +50,7 @@ export interface GameRendererHandle {
   clearWaypoints: () => void;
   removeLastWaypoint: () => boolean;
   applyStyledPointEffectIntent: (input: StyledPointEffectIntent) => void;
+  setPresentationIsolationSettings: (settings: PresentationIsolationSettings) => void;
   dispose: () => void;
 }
 
@@ -170,6 +177,16 @@ function areSilhouettePassesEquivalent(
 export function createGameRenderer(mountElement: HTMLElement, options: CreateGameRendererOptions = {}): GameRendererHandle {
   const diagnostics = options.diagnosticsSink;
   void options.intentSink;
+
+  let presentationIsolationSettings: PresentationIsolationSettings = options.presentationIsolationSettings
+    ? {
+        enabled: options.presentationIsolationSettings.enabled,
+        categories: { ...options.presentationIsolationSettings.categories }
+      }
+    : {
+        enabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.enabled,
+        categories: { ...DEFAULT_PRESENTATION_ISOLATION_SETTINGS.categories }
+      };
 
   const app = new Application();
   const stageRoot = new Container();
@@ -527,6 +544,36 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     });
   }
 
+  function completeMovementTweens(surface: RoomSurfaceState, reason: string): void {
+    if (surface.activeMovementTweensByObjectId.size === 0) {
+      return;
+    }
+
+    for (const [objectId, tween] of surface.activeMovementTweensByObjectId) {
+      const finalSegment = tween.segments[tween.segments.length - 1];
+      if (!finalSegment) {
+        surface.activeMovementTweensByObjectId.delete(objectId);
+        continue;
+      }
+
+      tween.state.root.position.set(finalSegment.toX, finalSegment.toY);
+      tween.state.root.zIndex = tween.toZOrder;
+      applyScaleLayers(tween.state, tween.baseScale, tween.toSituationalScale);
+      syncRoomObjectAppearanceEffects(surface, objectId);
+      surface.activeMovementTweensByObjectId.delete(objectId);
+    }
+
+    diagnostics?.({
+      category: "scene",
+      level: "info",
+      message: "Completed active movement effects after presentation isolation changed.",
+      details: {
+        surface: surface.label,
+        reason
+      }
+    });
+  }
+
   function clearSurfaceSprites(surface: RoomSurfaceState): void {
     clearDirectionalOverlaySprites(surface);
     clearRoomObjectSprites(surface);
@@ -630,6 +677,15 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     generation: number,
     modeOverride?: RoomSwapTween["mode"]
   ): boolean {
+    if (!isPresentationCategoryEnabled(presentationIsolationSettings, "roomTransition")) {
+      emit("info", "Suppressed room-transition presentation effect.", {
+        roomId: scene.roomId || "(unknown)",
+        cueCategory: scene.roomTransition?.cueCategory || "(none)",
+        cueEffectKey: scene.roomTransition?.cueEffectKey || "(none)"
+      });
+      return false;
+    }
+
     const durationMs = Math.max(0, Math.round(scene.roomTransition?.durationMs ?? 0));
     if (durationMs <= 0) {
       return false;
@@ -1031,6 +1087,82 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     }
   }
 
+  function completeRoomSwapImmediately(reason: string): void {
+    if (!activeRoomSwapTween) {
+      return;
+    }
+
+    const completedTween = activeRoomSwapTween;
+    activeRoomSurface.root.position.set(0, 0);
+    activeRoomSurface.root.alpha = 1;
+    stagingRoomSurface.root.position.set(0, 0);
+    stagingRoomSurface.root.alpha = 1;
+    blackoutOverlay.alpha = 0;
+    blackoutOverlay.visible = false;
+    activateStagedSurface();
+    activeSurfaceScene = currentScene;
+    if (currentScene) {
+      hudOverlayController.reconcile(currentScene, viewportWidth, viewportHeight);
+    }
+    clearSnapshotTransition();
+    activeRoomSwapTween = null;
+    reportRoomTransitionState("complete");
+
+    emit("info", "Completed room transition after presentation isolation changed.", {
+      mode: completedTween.mode,
+      cueEffectKey: completedTween.cueEffectKey,
+      reason
+    });
+  }
+
+  function applyPresentationIsolationSettings(settings: PresentationIsolationSettings): void {
+    const previousSettings = presentationIsolationSettings;
+    presentationIsolationSettings = {
+      enabled: settings.enabled,
+      categories: { ...settings.categories }
+    };
+
+    const movementDisabled = previousSettings.enabled
+      && !isPresentationCategoryEnabled(presentationIsolationSettings, "movement");
+    const roomTransitionDisabled = previousSettings.enabled
+      && !isPresentationCategoryEnabled(presentationIsolationSettings, "roomTransition");
+    const appearanceDisabled = previousSettings.enabled
+      && !isPresentationCategoryEnabled(presentationIsolationSettings, "appearance");
+    const styledPointDisabled = previousSettings.enabled
+      && !isPresentationCategoryEnabled(presentationIsolationSettings, "styledPointEffect");
+
+    if (movementDisabled || !presentationIsolationSettings.enabled) {
+      completeMovementTweens(activeRoomSurface, "movement-category-disabled");
+      completeMovementTweens(stagingRoomSurface, "movement-category-disabled");
+    }
+
+    if (roomTransitionDisabled || !presentationIsolationSettings.enabled) {
+      completeRoomSwapImmediately("room-transition-category-disabled");
+      clearPreparedOutgoingSnapshot();
+    }
+
+    if (appearanceDisabled || !presentationIsolationSettings.enabled) {
+      activeRoomSurface.appearanceOutlineEffectController.clear();
+      activeRoomSurface.appearanceSilhouetteEffectController.clear();
+      stagingRoomSurface.appearanceOutlineEffectController.clear();
+      stagingRoomSurface.appearanceSilhouetteEffectController.clear();
+    }
+
+    if (styledPointDisabled || !presentationIsolationSettings.enabled) {
+      activeRoomSurface.styledPointEffectController.clear();
+      stagingRoomSurface.styledPointEffectController.clear();
+    }
+
+    emit("info", "Updated Portal presentation isolation settings.", {
+      enabled: presentationIsolationSettings.enabled,
+      categories: presentationIsolationSettings.categories,
+      movementEffectsCompleted: movementDisabled || !presentationIsolationSettings.enabled,
+      roomTransitionCompleted: roomTransitionDisabled || !presentationIsolationSettings.enabled,
+      appearanceEffectsCleared: appearanceDisabled || !presentationIsolationSettings.enabled,
+      styledPointEffectsCleared: styledPointDisabled || !presentationIsolationSettings.enabled
+    });
+  }
+
   function updateSnapshotTransitionMask(): void {
     snapshotTransitionMask
       .clear()
@@ -1227,6 +1359,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     previousScene: GameRenderSceneSnapshot | null,
     surface: RoomSurfaceState
   ): Promise<void> {
+    const appearanceEffectsEnabled = isPresentationCategoryEnabled(presentationIsolationSettings, "appearance");
+    const movementEffectsEnabled = isPresentationCategoryEnabled(presentationIsolationSettings, "movement");
     const previousRoomObjectsById = new Map(
       (previousScene?.roomObjects ?? []).map((roomObject) => [roomObject.objectId, roomObject])
     );
@@ -1312,7 +1446,9 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       }
 
       try {
-        const movementDurationMs = Math.max(0, Math.round(roomObject.movementDurationMs ?? 0));
+        const movementDurationMs = movementEffectsEnabled
+          ? Math.max(0, Math.round(roomObject.movementDurationMs ?? 0))
+          : 0;
         let roomObjectSpriteState = surface.roomObjectSpritesById.get(roomObject.objectId);
         let sprite = roomObjectSpriteState?.sprite;
 
@@ -1387,18 +1523,23 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         roomObjectSpriteState.root.zIndex = currentZOrder;
         applyScaleLayers(roomObjectSpriteState, currentBaseScale, currentSituationalScale);
 
-        surface.appearanceOutlineEffectController.applyForObject(
-          roomObject.objectId,
-          roomObject.objectName,
-          roomObjectSpriteState.effectTransformHost,
-          roomObjectSpriteState.sprite,
-          roomObject.appearanceOutlineStyle);
-        surface.appearanceSilhouetteEffectController.applyForObject(
-          roomObject.objectId,
-          roomObject.objectName,
-          roomObjectSpriteState.effectTransformHost,
-          roomObjectSpriteState.sprite,
-          roomObject.appearanceSilhouetteStyle);
+        if (appearanceEffectsEnabled) {
+          surface.appearanceOutlineEffectController.applyForObject(
+            roomObject.objectId,
+            roomObject.objectName,
+            roomObjectSpriteState.effectTransformHost,
+            roomObjectSpriteState.sprite,
+            roomObject.appearanceOutlineStyle);
+          surface.appearanceSilhouetteEffectController.applyForObject(
+            roomObject.objectId,
+            roomObject.objectName,
+            roomObjectSpriteState.effectTransformHost,
+            roomObjectSpriteState.sprite,
+            roomObject.appearanceSilhouetteStyle);
+        } else {
+          surface.appearanceOutlineEffectController.removeObject(roomObject.objectId);
+          surface.appearanceSilhouetteEffectController.removeObject(roomObject.objectId);
+        }
 
         const currentX = roomObjectSpriteState.root.position.x;
         const currentY = roomObjectSpriteState.root.position.y;
@@ -1698,7 +1839,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       // This pre-render boundary exists only to freeze the outgoing image for snapshot slides.
       // A late preparation during a live fade-blackout would put a snapshot layer above the
       // blackout overlay and make the transition look like an abrupt swap.
-      if (requestedMode !== "slide") {
+      if (requestedMode !== "slide"
+        || !isPresentationCategoryEnabled(presentationIsolationSettings, "roomTransition")) {
         return;
       }
 
@@ -1743,7 +1885,12 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       const isRoomChanged = previousScene !== null && previousScene.roomId !== scene.roomId;
       const transitionDurationMs = Math.max(0, Math.round(scene.roomTransition?.durationMs ?? 0));
       const requestedTransitionMode = scene.roomTransition?.mode ?? "slide";
+      const roomTransitionEffectsEnabled = isPresentationCategoryEnabled(
+        presentationIsolationSettings,
+        "roomTransition"
+      );
       const shouldDelayBoundsSwap = isRoomChanged
+        && roomTransitionEffectsEnabled
         && (requestedTransitionMode === "fade-blackout" || requestedTransitionMode === "slide")
         && transitionDurationMs > 0;
 
@@ -1762,7 +1909,11 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         reportRoomTransitionState("preparing");
       }
 
-      if (isRoomChanged && requestedTransitionMode === "slide" && transitionDurationMs > 0 && previousScene) {
+      if (isRoomChanged
+        && roomTransitionEffectsEnabled
+        && requestedTransitionMode === "slide"
+        && transitionDurationMs > 0
+        && previousScene) {
         if (preparedOutgoingSnapshot
           && preparedOutgoingSnapshot.roomId === (activeSurfaceScene?.roomId ?? previousScene.roomId ?? "")) {
           outgoingSnapshot = preparedOutgoingSnapshot;
@@ -1968,7 +2119,22 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         return;
       }
 
+      if (!isPresentationCategoryEnabled(presentationIsolationSettings, "styledPointEffect")
+        && input.intent === "show") {
+        emit("info", "Suppressed styled-point presentation effect.", {
+          handleKey: input.handleKey
+        });
+        return;
+      }
+
       activeRoomSurface.styledPointEffectController.applyIntent(input);
+    },
+    setPresentationIsolationSettings: (settings) => {
+      if (isDisposed) {
+        return;
+      }
+
+      applyPresentationIsolationSettings(settings);
     },
     dispose: () => {
       if (isDisposed) {

@@ -15,6 +15,7 @@ import { TopBarMenuV1 } from "./TopBarMenuV1";
 import { InGameToolsMenuHostV1 } from "./InGameToolsMenuHostV1";
 import type { ResolvedSlot, SlotMode, ThemeContract } from "../orchestration/types";
 import type { HostWorkflowState } from "../hooks/useHostWorkflow";
+import type { PresentationIsolationCategory } from "../gameRenderer/presentationIsolation";
 
 type SlotModeOverrides = Record<string, SlotMode>;
 type SlotTechnicalDetailsOverrides = Record<string, boolean>;
@@ -276,6 +277,12 @@ export function ConfigSlotFeatureRenderer(props: ConfigSlotFeatureRendererProps)
         onAmbientMutedChange={hostWorkflow.setAmbientMuted}
         ambientVolumePercent={hostWorkflow.ambientVolumePercent}
         onAmbientVolumePercentChange={hostWorkflow.setAmbientVolumePercent}
+        presentationIsolationSettings={hostWorkflow.presentationIsolationSettings}
+        presentationIsolationCategoryOptions={hostWorkflow.presentationIsolationCategoryOptions}
+        onPresentationIsolationEnabledChange={hostWorkflow.setPresentationIsolationEnabled}
+        onPresentationIsolationCategoryEnabledChange={(category: PresentationIsolationCategory, enabled: boolean) => {
+          hostWorkflow.setPresentationIsolationCategoryEnabled(category, enabled);
+        }}
         roomTransitionCueOptions={hostWorkflow.roomTransitionCueOptions}
         selectedRoomTransitionCueEffectKey={hostWorkflow.selectedRoomTransitionCueEffectKey}
         onSelectedRoomTransitionCueEffectKeyChange={hostWorkflow.setSelectedRoomTransitionCueEffectKey}

@@ -156,6 +156,92 @@ describe("useHostSoundCueWorkflow", () => {
     expect(FakeAudio.instances[0].playCalls).toBe(1);
   });
 
+  it("keeps SFX and ambient lane volume controls independent for active playback", async () => {
+    vi.stubGlobal("Audio", FakeAudio as unknown as typeof Audio);
+
+    const getAssetPreviewDataUrl = vi.fn().mockResolvedValue("data:audio/mpeg;base64,AAAA");
+    const hostApiClient = { getAssetPreviewDataUrl } as unknown as import("../hostApi/client").HostApiClient;
+    const { result, rerender } = renderHook(
+      ({ sfxVolumePercent, ambientVolumePercent }) => useHostSoundCueWorkflow({
+        hostApiClient,
+        credentialHandle: "cred-1",
+        activeSessionId: "session-1",
+        selectedGameId: "game-1",
+        selectedGameKey: "tiny-adventure",
+        audioUnlockRequired: false,
+        audioLanes: {
+          sfx: { muted: false, volumePercent: sfxVolumePercent },
+          ambient: { muted: false, volumePercent: ambientVolumePercent }
+        },
+        addDiagnostic: vi.fn()
+      }),
+      { initialProps: { sfxVolumePercent: 25, ambientVolumePercent: 75 } }
+    );
+
+    result.current.consumeSessionDeltaSoundCues(buildSessionData([
+      buildCue({ soundEffectLane: "Sfx", soundEffectKey: "sound.effect.sfx" }),
+      buildCue({ soundEffectLane: "Ambient", soundEffectKey: "sound.effect.ambient", sequenceIndex: 1 })
+    ], "lane-volume-1"));
+
+    await waitFor(() => {
+      expect(FakeAudio.instances).toHaveLength(2);
+    });
+    expect(FakeAudio.instances[0]?.volume).toBe(0.25);
+    expect(FakeAudio.instances[1]?.volume).toBe(0.75);
+
+    rerender({ sfxVolumePercent: 50, ambientVolumePercent: 10 });
+
+    await waitFor(() => {
+      expect(FakeAudio.instances[0]?.volume).toBe(0.5);
+      expect(FakeAudio.instances[1]?.volume).toBe(0.1);
+    });
+  });
+
+  it("mutes one lane without muting the other and keeps suppressed cue diagnostics", async () => {
+    vi.stubGlobal("Audio", FakeAudio as unknown as typeof Audio);
+
+    const getAssetPreviewDataUrl = vi.fn().mockResolvedValue("data:audio/mpeg;base64,AAAA");
+    const addDiagnostic = vi.fn();
+    const hostApiClient = { getAssetPreviewDataUrl } as unknown as import("../hostApi/client").HostApiClient;
+
+    const { result } = renderHook(() => useHostSoundCueWorkflow({
+      hostApiClient,
+      credentialHandle: "cred-1",
+      activeSessionId: "session-1",
+      selectedGameId: "game-1",
+      selectedGameKey: "tiny-adventure",
+      audioUnlockRequired: false,
+      audioLanes: {
+        sfx: { muted: true, volumePercent: 100 },
+        ambient: { muted: false, volumePercent: 100 }
+      },
+      addDiagnostic
+    }));
+
+    result.current.consumeSessionDeltaSoundCues(buildSessionData([
+      buildCue({ soundEffectLane: "Sfx", soundEffectKey: "sound.effect.muted" }),
+      buildCue({ soundEffectLane: "Ambient", soundEffectKey: "sound.effect.audible", sequenceIndex: 1 })
+    ], "lane-mute-1"));
+
+    await waitFor(() => {
+      expect(FakeAudio.instances).toHaveLength(2);
+    });
+    expect(FakeAudio.instances[0]?.volume).toBe(0);
+    expect(FakeAudio.instances[1]?.volume).toBe(1);
+    expect(addDiagnostic).toHaveBeenCalledWith(
+      "info",
+      "session-audio",
+      "Accepted sound cue playback request.",
+      expect.objectContaining({ lane: "Sfx", laneMuted: true })
+    );
+    expect(addDiagnostic).toHaveBeenCalledWith(
+      "info",
+      "timing-sync",
+      "Sound cue playback started.",
+      expect.objectContaining({ lane: "Ambient" })
+    );
+  });
+
   it("skips duplicate lane/key playback when replay policy is IgnoreIfAlreadyPlaying", async () => {
     vi.stubGlobal("Audio", FakeAudio as unknown as typeof Audio);
 

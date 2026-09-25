@@ -21,6 +21,19 @@ export type {
   GameRendererDiagnosticsSink
 } from "./diagnostics/RendererDiagnostics";
 
+export {
+  DEFAULT_PRESENTATION_ISOLATION_SETTINGS,
+  isPresentationCategoryEnabled,
+  normalizePresentationCategory,
+  resolvePresentationIsolationCategoryOptions
+} from "./presentationIsolation";
+
+export type {
+  PresentationIsolationCategory,
+  PresentationIsolationCategoryOption,
+  PresentationIsolationSettings
+} from "./presentationIsolation";
+
 export type {
   CreateGameRendererOptions,
   GameRendererHandle,

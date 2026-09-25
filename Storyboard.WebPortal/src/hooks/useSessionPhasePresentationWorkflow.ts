@@ -5,6 +5,11 @@ import type {
 } from "../hostApi/HostContracts";
 import type { DiagnosticsLevel } from "../components/DiagnosticsConsole";
 import type { ResolvedTextPresentationCue } from "../gameRenderer/presentationCue/resolveMovementCueDuration";
+import {
+  DEFAULT_PRESENTATION_ISOLATION_SETTINGS,
+  isPresentationCategoryEnabled,
+  type PresentationIsolationSettings
+} from "../gameRenderer/presentationIsolation";
 import type { SessionOutputLineSource } from "./useSessionEchoWorkflow";
 
 type AddDiagnostic = (level: DiagnosticsLevel, category: string, message: string, details?: unknown) => void;
@@ -34,6 +39,7 @@ type SessionAttachReason = "session-start" | "session-join" | "session-reconnect
 
 interface UseSessionPhasePresentationWorkflowOptions {
   activeSessionId: string;
+  presentationIsolationSettings?: PresentationIsolationSettings;
   addDiagnostic: AddDiagnostic;
   appendSessionOutputLines: (lines: string[], source: SessionOutputLineSource) => void;
   resolveTextPresentationCue: (step: HostCommandPresentationCueText) => ResolvedTextPresentationCue | null;
@@ -167,6 +173,7 @@ export function useSessionPhasePresentationWorkflow(
   const overlaySequenceRef = useRef<number>(0);
   const lastWatermarkRef = useRef<string>("");
   const lastSignatureRef = useRef<string>("");
+  const isolationSettings = options.presentationIsolationSettings ?? DEFAULT_PRESENTATION_ISOLATION_SETTINGS;
 
   const clearActiveOverlayTimer = useCallback((): void => {
     if (activeTimerRef.current !== null) {
@@ -262,6 +269,19 @@ export function useSessionPhasePresentationWorkflow(
     };
   }, [clearActiveOverlayTimer]);
 
+  useEffect(() => {
+    if (isPresentationCategoryEnabled(isolationSettings, "text")) {
+      return;
+    }
+
+    clearActiveOverlayTimer();
+    pendingOverlayQueueRef.current = [];
+    activeManualDismissIdRef.current = "";
+    activeMotionOutMsRef.current = 0;
+    activeTransitionStyleRef.current = "none";
+    setHudOverlayEntries([]);
+  }, [clearActiveOverlayTimer, isolationSettings]);
+
   const dismissHudOverlay = useCallback((): void => {
     const activeManualDismissId = activeManualDismissIdRef.current;
     if (!activeManualDismissId) {
@@ -304,6 +324,7 @@ export function useSessionPhasePresentationWorkflow(
     }
 
     const pendingOverlays: PendingHudOverlayCue[] = [];
+    let suppressedTextPresentationCount = 0;
 
     for (const step of orderedSteps) {
       const text = buildPhaseStepText(step);
@@ -321,8 +342,18 @@ export function useSessionPhasePresentationWorkflow(
         continue;
       }
 
+      const textPresentationEnabled = isPresentationCategoryEnabled(isolationSettings, "text");
       if (resolvedCue.target === "echo" || resolvedCue.target === "narrative-dialog") {
-        options.appendSessionOutputLines([text], "phase-step");
+        if (!textPresentationEnabled) {
+          suppressedTextPresentationCount += 1;
+        } else {
+          options.appendSessionOutputLines([text], "phase-step");
+        }
+        continue;
+      }
+
+      if (!textPresentationEnabled) {
+        suppressedTextPresentationCount += 1;
         continue;
       }
 
@@ -352,6 +383,8 @@ export function useSessionPhasePresentationWorkflow(
     options.addDiagnostic("info", "presentation-cues", "Applied ordered phase text presentation steps.", {
       stepCount: orderedSteps.length,
       hudOverlayEnqueuedCount: pendingOverlays.length,
+      textPresentationSuppressedCount: suppressedTextPresentationCount,
+      textPresentationEnabled: isPresentationCategoryEnabled(isolationSettings, "text"),
       watermark: watermark || "(none)",
       activeSessionId: options.activeSessionId || "(none)"
     });

@@ -13,6 +13,7 @@ import type {
   RendererScaleMetrics
 } from "../hooks/useHostWorkflow";
 import type { ResolvedStyledPointEffect } from "../gameRenderer/presentationCue/resolveMovementCueDuration";
+import type { PresentationIsolationSettings } from "../gameRenderer/presentationIsolation";
 
 interface WaypointInteractionRendererBridge {
   setInteractionMode: (mode: "CommandClick" | "WaypointMoveSetup") => void;
@@ -25,6 +26,7 @@ interface WaypointInteractionRendererBridge {
 interface SessionPlaySurfaceRendererV1Props {
   activeSessionId: string;
   sceneSnapshot: GameRenderSceneSnapshot | null;
+  presentationIsolationSettings: PresentationIsolationSettings;
   roomTransitionPreparationEpoch: number;
   gameplayInteractionSubstate: GameplayInteractionSubstate;
   waypointDraftCount: number;
@@ -97,6 +99,7 @@ export function SessionPlaySurfaceRendererV1(props: SessionPlaySurfaceRendererV1
     }
 
     rendererRef.current = createGameRenderer(mountRef.current, {
+      presentationIsolationSettings: props.presentationIsolationSettings,
       diagnosticsSink: (event: GameRendererDiagnosticsEvent) => {
         props.onReportRendererDiagnostic(event);
       },
@@ -113,6 +116,10 @@ export function SessionPlaySurfaceRendererV1(props: SessionPlaySurfaceRendererV1
       rendererRef.current = null;
     };
   }, [props.activeSessionId]);
+
+  useEffect(() => {
+    rendererRef.current?.setPresentationIsolationSettings(props.presentationIsolationSettings);
+  }, [props.presentationIsolationSettings]);
 
   useEffect(() => {
     if (!rendererRef.current) {
