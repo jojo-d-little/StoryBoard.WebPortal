@@ -158,7 +158,10 @@ export class HostApiClient {
       ifNoneMatchETag: ""
     };
 
-    const data = await this.postJson<Record<string, unknown>>("/api/v1/assets/get", payload);
+    const data = await this.postJson<Record<string, unknown>>("/api/v1/assets/get", payload, {
+      assetPath: relativeLocator,
+      assetRequestKind: "preview"
+    });
     const result = this.readResult(data);
     if (!result.success) {
       return null;
@@ -189,7 +192,10 @@ export class HostApiClient {
       ifNoneMatchETag: ""
     };
 
-    const data = await this.postJson<Record<string, unknown>>("/api/v1/assets/get", payload);
+    const data = await this.postJson<Record<string, unknown>>("/api/v1/assets/get", payload, {
+      assetPath: relativeLocator,
+      assetRequestKind: "text"
+    });
     const result = this.readResult(data);
     if (!result.success) {
       return null;
@@ -382,7 +388,11 @@ export class HostApiClient {
     };
   }
 
-  private async postJson<T>(path: string, payload: unknown): Promise<T> {
+  private async postJson<T>(
+    path: string,
+    payload: unknown,
+    traceDetails?: Record<string, unknown>
+  ): Promise<T> {
     const context = this.readTraceContext(payload);
     const payloadRecord = this.asRecord(payload);
     const startedAtMs = Date.now();
@@ -416,16 +426,17 @@ export class HostApiClient {
 
       if (!response.ok) {
         const error = new Error(`Host API call failed (${response.status}) for ${path}.`);
-        emitTrace("failed", response.status, { message: error.message });
+        emitTrace("failed", response.status, { ...traceDetails, message: error.message });
         throw error;
       }
 
       const data = (await response.json()) as T;
-      emitTrace("completed", response.status);
+      emitTrace("completed", response.status, traceDetails);
       return data;
     } catch (error) {
       if (!traceEmitted) {
         emitTrace("failed", undefined, {
+          ...traceDetails,
           message: error instanceof Error ? error.message : String(error)
         });
       }

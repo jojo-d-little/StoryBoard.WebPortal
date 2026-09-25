@@ -150,6 +150,7 @@ describe("HostApiClient", () => {
   it("retrieves asset payload as UTF-8 text", async () => {
     const jsonText = "{\"schemaVersion\":\"1.0\",\"effects\":[]}";
     const payloadBytes = btoa(jsonText);
+    const traceEvents: Array<{ path: string; details?: Record<string, unknown> }> = [];
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -166,12 +167,22 @@ describe("HostApiClient", () => {
 
     vi.stubGlobal("fetch", fetchMock);
 
-    const client = new HostApiClient({ baseUrl: "http://127.0.0.1:5199" });
+    const client = new HostApiClient({
+      baseUrl: "http://127.0.0.1:5199",
+      onTraceEvent: (event) => traceEvents.push(event)
+    });
     const response = await client.getAssetText("cred-123", "assets/PresentationCues/presentation-effects.catalog.json", "g-1", "sample.game");
 
     expect(response).not.toBeNull();
     expect(response?.contentType).toBe("application/json");
     expect(response?.text).toBe(jsonText);
+    expect(traceEvents[0]).toMatchObject({
+      path: "/api/v1/assets/get",
+      details: {
+        assetPath: "assets/PresentationCues/presentation-effects.catalog.json",
+        assetRequestKind: "text"
+      }
+    });
 
     vi.unstubAllGlobals();
   });

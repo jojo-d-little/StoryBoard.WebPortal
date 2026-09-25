@@ -115,6 +115,55 @@ describe("useSessionDeltaPolling", () => {
     );
   });
 
+  it("logs every data-returning poll even when it is below the heartbeat cadence", async () => {
+    const addDiagnostic = vi.fn();
+    const getSessionDeltas = vi.fn().mockResolvedValue({
+      resultCode: "Success",
+      sessionData: {
+        sessionDeltaWatermark: "2",
+        roomObjectChanges: [],
+        soundCues: [],
+        outputLines: ["one output line"],
+        diagnostics: [],
+        hasRoomChange: false,
+        hasPhaseChange: false
+      },
+      sessionDeltaWatermark: "2",
+      diagnostics: []
+    });
+
+    const hostApiClient = {
+      getSessionDeltas,
+      getSessionBaseline: vi.fn()
+    } as unknown as import("../hostApi/client").HostApiClient;
+
+    renderHook(() =>
+      useSessionDeltaPolling({
+        hostApiClient,
+        credentialHandle: "cred-1",
+        sessionId: "session-1",
+        settings: {
+          pollIntervalMs: 750,
+          heartbeatEveryNPolls: 100
+        },
+        enabled: true,
+        allowInTest: true,
+        addDiagnostic
+      })
+    );
+
+    await waitFor(() => {
+      expect(getSessionDeltas).toHaveBeenCalledTimes(1);
+    });
+
+    expect(addDiagnostic).toHaveBeenCalledWith(
+      "info",
+      "session-delta",
+      "Session delta poll returned data.",
+      expect.objectContaining({ outputLines: 1 })
+    );
+  });
+
   it("emits heartbeat log on configured no-op cadence", async () => {
     vi.useFakeTimers();
 
@@ -171,7 +220,7 @@ describe("useSessionDeltaPolling", () => {
     unmount();
   });
 
-  it("treats diagnostics-only unchanged-watermark polls as no-op for heartbeat pacing", async () => {
+  it("logs diagnostics-only payloads even when the watermark is unchanged", async () => {
     vi.useFakeTimers();
 
     const addDiagnostic = vi.fn();
@@ -214,10 +263,10 @@ describe("useSessionDeltaPolling", () => {
     await Promise.resolve();
 
     const dataLogs = addDiagnostic.mock.calls.filter((call) => call[2] === "Session delta poll returned data.");
-    expect(dataLogs).toHaveLength(0);
+    expect(dataLogs.length).toBeGreaterThanOrEqual(1);
 
     const heartbeatLogs = addDiagnostic.mock.calls.filter((call) => call[2] === "Session delta poll heartbeat (no-op).");
-    expect(heartbeatLogs.length).toBeGreaterThanOrEqual(1);
+    expect(heartbeatLogs).toHaveLength(0);
 
     unmount();
   });

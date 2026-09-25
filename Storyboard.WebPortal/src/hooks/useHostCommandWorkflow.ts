@@ -25,6 +25,7 @@ const MSG_CLARIFICATION_STATE_MISSING = "Clarification state is missing command 
 
 const MSG_DIAGNOSTICS_COMMAND = "Command diagnostics returned.";
 const MSG_DIAGNOSTICS_CLARIFICATION = "Clarification diagnostics returned.";
+const MSG_COMMAND_SUBMITTED = "Command submitted.";
 const MSG_DUPLICATE_CORRELATION_RETRY = "Duplicate command correlation id detected; retrying with a new id.";
 
 const STATUS_PREFIX_COMMAND_PROCESSED = "Command processed";
@@ -126,6 +127,9 @@ export function useHostCommandWorkflow(options: UseHostCommandWorkflowOptions): 
 
     if (response.diagnostics.length > 0) {
       options.addDiagnostic("info", "command", context.diagnosticsMessage, {
+        commandText: context.fallbackRawCommandText,
+        commandCorrelationId: response.commandCorrelationId || context.fallbackCommandCorrelationId,
+        sessionId: options.activeSessionId,
         resultCode: response.resultCode,
         diagnostics: response.diagnostics
       });
@@ -152,6 +156,11 @@ export function useHostCommandWorkflow(options: UseHostCommandWorkflowOptions): 
     }
 
     const initialCommandCorrelationId = reserveCommandCorrelationId();
+    options.addDiagnostic("info", "command", MSG_COMMAND_SUBMITTED, {
+      commandText,
+      commandCorrelationId: initialCommandCorrelationId,
+      sessionId: options.activeSessionId
+    });
     if (!submitOptions?.suppressClientEcho) {
       options.appendClientCommandEcho(commandText);
     }

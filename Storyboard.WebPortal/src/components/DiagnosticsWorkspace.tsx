@@ -6,8 +6,9 @@ import {
   type PortalTraceExportFormat,
   type PortalTraceExportMetadata
 } from "../diagnostics/portalTraceExport";
+import type { DiagnosticsProfileKey } from "../diagnostics/traceProfiles";
 
-export type DiagnosticsProfile = "Off" | "Focused" | "Normal" | "Verbose" | "Custom";
+export type DiagnosticsProfile = "Off" | DiagnosticsProfileKey | "Custom";
 
 export interface DiagnosticsWorkspaceScopeOption {
   source: PortalTraceSource;

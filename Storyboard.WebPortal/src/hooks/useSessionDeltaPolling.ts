@@ -127,6 +127,7 @@ function analyzeSessionData(
     || counts.roomObjectChanges > 0
     || counts.soundCues > 0
     || counts.outputLines > 0
+    || counts.diagnostics > 0
     || counts.moveLegTelemetry > 0;
 
   const hasData = hasSubstantivePayload || hasWatermarkAdvanced(fromWatermark, toWatermark);
@@ -298,19 +299,13 @@ export function useSessionDeltaPolling(options: UseSessionDeltaPollingOptions): 
           runtimeState.noopCount = 0;
           runtimeState.failureCount = 0;
 
-          const shouldLogData = analysis.hasHighSignalData
-            || runtimeState.runCount === 1
-            || runtimeState.runCount % normalizedHeartbeatEveryNPolls === 0;
-
-          if (shouldLogData) {
-            addDiagnosticRef.current("info", "session-delta", "Session delta poll returned data.", {
-              fromWatermark: fromWatermark || "(none)",
-              toWatermark: toWatermark || "(none)",
-              resultCode: pollResult.resultCode,
-              runCount: runtimeState.runCount,
-              ...analysis.counts
-            });
-          }
+          addDiagnosticRef.current("info", "session-delta", "Session delta poll returned data.", {
+            fromWatermark: fromWatermark || "(none)",
+            toWatermark: toWatermark || "(none)",
+            resultCode: pollResult.resultCode,
+            runCount: runtimeState.runCount,
+            ...analysis.counts
+          });
         } else {
           runtimeState.noopCount += 1;
           runtimeState.failureCount = 0;

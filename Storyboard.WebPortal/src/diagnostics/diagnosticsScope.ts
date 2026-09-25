@@ -1,5 +1,6 @@
 import type { PortalTraceSource } from "./portalTrace";
 import type { DiagnosticsProfile, DiagnosticsWorkspaceScopeOption } from "../components/DiagnosticsWorkspace";
+import type { DiagnosticsProfilesConfig } from "./traceProfiles";
 
 export const PORTAL_TRACE_SCOPE_OPTIONS: Array<{ source: PortalTraceSource; label: string }> = [
   { source: "authentication", label: "Authentication" },
@@ -17,22 +18,14 @@ export const PORTAL_TRACE_SCOPE_OPTIONS: Array<{ source: PortalTraceSource; labe
 ];
 
 const ALL_SOURCES = PORTAL_TRACE_SCOPE_OPTIONS.map((option) => option.source);
-const FOCUSED_SOURCES: PortalTraceSource[] = [
-  "authentication",
-  "discovery",
-  "session",
-  "transport",
-  "commands",
-  "polling",
-  "failure"
-];
 
-export function getDiagnosticsProfileScope(profile: Exclude<DiagnosticsProfile, "Custom">): Record<PortalTraceSource, boolean> {
+export function getDiagnosticsProfileScope(
+  profile: Exclude<DiagnosticsProfile, "Custom">,
+  profiles: DiagnosticsProfilesConfig
+): Record<PortalTraceSource, boolean> {
   const enabledSources = profile === "Off"
     ? []
-    : profile === "Focused"
-      ? FOCUSED_SOURCES
-      : ALL_SOURCES;
+    : profiles.profiles[profile]?.captureSources ?? ALL_SOURCES;
 
   return Object.fromEntries(
     ALL_SOURCES.map((source) => [source, enabledSources.includes(source)])

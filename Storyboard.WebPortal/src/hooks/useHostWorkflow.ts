@@ -392,6 +392,15 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     return new HostApiClient({
       baseUrl: options.baseUrlOverride || undefined,
       onTraceEvent: (event) => {
+        // Session-delta polling has its own semantic trace records. A successful
+        // transport completion for every poll would duplicate the data/no-op
+        // heartbeat stream and overwhelm the retained trace. Preserve failures
+        // because they carry transport status and correlation evidence.
+        const isSessionDeltaRequest = /\/api\/v1\/session\/deltas(?:\?|$)/i.test(event.path);
+        if (isSessionDeltaRequest && event.phase === "completed") {
+          return;
+        }
+
         const level = event.phase === "failed"
           ? event.status !== undefined && event.status >= 500 ? "error" : "warn"
           : "info";

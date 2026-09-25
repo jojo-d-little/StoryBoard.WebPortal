@@ -8,6 +8,32 @@
     "heartbeatEveryNPolls": 100,
     "echoOutputRetentionLines": 400
   },
+  "diagnosticsProfiles": {
+    "defaultProfile": "Normal",
+    "profiles": {
+      "Focused": {
+        "label": "Focused",
+        "description": "Commands, transport, session, polling, and failures.",
+        "captureSources": ["authentication", "discovery", "session", "transport", "commands", "polling", "failure"],
+        "displayCategories": ["auth", "command", "discovery", "transport", "session", "session-delta", "host-operation", "state"],
+        "heartbeatEveryNPolls": 200
+      },
+      "Normal": {
+        "label": "Normal",
+        "description": "Normal operational Portal troubleshooting coverage.",
+        "captureSources": ["authentication", "discovery", "session", "transport", "commands", "polling", "renderer", "presentation", "orchestration", "failure"],
+        "displayCategories": ["auth", "command", "contracts", "discovery", "host-operation", "transport", "session", "session-delta", "session-echo", "session-render", "presentation-cues", "movement-cues", "timing-sync", "state", "renderer-scene", "renderer-asset", "renderer-frame", "renderer-lifecycle"],
+        "heartbeatEveryNPolls": 100
+      },
+      "Verbose": {
+        "label": "Verbose",
+        "description": "All approved Portal trace sources with a faster heartbeat for active investigation.",
+        "captureSources": ["authentication", "discovery", "session", "transport", "commands", "polling", "renderer", "presentation", "audio", "assets", "orchestration", "failure"],
+        "displayCategories": ["auth", "command", "contracts", "discovery", "host-operation", "transport", "session", "session-delta", "session-echo", "session-render", "session-audio", "asset-cache", "presentation-cues", "movement-cues", "timing-sync", "state", "renderer-scene", "renderer-asset", "renderer-frame", "renderer-lifecycle"],
+        "heartbeatEveryNPolls": 100
+      }
+    }
+  },
   "audioDefaults": {
     "requireUserGestureToUnlock": true,
     "lanes": {

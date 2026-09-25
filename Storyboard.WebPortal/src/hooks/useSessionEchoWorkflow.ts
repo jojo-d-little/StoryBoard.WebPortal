@@ -53,15 +53,21 @@ export function useSessionEchoWorkflow(options: UseSessionEchoWorkflowOptions): 
       const trimmed = next.slice(Math.max(0, next.length - options.echoOutputRetentionLines));
       const droppedLineCount = Math.max(0, next.length - trimmed.length);
 
-      options.addDiagnostic("info", "session-echo", "Echo lines appended.", {
-        source,
-        appendedLineCount: trimmedLines.length,
-        previousCount: previous.length,
-        nextCount: trimmed.length,
-        droppedLineCount,
-        retentionLimit: options.echoOutputRetentionLines,
-        activeSessionId: options.activeSessionId || "(none)"
-      });
+      options.addDiagnostic(
+        "info",
+        "session-echo",
+        source === "client-command" ? "Client command line appended." : "Session echo lines appended.",
+        {
+          source,
+          lines: trimmedLines,
+          appendedLineCount: trimmedLines.length,
+          previousCount: previous.length,
+          nextCount: trimmed.length,
+          droppedLineCount,
+          retentionLimit: options.echoOutputRetentionLines,
+          activeSessionId: options.activeSessionId || "(none)"
+        }
+      );
 
       return trimmed;
     });
@@ -120,6 +126,9 @@ export function useSessionEchoWorkflow(options: UseSessionEchoWorkflowOptions): 
 
     options.addDiagnostic("info", "session-echo", "Accepted session echo batch.", {
       watermark: watermark || "(none)",
+      lines: sessionData.outputLines
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0),
       outputLineCount: sessionData.outputLines.length,
       activeSessionId: options.activeSessionId || "(none)"
     });

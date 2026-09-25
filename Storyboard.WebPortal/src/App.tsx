@@ -10,6 +10,7 @@ import type { DiagnosticsWorkspaceProps, DiagnosticsProfile } from "./components
 import { appendPortalTraceEvent, normalizePortalTraceEvent } from "./diagnostics/portalTrace";
 import { buildDiagnosticsScopeOptions, getDiagnosticsProfileScope } from "./diagnostics/diagnosticsScope";
 import type { PortalTraceSource } from "./diagnostics/portalTrace";
+import type { DiagnosticsProfileKey } from "./diagnostics/traceProfiles";
 import { buildPortalTraceExportMetadata, type PortalTraceExportMetadata } from "./diagnostics/portalTraceExport";
 import { ConfigSlotFeatureRenderer } from "./components/ConfigSlotFeatureRenderer";
 import { useHostWorkflow } from "./hooks/useHostWorkflow";
@@ -238,13 +239,20 @@ function readDiagnosticsCategoryFilterSetting(storageKey: string): Record<string
   }
 }
 
-function isDiagnosticCategoryEnabled(filters: Record<string, boolean>, category: string): boolean {
-  const normalizedCategory = category.trim().toLowerCase();
-  if (!normalizedCategory) {
-    return true;
-  }
+function buildProfileDisplayFilters(categories: string[], displayCategories: string[]): Record<string, boolean> {
+  const enabled = new Set(displayCategories.map((category) => category.trim().toLowerCase()));
+  return Object.fromEntries(categories
+    .map((category) => category.trim().toLowerCase())
+    .filter(Boolean)
+    .filter((category) => !enabled.has(category))
+    .map((category) => [category, false]));
+}
 
-  return filters[normalizedCategory] ?? true;
+function readDiagnosticsProfileSetting(storageKey: string, fallback: DiagnosticsProfile): DiagnosticsProfile {
+  const persisted = readPersistedOverride(storageKey);
+  return persisted === "Off" || persisted === "Focused" || persisted === "Normal" || persisted === "Verbose" || persisted === "Custom"
+    ? persisted
+    : fallback;
 }
 
 function setThemeCssVariable(name: string, value: string): void {
@@ -302,17 +310,31 @@ export default function App(props: AppProps): JSX.Element {
   const [state, setState] = useState<string>("");
   const [diagnosticsEnabled, setDiagnosticsEnabled] = useState<boolean>(false);
   const [diagnosticsVerbose, setDiagnosticsVerbose] = useState<boolean>(() => readBooleanSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsVerbose, false));
-  const [diagnosticsCategoryFilters, setDiagnosticsCategoryFilters] = useState<Record<string, boolean>>(() => readDiagnosticsCategoryFilterSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsCategoryFilters));
+  const [diagnosticsCategoryFilters, setDiagnosticsCategoryFilters] = useState<Record<string, boolean>>(() => {
+    const persisted = readDiagnosticsCategoryFilterSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsCategoryFilters);
+    const initialProfile = readDiagnosticsProfileSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsProfile, settings.diagnosticsProfiles.defaultProfile);
+    return Object.keys(persisted).length > 0
+      ? persisted
+      : buildProfileDisplayFilters(
+        DEFAULT_DIAGNOSTIC_CATEGORY_OPTIONS.map((option) => option.category),
+        initialProfile === "Off" || initialProfile === "Custom"
+          ? DEFAULT_DIAGNOSTIC_CATEGORY_OPTIONS.map((option) => option.category)
+          : settings.diagnosticsProfiles.profiles[initialProfile].displayCategories
+      );
+  });
   const [hostApiBaseUrlOverride, setHostApiBaseUrlOverride] = useState<string>(() => readPersistedOverride(DEV_TOOLS_STORAGE_KEYS.hostApiBaseUrlOverride));
   const [maxDiagnosticsEntries, setMaxDiagnosticsEntries] = useState<number>(() => readNumberSetting(DEV_TOOLS_STORAGE_KEYS.maxDiagnosticsEntries, 150));
   const [diagnosticsProfile, setDiagnosticsProfile] = useState<DiagnosticsProfile>(() => {
-    const persisted = readPersistedOverride(DEV_TOOLS_STORAGE_KEYS.diagnosticsProfile);
-    return persisted === "Off" || persisted === "Focused" || persisted === "Normal" || persisted === "Verbose" || persisted === "Custom"
-      ? persisted
-      : "Normal";
+    return readDiagnosticsProfileSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsProfile, settings.diagnosticsProfiles.defaultProfile);
   });
   const [diagnosticsScope, setDiagnosticsScope] = useState<Record<PortalTraceSource, boolean>>(() => ({
-    ...getDiagnosticsProfileScope("Normal"),
+    ...getDiagnosticsProfileScope(
+      (() => {
+        const initialProfile = readDiagnosticsProfileSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsProfile, settings.diagnosticsProfiles.defaultProfile);
+        return initialProfile === "Custom" ? settings.diagnosticsProfiles.defaultProfile : initialProfile;
+      })(),
+      settings.diagnosticsProfiles
+    ),
     ...(readDiagnosticsCategoryFilterSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsScope) as Partial<Record<PortalTraceSource, boolean>>)
   }));
   const [diagnosticsCaptureStartedUtc, setDiagnosticsCaptureStartedUtc] = useState<string | undefined>(undefined);
@@ -358,14 +380,14 @@ export default function App(props: AppProps): JSX.Element {
 
   const heartbeatEveryNPolls = pollingSettingsOverrideEnabled
     ? heartbeatEveryNPollsOverride
-    : settings.devToolsDefaults.heartbeatEveryNPolls;
+    : diagnosticsProfile !== "Custom"
+      ? diagnosticsProfile === "Off"
+        ? settings.devToolsDefaults.heartbeatEveryNPolls
+        : settings.diagnosticsProfiles.profiles[diagnosticsProfile as DiagnosticsProfileKey]?.heartbeatEveryNPolls ?? settings.devToolsDefaults.heartbeatEveryNPolls
+      : settings.devToolsDefaults.heartbeatEveryNPolls;
 
   const addDiagnostic = useCallback((level: DiagnosticsLevel, category: string, message: string, details?: unknown): void => {
     if (!diagnosticsEnabled) {
-      return;
-    }
-
-    if (!isDiagnosticCategoryEnabled(diagnosticsCategoryFilters, category)) {
       return;
     }
 
@@ -375,6 +397,11 @@ export default function App(props: AppProps): JSX.Element {
       message,
       details
     }, diagnosticsSequenceRef.current + 1);
+
+    if (!diagnosticsScope[entry.source]) {
+      return;
+    }
+
     diagnosticsSequenceRef.current = entry.sequence;
 
     setDiagnosticsEntries((previous) => {
@@ -430,9 +457,18 @@ export default function App(props: AppProps): JSX.Element {
   const changeDiagnosticsProfile = useCallback((profile: DiagnosticsProfile): void => {
     setDiagnosticsProfile(profile);
     if (profile !== "Custom") {
-      setDiagnosticsScope(getDiagnosticsProfileScope(profile));
+      setPollingSettingsOverrideEnabled(false);
+      setDiagnosticsScope(getDiagnosticsProfileScope(profile, settings.diagnosticsProfiles));
+      if (profile !== "Off") {
+        setDiagnosticsCategoryFilters(buildProfileDisplayFilters(
+          DEFAULT_DIAGNOSTIC_CATEGORY_OPTIONS.map((option) => option.category),
+          settings.diagnosticsProfiles.profiles[profile].displayCategories
+        ));
+      } else {
+        setDiagnosticsCategoryFilters({});
+      }
     }
-  }, []);
+  }, [settings.diagnosticsProfiles]);
 
   const changeDiagnosticsScope = useCallback((source: PortalTraceSource, enabled: boolean): void => {
     setDiagnosticsProfile("Custom");
@@ -1052,6 +1088,8 @@ export default function App(props: AppProps): JSX.Element {
             return;
           }
 
+          setDiagnosticsProfile("Custom");
+
           setDiagnosticsCategoryFilters((previous) => {
             if (enabled) {
               if (!(normalizedCategory in previous)) {
@@ -1074,6 +1112,7 @@ export default function App(props: AppProps): JSX.Element {
           });
         }}
         onSetAllDiagnosticsCategoriesEnabled={(enabled) => {
+          setDiagnosticsProfile("Custom");
           setDiagnosticsCategoryFilters(() => {
             if (enabled) {
               return {};
