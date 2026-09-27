@@ -87,6 +87,23 @@ describe("RoomLightingController", () => {
     expect(pipeline.dispose).toHaveBeenCalledOnce();
   });
 
+  it("renders a temporary composed output for transition capture without changing the live enable state", () => {
+    const { controller, pipeline, dependencies } = createTestController();
+    const surface = new Container();
+
+    expect(controller.renderForCapture(surface, scene(), 4)).toBe(Texture.EMPTY);
+    expect(controller.presentationSprite.visible).toBe(false);
+    expect(controller.render(surface, scene(), 5)).toBe(false);
+    expect(dependencies.renderSurface).toHaveBeenCalledOnce();
+    expect(pipeline.renderFrame).toHaveBeenCalledOnce();
+
+    controller.setEnabled(true);
+    expect(controller.renderForCapture(surface, scene(), 6)).toBe(Texture.EMPTY);
+    expect(controller.presentationSprite.visible).toBe(true);
+    expect(pipeline.renderFrame).toHaveBeenCalledTimes(2);
+    controller.dispose();
+  });
+
   it("resizes package geometry only when room pixels or cell size change", () => {
     const { controller, pipeline } = createTestController();
     controller.setEnabled(true);

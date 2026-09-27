@@ -52,7 +52,7 @@ describe("mapLightingFrameInput", () => {
           },
           lighting: {
             pointLight: { x: 92.5, y: 144.25, radiusPx: 0, intensityScale: 0, motionMode: "static" },
-            spatialFootprint: { cellX: 2, cellY: 3, sizeXCells: 1, sizeYCells: 2, shape: "rounded-rectangle", elevationCells: 0 },
+            spatialFootprint: { cellX: 2, cellY: 3, sizeXCells: 1, sizeYCells: 2, cornerStyle: "rounded", elevationCells: 0 },
             lightOcclusion: { strength: 0 }
           }
         },
@@ -67,7 +67,7 @@ describe("mapLightingFrameInput", () => {
           objectName: "Blocker only",
           presentationCues: [],
           lighting: {
-            spatialFootprint: { cellX: 6, cellY: 7, shape: "rectangle" },
+            spatialFootprint: { cellX: 6, cellY: 7, cornerStyle: "sharp" },
             lightOcclusion: { strength: 1 }
           }
         },
@@ -97,8 +97,8 @@ describe("mapLightingFrameInput", () => {
         { x: 92.5, y: 144.25, radiusPx: 0, intensityScale: 0, motionMode: "static" }
       ],
       blockers: [
-        { cellX: 6, cellY: 7, sizeXCells: 1, sizeYCells: 1, cornerStyle: "square", strength: 1 },
-        { cellX: 2, cellY: 3, sizeXCells: 1, sizeYCells: 2, cornerStyle: "round", elevationCells: 0, strength: 0 }
+        { xPx: 240, yPx: 280, sizeXCells: 1, sizeYCells: 1, cornerStyle: "square", strength: 1 },
+        { xPx: 80, yPx: 120, sizeXCells: 1, sizeYCells: 2, cornerStyle: "round", elevationCells: 0, strength: 0 }
       ]
     });
     expect(result.diagnostics).toEqual([]);
@@ -108,6 +108,28 @@ describe("mapLightingFrameInput", () => {
     const result = mapLightingFrameInput(scene({ lighting: { cellSizePx: 0 } }));
     expect(result).toMatchObject({ ok: false, reason: "invalid-geometry" });
     expect(result.diagnostics[0]?.capability).toBe("geometry");
+  });
+
+  it("preserves fractional projected blocker positions in room-image pixels", () => {
+    const result = mapLightingFrameInput(scene({
+      objectsById: {
+        crate: {
+          objectId: "crate",
+          objectName: "Crate",
+          presentationCues: [],
+          lighting: {
+            spatialFootprint: { cellX: 1, cellY: 2, xPx: 95.25, yPx: 195.75 },
+            lightOcclusion: { strength: 1 }
+          }
+        }
+      }
+    }));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.frame.blockers).toEqual([
+      { xPx: 95.25, yPx: 195.75, sizeXCells: 1, sizeYCells: 1, cornerStyle: "square", strength: 1 }
+    ]);
   });
 
   it("reports out-of-range ambient and safely uses full ambient", () => {

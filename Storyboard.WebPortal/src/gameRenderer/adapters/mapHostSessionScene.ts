@@ -181,10 +181,14 @@ function applyObjectChanges(
           presentationCues,
           ...resolveMovementTimingFromCues(presentationCues)
         };
+    const lightingTransitionFrom = change.fromRenderableObject
+      ? mapObjectLighting(change.fromRenderableObject)
+      : undefined;
     objectsById[change.objectId] = {
       ...mapped,
       objectId: change.objectId,
-      objectName: change.objectName || mapped.objectName
+      objectName: change.objectName || mapped.objectName,
+      ...(lightingTransitionFrom ? { lightingTransitionFrom } : {})
     };
   }
 

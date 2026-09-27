@@ -31,8 +31,8 @@ export interface GameRenderLightingPointLightInput {
 }
 
 export interface GameRenderLightingBlockerInput {
-  cellX: number;
-  cellY: number;
+  xPx: number;
+  yPx: number;
   sizeXCells?: number;
   sizeYCells?: number;
   cornerStyle?: "square" | "round";

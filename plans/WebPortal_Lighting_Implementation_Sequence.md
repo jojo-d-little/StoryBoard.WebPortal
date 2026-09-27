@@ -5,7 +5,7 @@ Use the [detailed plan](WebPortal_Lighting_Detailed_Implementation_Plan.md) for 
 
 ## Current progress
 
-Completed through step 5. The scene stores each Host object once in `objectsById`; sprite and lighting data are optional components on that object. The pure mapper produces complete Lighting frames, and the Devtools Lighting checkbox now controls the disabled-by-default Pixi lighting path. Step 6 is next.
+Completed through step 6. The scene stores each Host object once in `objectsById`; sprite and lighting data are optional components on that object. The pure mapper produces complete Lighting frames, the Devtools Lighting checkbox controls the disabled-by-default Pixi lighting path, movement updates project Host light endpoints during presentation tweens, and room transitions capture frozen final images when lighting is enabled. Step 7 is next.
 
 ## Implementation checklist
 
@@ -37,10 +37,11 @@ Completed through step 5. The scene stores each Host object once in `objectsById
    - [x] Make the master visual-effects switch suppress lighting as well.
    - [x] Place the effective on/off branch at the room-presentation seam so the off path skips capture and package calls.
 
-6. **[ ] Complete movement and transitions**
-   - [ ] Interpolate object-owned light positions from Host before/after endpoints during presentation tweens; switch blocker cells at leg boundaries.
-   - [ ] Feed final lit or raw room images to bounded transition captures.
-   - [ ] Use one pipeline and frozen final images when outgoing and incoming rooms must appear together.
+6. **[x] Complete movement and transitions**
+   - [x] Carry Host `fromRenderableObject` lighting into the transient scene projection. Sprite-owned lights follow the sprite renderer's live eased path and retarget position; light-only objects use timed endpoint interpolation.
+   - [x] Send fractional room-image blocker positions from the live interpolated sprite position each frame; retain Host cell-derived endpoints and settle footprint dimensions/occlusion values at the Host endpoint.
+   - [x] Feed final lit images to bounded captures when lighting is enabled and raw room images otherwise.
+   - [x] Use one lighting pipeline and frozen outgoing/incoming images for lit slide, fade, and fade-blackout transitions.
 
 7. **[ ] Add the grid diagnostic and verify in the browser**
    - [ ] Add the separate, initially-off room-grid Devtools control.

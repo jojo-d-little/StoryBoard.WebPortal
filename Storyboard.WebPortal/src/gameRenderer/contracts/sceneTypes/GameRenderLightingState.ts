@@ -42,9 +42,13 @@ export interface GameRenderPointLight {
 export interface GameRenderSpatialFootprint {
   cellX: number;
   cellY: number;
+  /** Transient room-image top-left used while the associated sprite is tweening. */
+  xPx?: number;
+  /** Transient room-image top-left used while the associated sprite is tweening. */
+  yPx?: number;
   sizeXCells?: number;
   sizeYCells?: number;
-  shape?: "rectangle" | "rounded-rectangle";
+  cornerStyle?: "sharp" | "rounded";
   elevationCells?: number;
 }
 

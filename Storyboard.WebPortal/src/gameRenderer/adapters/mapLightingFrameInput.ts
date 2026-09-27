@@ -133,6 +133,7 @@ function mapDefaults(
 function mapBlocker(
   objectId: string,
   lighting: NonNullable<GameRenderSceneSnapshot["objectsById"][string]["lighting"]>,
+  cellSizePx: number,
   diagnostics: LightingFrameMappingDiagnostic[]
 ): GameRenderLightingBlockerInput | undefined {
   const footprint = lighting.spatialFootprint;
@@ -145,25 +146,29 @@ function mapBlocker(
   const sizeYCells = footprint.sizeYCells ?? 1;
   const elevationCells = footprint.elevationCells;
   const strength = occlusion.strength;
-  const shape = footprint.shape;
+  const cornerStyle = footprint.cornerStyle;
+  const xPx = footprint.xPx ?? footprint.cellX * cellSizePx;
+  const yPx = footprint.yPx ?? footprint.cellY * cellSizePx;
   const valid = Number.isInteger(footprint.cellX)
     && Number.isInteger(footprint.cellY)
+    && Number.isFinite(xPx)
+    && Number.isFinite(yPx)
     && Number.isInteger(sizeXCells) && sizeXCells > 0
     && Number.isInteger(sizeYCells) && sizeYCells > 0
     && (elevationCells === undefined || (Number.isFinite(elevationCells) && elevationCells >= 0))
     && (strength === undefined || (Number.isFinite(strength) && strength >= 0 && strength <= 1))
-    && (shape === undefined || shape === "rectangle" || shape === "rounded-rectangle");
+    && (cornerStyle === undefined || cornerStyle === "sharp" || cornerStyle === "rounded");
   if (!valid) {
     diagnostics.push({ capability: "blocker", objectId, reason: "Blocker footprint or occlusion is outside the supported cell geometry." });
     return undefined;
   }
 
   return {
-    cellX: footprint.cellX,
-    cellY: footprint.cellY,
+    xPx,
+    yPx,
     sizeXCells,
     sizeYCells,
-    cornerStyle: shape === "rounded-rectangle" ? "round" : "square",
+    cornerStyle: cornerStyle === "rounded" ? "round" : "square",
     ...(elevationCells === undefined ? {} : { elevationCells }),
     ...(strength === undefined ? {} : { strength })
   };
@@ -195,7 +200,7 @@ export function mapLightingFrameInput(
     }
     const pointLight = mapPointLight(objectId, object.lighting.pointLight, diagnostics);
     if (pointLight) pointLights.push(pointLight);
-    const blocker = mapBlocker(objectId, object.lighting, diagnostics);
+    const blocker = mapBlocker(objectId, object.lighting, geometry.cellSizePx, diagnostics);
     if (blocker) blockers.push(blocker);
   }
 

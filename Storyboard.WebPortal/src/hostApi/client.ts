@@ -827,13 +827,13 @@ export class HostApiClient {
   }
 
   private readSpatialFootprint(source: Record<string, unknown>): HostObjectSpatialFootprint {
-    const shape = this.readString(source, ["shape", "Shape"]);
+    const cornerStyle = this.readString(source, ["cornerStyle", "CornerStyle"]);
     return {
       cellX: this.readNumber(source, ["cellX", "CellX"]),
       cellY: this.readNumber(source, ["cellY", "CellY"]),
       sizeXCells: this.readOptionalFiniteNumber(source, ["sizeXCells", "SizeXCells"]),
       sizeYCells: this.readOptionalFiniteNumber(source, ["sizeYCells", "SizeYCells"]),
-      shape: shape === "rectangle" || shape === "rounded-rectangle" ? shape : undefined,
+      cornerStyle: cornerStyle === "rounded" ? "rounded" : "sharp",
       elevationCells: this.readOptionalFiniteNumber(source, ["elevationCells", "ElevationCells"])
     };
   }

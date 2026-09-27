@@ -31,7 +31,8 @@ describe("HostApiClient", () => {
                   name: "Light without image",
                   renderableImage: { imagePath: "", x: 0, y: 0, scale: 1 },
                   renderZOrder: 0,
-                  pointLight: { x: 0, y: 0, radiusPx: 0, intensityScale: 0, motionMode: "static" }
+                  pointLight: { x: 0, y: 0, radiusPx: 0, intensityScale: 0, motionMode: "static" },
+                  spatialFootprint: { cellX: 2, cellY: 3 }
                 }
               ]
             }
@@ -54,7 +55,7 @@ describe("HostApiClient", () => {
                 renderableImage: { imagePath: "", x: 0, y: 0, scale: 1 },
                 renderZOrder: 0,
                 pointLight: { x: 0, y: 0, radiusPx: 0, intensityScale: 0, color: "#ffffff" },
-                spatialFootprint: { cellX: 0, cellY: 1, sizeXCells: 0, shape: "rounded-rectangle", elevationCells: 0 },
+                spatialFootprint: { cellX: 0, cellY: 1, sizeXCells: 0, cornerStyle: "rounded", elevationCells: 0 },
                 lightOcclusion: { strength: 0 }
               },
               presentationCues: []
@@ -88,10 +89,18 @@ describe("HostApiClient", () => {
       intensityScale: 0,
       motionMode: "static"
     });
+    expect(sessionData?.roomChange?.newRoom?.renderableRoomObjects[0].spatialFootprint).toEqual({
+      cellX: 2,
+      cellY: 3,
+      sizeXCells: undefined,
+      sizeYCells: undefined,
+      cornerStyle: "sharp",
+      elevationCells: undefined
+    });
     expect(sessionData?.roomObjectChanges[0].fromRenderableObject?.pointLight).toEqual({ x: 10, y: 20 });
     expect(sessionData?.roomObjectChanges[0].renderableRoomObject).toMatchObject({
       pointLight: { x: 0, y: 0, radiusPx: 0, intensityScale: 0, color: "#ffffff" },
-      spatialFootprint: { cellX: 0, cellY: 1, sizeXCells: 0, shape: "rounded-rectangle", elevationCells: 0 },
+      spatialFootprint: { cellX: 0, cellY: 1, sizeXCells: 0, cornerStyle: "rounded", elevationCells: 0 },
       lightOcclusion: { strength: 0 }
     });
 

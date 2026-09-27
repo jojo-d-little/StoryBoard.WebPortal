@@ -12,6 +12,7 @@ export interface GameRenderSceneObject {
   objectName: string;
   sprite?: GameRenderSpriteComponent;
   lighting?: GameRenderObjectLighting;
+  lightingTransitionFrom?: GameRenderObjectLighting;
   presentationCues: GameRenderPresentationCue[];
   movementDurationMs?: number;
   movementFrames?: number;

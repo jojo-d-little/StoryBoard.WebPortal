@@ -92,6 +92,62 @@ function buildSessionData(overrides: Partial<HostSessionDataEnvelope> = {}): Hos
 }
 
 describe("mapHostSessionDataToSceneSnapshot", () => {
+  it("preserves the Host before endpoint as transient lighting movement input", () => {
+    const baseline = mapHostSessionDataToSceneSnapshot(buildSessionData());
+    const updated = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      roomChange: undefined,
+      hasRoomChange: false,
+      roomObjectChanges: [
+        {
+          changeKind: "Updated",
+          objectId: "obj-1",
+          objectName: "Lantern",
+          fromRenderableObject: {
+            objectId: "obj-1",
+            name: "Lantern",
+            renderableImage: {
+              imagePath: "assets/images/lantern.png",
+              anchorX: 0,
+              anchorY: 0,
+              iconOffsetX: 0,
+              iconOffsetY: 0,
+              x: 120,
+              y: 80,
+              rotationDegrees: 0,
+              scale: 1
+            },
+            renderZOrder: 1002,
+            pointLight: { x: 132, y: 92, radiusPx: 80 }
+          },
+          renderableRoomObject: {
+            objectId: "obj-1",
+            name: "Lantern",
+            renderableImage: {
+              imagePath: "assets/images/lantern.png",
+              anchorX: 0,
+              anchorY: 0,
+              iconOffsetX: 0,
+              iconOffsetY: 0,
+              x: 160,
+              y: 80,
+              rotationDegrees: 0,
+              scale: 1
+            },
+            renderZOrder: 1002,
+            pointLight: { x: 172, y: 92, radiusPx: 80 }
+          },
+          presentationCues: [{ cueType: "movement", category: "Movement", effectKey: "movement.walk", movementDurationMs: 200 }]
+        }
+      ]
+    }), baseline);
+
+    expect(updated?.objectsById["obj-1"]).toMatchObject({
+      lighting: { pointLight: { x: 172, y: 92, radiusPx: 80 } },
+      lightingTransitionFrom: { pointLight: { x: 132, y: 92, radiusPx: 80 } },
+      movementDurationMs: 200
+    });
+  });
+
   it("maps directional overlay room payload into a renderer snapshot", () => {
     const snapshot = mapHostSessionDataToSceneSnapshot(buildSessionData());
     expect(snapshot).not.toBeNull();
@@ -166,7 +222,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
                 scale: 1
               },
               renderZOrder: 0,
-              spatialFootprint: { cellX: 3, cellY: 4, sizeXCells: 2, shape: "rounded-rectangle" },
+              spatialFootprint: { cellX: 3, cellY: 4, sizeXCells: 2, cornerStyle: "rounded" },
               lightOcclusion: { strength: 0 }
             }
           ]
@@ -193,7 +249,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
         objectId: "invisible-blocker",
         objectName: "Invisible blocker",
         lighting: {
-          spatialFootprint: { cellX: 3, cellY: 4, sizeXCells: 2, shape: "rounded-rectangle" },
+          spatialFootprint: { cellX: 3, cellY: 4, sizeXCells: 2, cornerStyle: "rounded" },
           lightOcclusion: { strength: 0 }
         },
         presentationCues: []

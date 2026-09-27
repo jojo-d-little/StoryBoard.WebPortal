@@ -11,6 +11,14 @@ import { createAppearanceSilhouetteEffectController, type AppearanceSilhouetteEf
 import { captureRoomTexture, type CapturedRoomTexture } from "./RoomSnapshotRenderer";
 import { RoomLightingController } from "./lighting/RoomLightingController";
 import {
+  advanceLightingMovementTweens,
+  createLightingMovementTween,
+  projectSpriteAnchoredBlocker,
+  projectSpriteAnchoredPointLight,
+  projectLightingMovement,
+  type LightingMovementTween
+} from "./lighting/lightingMovementProjection";
+import {
   createStyledPointEffectController,
   type StyledPointEffectController,
   type StyledPointEffectIntent
@@ -116,6 +124,8 @@ interface SnapshotTransitionState {
   incoming: CapturedRoomTexture;
   outgoingFrame: Container;
   incomingFrame: Container;
+  blackoutFrame: Graphics | null;
+  lightingTransition: boolean;
 }
 
 function areSilhouettePassesEquivalent(
@@ -273,8 +283,11 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   let snapshotTransitionState: SnapshotTransitionState | null = null;
   let preparedOutgoingSnapshot: CapturedRoomTexture | null = null;
   let preparedOutgoingFrame: Container | null = null;
+  let preparedOutgoingLightingEnabled: boolean | null = null;
   let activeSurfaceScene: GameRenderSceneSnapshot | null = null;
   let roomLightingController: RoomLightingController | null = null;
+  const lightingMovementTweensByObjectId = new Map<string, LightingMovementTween>();
+  const pendingSpriteLightingMovementIds = new Set<string>();
   let interactionMode: GameRendererInteractionMode = "CommandClick";
   const waypointDraft: GameRendererRoomPoint[] = [];
   const hudOverlayController = createHudOverlayController(() => isDisposed);
@@ -388,6 +401,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     }
     preparedOutgoingSnapshot?.dispose();
     preparedOutgoingSnapshot = null;
+    preparedOutgoingLightingEnabled = null;
     if (!activeRoomSwapTween) {
       snapshotTransitionLayer.visible = false;
       activeRoomSurface.root.visible = true;
@@ -396,21 +410,24 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
 
   function createViewportSnapshotFrame(snapshot: CapturedRoomTexture): Container {
     const frame = new Container();
-    const background = new Graphics()
-      .rect(0, 0, viewportWidth, viewportHeight)
-      .fill(0x0f172a);
+    const background = new Graphics();
     const sprite = new Sprite(snapshot.texture);
-    const transform = computeContainTransform(
-      snapshot.width,
-      snapshot.height,
-      viewportWidth,
-      viewportHeight
-    );
-    sprite.position.set(transform.offsetX, transform.offsetY);
-    sprite.scale.set(transform.scale);
     frame.addChild(background);
     frame.addChild(sprite);
+    layoutViewportSnapshotFrame(frame, snapshot);
     return frame;
+  }
+
+  function layoutViewportSnapshotFrame(frame: Container, snapshot: CapturedRoomTexture): void {
+    const background = frame.children[0];
+    const sprite = frame.children[1];
+    if (!(background instanceof Graphics) || !(sprite instanceof Sprite)) {
+      return;
+    }
+    background.clear().rect(0, 0, viewportWidth, viewportHeight).fill(0x0f172a);
+    const transform = computeContainTransform(snapshot.width, snapshot.height, viewportWidth, viewportHeight);
+    sprite.position.set(transform.offsetX, transform.offsetY);
+    sprite.scale.set(transform.scale);
   }
 
   function captureSurfaceSnapshot(
@@ -434,13 +451,32 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       viewportWidth,
       viewportHeight
     );
+    let temporaryCaptureSurface: Container | null = null;
     try {
-      const captured = captureRoomTexture(app.renderer, surface.root, {
+      let captureSurface: Container = surface.root;
+      if (isLightingPresentationEnabled(presentationIsolationSettings) && roomLightingController) {
+        const finalScene = surface === activeRoomSurface
+          ? getLightingFrameScene(scene)
+          : projectLightingMovement(scene, lightingMovementTweensByObjectId);
+        const composedTexture = roomLightingController.renderForCapture(
+          surface.root,
+          finalScene,
+          app.ticker.lastTime / 1000
+        );
+        if (composedTexture) {
+          temporaryCaptureSurface = new Container();
+          temporaryCaptureSurface.addChild(new Sprite(composedTexture));
+          captureSurface = temporaryCaptureSurface;
+        }
+      }
+      const captured = captureRoomTexture(app.renderer, captureSurface, {
         roomId,
         width: scene.bounds.width,
         height: scene.bounds.height,
         resolutionScale: transform.scale * app.renderer.resolution
       });
+      temporaryCaptureSurface?.destroy({ children: true });
+      temporaryCaptureSurface = null;
       emit("info", "Completed room snapshot capture.", {
         roomId: roomId || "(unknown)",
         surface: surface.label,
@@ -451,6 +487,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       });
       return captured;
     } catch (error) {
+      temporaryCaptureSurface?.destroy({ children: true });
       emit("warning", "Room snapshot capture failed.", {
         roomId: roomId || "(unknown)",
         surface: surface.label,
@@ -466,7 +503,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   function prepareSnapshotTransition(
     outgoingScene: GameRenderSceneSnapshot,
     incomingScene: GameRenderSceneSnapshot,
-    preCapturedOutgoing?: CapturedRoomTexture
+    preCapturedOutgoing?: CapturedRoomTexture,
+    lightingTransition = false
   ): boolean {
     clearSnapshotTransition();
 
@@ -485,12 +523,22 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       const incomingFrame = createViewportSnapshotFrame(incoming);
       snapshotTransitionLayer.addChild(outgoingFrame);
       snapshotTransitionLayer.addChild(incomingFrame);
+      let blackoutFrame: Graphics | null = null;
+      if (lightingTransition) {
+        blackoutFrame = new Graphics()
+          .rect(0, 0, viewportWidth, viewportHeight)
+          .fill(0x000000);
+        blackoutFrame.alpha = 0;
+        snapshotTransitionLayer.addChild(blackoutFrame);
+      }
       snapshotTransitionLayer.visible = true;
       snapshotTransitionState = {
         outgoing,
         incoming,
         outgoingFrame,
-        incomingFrame
+        incomingFrame,
+        blackoutFrame,
+        lightingTransition
       };
 
       emit("info", "Prepared bounded room snapshots for slide transition.", {
@@ -587,6 +635,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   }
 
   function clearAllSceneSprites(): void {
+    lightingMovementTweensByObjectId.clear();
+    pendingSpriteLightingMovementIds.clear();
     clearSurfaceSprites(activeRoomSurface);
     clearSurfaceSprites(stagingRoomSurface);
     hudOverlayController.clear();
@@ -594,6 +644,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
 
   function removeRoomObjectSprite(surface: RoomSurfaceState, objectId: string): void {
     surface.activeMovementTweensByObjectId.delete(objectId);
+    pendingSpriteLightingMovementIds.delete(objectId);
     const existing = surface.roomObjectSpritesById.get(objectId);
     if (!existing) {
       return;
@@ -699,6 +750,37 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
 
     const cueEffectKey = scene.roomTransition?.cueEffectKey ?? "";
     const mode = modeOverride ?? scene.roomTransition?.mode ?? "slide";
+
+    if (mode !== "slide" && snapshotTransitionState?.lightingTransition) {
+      activeRoomSwapTween = {
+        generation,
+        mode,
+        cueEffectKey,
+        durationMs,
+        elapsedMs: 0,
+        outgoingEndX: 0,
+        outgoingEndY: 0,
+        incomingStartX: 0,
+        incomingStartY: 0,
+        direction: scene.roomTransition?.travelDirection ?? "(not-required)",
+        pendingBoundsWidth: scene.bounds.width,
+        pendingBoundsHeight: scene.bounds.height,
+        hasAppliedBoundsSwap: false,
+        usesSnapshotFrames: true
+      };
+      activeRoomSurface.root.visible = false;
+      stagingRoomSurface.root.visible = false;
+      snapshotTransitionState.outgoingFrame.position.set(0, 0);
+      snapshotTransitionState.incomingFrame.position.set(0, 0);
+      snapshotTransitionState.outgoingFrame.alpha = 1;
+      snapshotTransitionState.incomingFrame.alpha = 0;
+      if (snapshotTransitionState.blackoutFrame) {
+        snapshotTransitionState.blackoutFrame.alpha = 0;
+      }
+      snapshotTransitionLayer.visible = true;
+      reportRoomTransitionState("running");
+      return true;
+    }
 
     if (mode === "fade-blackout") {
       activeRoomSwapTween = {
@@ -838,6 +920,14 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     }
 
     const deltaMs = Math.max(0, ticker.deltaMS);
+    advanceLightingMovementTweens(
+      lightingMovementTweensByObjectId,
+      deltaMs,
+      new Set([
+        ...activeRoomSurface.activeMovementTweensByObjectId.keys(),
+        ...pendingSpriteLightingMovementIds
+      ])
+    );
     for (const [objectId, tween] of activeRoomSurface.activeMovementTweensByObjectId) {
       const activeSegment = tween.segments[tween.segmentIndex];
       if (!activeSegment) {
@@ -892,12 +982,130 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         });
         tween.state.root.zIndex = tween.toZOrder;
         activeRoomSurface.activeMovementTweensByObjectId.delete(objectId);
+        lightingMovementTweensByObjectId.delete(objectId);
       }
     }
 
     activeRoomSurface.appearanceOutlineEffectController.tick(performance.now());
     activeRoomSurface.appearanceSilhouetteEffectController.tick(performance.now());
     activeRoomSurface.styledPointEffectController.tick(performance.now());
+  }
+
+  function syncLightingMovementTweens(
+    previousScene: GameRenderSceneSnapshot | null,
+    nextScene: GameRenderSceneSnapshot,
+    roomChanged: boolean
+  ): void {
+    if (roomChanged || !isPresentationCategoryEnabled(presentationIsolationSettings, "movement")) {
+      lightingMovementTweensByObjectId.clear();
+      pendingSpriteLightingMovementIds.clear();
+      return;
+    }
+
+    for (const [objectId, object] of Object.entries(nextScene.objectsById)) {
+      const previousObject = previousScene?.objectsById[objectId];
+      if (previousObject
+        && JSON.stringify(previousObject.lighting ?? null) === JSON.stringify(object.lighting ?? null)
+        && JSON.stringify(previousObject.lightingTransitionFrom ?? null) === JSON.stringify(object.lightingTransitionFrom ?? null)) {
+        continue;
+      }
+      const durationMs = Math.max(0, Math.round(object.movementDurationMs ?? 0));
+      const hasSpriteMovement = Boolean(previousObject?.sprite && object.sprite && durationMs > 0
+        && (previousObject.sprite.x !== object.sprite.x || previousObject.sprite.y !== object.sprite.y));
+      let fromLighting = object.lightingTransitionFrom ?? previousObject?.lighting;
+      const existingLightingTween = lightingMovementTweensByObjectId.get(objectId);
+      const existingSpriteMovement = activeRoomSurface.activeMovementTweensByObjectId.get(objectId);
+      if (existingLightingTween && existingSpriteMovement && previousScene) {
+        const currentLighting = previousScene.objectsById[objectId]?.lighting;
+        const firstSegment = existingSpriteMovement.segments[0];
+        const lastSegment = existingSpriteMovement.segments[existingSpriteMovement.segments.length - 1];
+        if (currentLighting && firstSegment && lastSegment) {
+          const progress = existingSpriteMovement.totalDurationMs <= 0
+            ? 1
+            : Math.min(1, existingSpriteMovement.totalElapsedMs / existingSpriteMovement.totalDurationMs);
+          const position = {
+            spriteX: existingSpriteMovement.state.root.position.x,
+            spriteY: existingSpriteMovement.state.root.position.y,
+            fromSpriteX: firstSegment.fromX,
+            fromSpriteY: firstSegment.fromY,
+            toSpriteX: lastSegment.toX,
+            toSpriteY: lastSegment.toY,
+            progress
+          };
+          fromLighting = projectSpriteAnchoredPointLight(currentLighting, existingLightingTween.from, position);
+          fromLighting = projectSpriteAnchoredBlocker(
+            fromLighting,
+            existingLightingTween.from,
+            position,
+            nextScene.lighting?.cellSizePx ?? Number.NaN
+          );
+        }
+      }
+      const tween = createLightingMovementTween(fromLighting, object.lighting, durationMs);
+      if (tween) {
+        lightingMovementTweensByObjectId.set(objectId, tween);
+        if (hasSpriteMovement && !activeRoomSurface.activeMovementTweensByObjectId.has(objectId)) {
+          pendingSpriteLightingMovementIds.add(objectId);
+        } else {
+          pendingSpriteLightingMovementIds.delete(objectId);
+        }
+      } else {
+        lightingMovementTweensByObjectId.delete(objectId);
+        pendingSpriteLightingMovementIds.delete(objectId);
+      }
+    }
+    for (const objectId of lightingMovementTweensByObjectId.keys()) {
+      if (!nextScene.objectsById[objectId]) {
+        lightingMovementTweensByObjectId.delete(objectId);
+        pendingSpriteLightingMovementIds.delete(objectId);
+      }
+    }
+  }
+
+  function getLightingFrameScene(scene: GameRenderSceneSnapshot): GameRenderSceneSnapshot {
+    const frameTweens = new Map(lightingMovementTweensByObjectId);
+    for (const [objectId, movement] of activeRoomSurface.activeMovementTweensByObjectId) {
+      const lightingTween = frameTweens.get(objectId);
+      if (lightingTween) {
+        frameTweens.set(objectId, { ...lightingTween, elapsedMs: movement.totalElapsedMs });
+      }
+    }
+    const projected = projectLightingMovement(scene, frameTweens);
+    let objectsById: GameRenderSceneSnapshot["objectsById"] | undefined;
+    for (const [objectId, movement] of activeRoomSurface.activeMovementTweensByObjectId) {
+      const object = projected.objectsById[objectId];
+      const endpointLighting = scene.objectsById[objectId]?.lighting ?? object?.lighting;
+      const firstSegment = movement.segments[0];
+      const lastSegment = movement.segments[movement.segments.length - 1];
+      const lightingTween = lightingMovementTweensByObjectId.get(objectId);
+      const fromLighting = lightingTween?.from ?? object?.lightingTransitionFrom;
+      if (!object?.lighting || !endpointLighting || !firstSegment || !lastSegment) {
+        continue;
+      }
+
+      const progress = movement.totalDurationMs <= 0
+        ? 1
+        : Math.min(1, movement.totalElapsedMs / movement.totalDurationMs);
+      const position = {
+        spriteX: movement.state.root.position.x,
+        spriteY: movement.state.root.position.y,
+        fromSpriteX: firstSegment.fromX,
+        fromSpriteY: firstSegment.fromY,
+        toSpriteX: lastSegment.toX,
+        toSpriteY: lastSegment.toY,
+        progress
+      };
+      const lightingWithMovingLight = projectSpriteAnchoredPointLight(endpointLighting, fromLighting, position);
+      const lighting = projectSpriteAnchoredBlocker(
+        lightingWithMovingLight,
+        fromLighting,
+        position,
+        scene.lighting?.cellSizePx ?? Number.NaN
+      );
+      objectsById ??= { ...projected.objectsById };
+      objectsById[objectId] = { ...object, lighting };
+    }
+    return objectsById ? { ...projected, objectsById } : projected;
   }
 
   function updateRoomSwapTween(ticker: Ticker): void {
@@ -918,7 +1126,49 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       : Math.min(1, tween.elapsedMs / tween.durationMs);
     const eased = progress * (2 - progress);
 
-    if (tween.mode === "fade-blackout") {
+    if (tween.usesSnapshotFrames && snapshotTransitionState) {
+      snapshotTransitionState.outgoingFrame.position.set(0, 0);
+      snapshotTransitionState.incomingFrame.position.set(0, 0);
+      if (tween.mode === "fade") {
+        snapshotTransitionState.outgoingFrame.alpha = 1 - eased;
+        snapshotTransitionState.incomingFrame.alpha = eased;
+      } else if (tween.mode === "fade-blackout") {
+        const firstHalf = Math.min(1, eased * 2);
+        const secondHalf = Math.max(0, (eased - 0.5) * 2);
+        if (eased < 0.5) {
+          snapshotTransitionState.outgoingFrame.alpha = 1 - firstHalf;
+          snapshotTransitionState.incomingFrame.alpha = 0;
+          if (snapshotTransitionState.blackoutFrame) {
+            snapshotTransitionState.blackoutFrame.alpha = firstHalf;
+          }
+        } else {
+          if (!tween.hasAppliedBoundsSwap) {
+            updateClipMask(
+              tween.pendingBoundsWidth ?? currentScene?.bounds.width ?? 1,
+              tween.pendingBoundsHeight ?? currentScene?.bounds.height ?? 1
+            );
+            applyViewportTransform();
+            tween.hasAppliedBoundsSwap = true;
+          }
+          snapshotTransitionState.outgoingFrame.alpha = 0;
+          snapshotTransitionState.incomingFrame.alpha = secondHalf;
+          if (snapshotTransitionState.blackoutFrame) {
+            snapshotTransitionState.blackoutFrame.alpha = 1 - secondHalf;
+          }
+        }
+      } else {
+        snapshotTransitionState.outgoingFrame.alpha = 1;
+        snapshotTransitionState.incomingFrame.alpha = 1;
+        snapshotTransitionState.outgoingFrame.position.set(
+          tween.outgoingEndX * eased,
+          tween.outgoingEndY * eased
+        );
+        snapshotTransitionState.incomingFrame.position.set(
+          tween.incomingStartX * (1 - eased),
+          tween.incomingStartY * (1 - eased)
+        );
+      }
+    } else if (tween.mode === "fade-blackout") {
       const firstHalf = Math.min(1, eased * 2);
       const secondHalf = Math.max(0, (eased - 0.5) * 2);
 
@@ -950,15 +1200,6 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       stagingRoomSurface.root.position.set(0, 0);
       activeRoomSurface.root.alpha = 1 - eased;
       stagingRoomSurface.root.alpha = eased;
-    } else if (tween.usesSnapshotFrames && snapshotTransitionState) {
-      snapshotTransitionState.outgoingFrame.position.set(
-        tween.outgoingEndX * eased,
-        tween.outgoingEndY * eased
-      );
-      snapshotTransitionState.incomingFrame.position.set(
-        tween.incomingStartX * (1 - eased),
-        tween.incomingStartY * (1 - eased)
-      );
     } else {
       activeRoomSurface.root.position.set(
         tween.outgoingEndX * eased,
@@ -1141,6 +1382,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     if (movementDisabled || !presentationIsolationSettings.enabled) {
       completeMovementTweens(activeRoomSurface, "movement-category-disabled");
       completeMovementTweens(stagingRoomSurface, "movement-category-disabled");
+      lightingMovementTweensByObjectId.clear();
     }
 
     if (roomTransitionDisabled || !presentationIsolationSettings.enabled) {
@@ -1592,6 +1834,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         });
 
         if (legByLegSegments.length > 0) {
+          pendingSpriteLightingMovementIds.delete(roomObject.objectId);
           if (targetZOrder > currentZOrder) {
             roomObjectSpriteState.root.zIndex = targetZOrder;
           }
@@ -1639,6 +1882,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         }
 
         if (movementPlan.kind === "noop") {
+          pendingSpriteLightingMovementIds.delete(roomObject.objectId);
           const activeTween = surface.activeMovementTweensByObjectId.get(roomObject.objectId);
           if (activeTween) {
             activeTween.baseScale = targetBaseScale;
@@ -1654,7 +1898,9 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         }
 
         if (movementPlan.kind === "snap") {
+          pendingSpriteLightingMovementIds.delete(roomObject.objectId);
           surface.activeMovementTweensByObjectId.delete(roomObject.objectId);
+          lightingMovementTweensByObjectId.delete(roomObject.objectId);
           roomObjectSpriteState.root.position.set(movementPlan.x, movementPlan.y);
           roomObjectSpriteState.root.zIndex = targetZOrder;
           applyScaleLayers(roomObjectSpriteState, targetBaseScale, targetSituationalScale);
@@ -1688,6 +1934,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         }
 
         roomObjectSpriteState.root.position.set(movementPlan.fromX, movementPlan.fromY);
+        pendingSpriteLightingMovementIds.delete(roomObject.objectId);
         if (targetZOrder > currentZOrder) {
           roomObjectSpriteState.root.zIndex = targetZOrder;
         }
@@ -1756,6 +2003,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         }
       } catch (error) {
         removeRoomObjectSprite(surface, roomObject.objectId);
+        pendingSpriteLightingMovementIds.delete(roomObject.objectId);
         diagnostics?.({
           category: "asset",
           level: "warning",
@@ -1826,7 +2074,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     try {
       composed = roomLightingController?.render(
         activeRoomSurface.root,
-        scene,
+        getLightingFrameScene(scene),
         ticker.lastTime / 1000
       ) ?? false;
     } finally {
@@ -1884,6 +2132,11 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       updateClipMask(currentScene.bounds.width, currentScene.bounds.height);
       app.renderer.resize(viewportWidth, viewportHeight);
       updateSnapshotTransitionMask();
+      if (snapshotTransitionState) {
+        layoutViewportSnapshotFrame(snapshotTransitionState.outgoingFrame, snapshotTransitionState.outgoing);
+        layoutViewportSnapshotFrame(snapshotTransitionState.incomingFrame, snapshotTransitionState.incoming);
+        snapshotTransitionState.blackoutFrame?.clear().rect(0, 0, viewportWidth, viewportHeight).fill(0x000000);
+      }
       applyViewportTransform();
       if (currentScene) {
         hudOverlayController.reconcile(currentScene, viewportWidth, viewportHeight);
@@ -1917,6 +2170,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         return;
       }
 
+      const lightingEnabled = isLightingPresentationEnabled(presentationIsolationSettings);
       roomLightingController?.setEnabled(false);
       if (roomLightingController) {
         roomLightingController.presentationSprite.visible = false;
@@ -1926,6 +2180,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       reportRoomTransitionState("preparing");
       try {
         preparedOutgoingSnapshot = captureSurfaceSnapshot(activeRoomSurface, activeSurfaceScene);
+        preparedOutgoingLightingEnabled = lightingEnabled;
         preparedOutgoingFrame = createViewportSnapshotFrame(preparedOutgoingSnapshot);
         snapshotTransitionLayer.addChild(preparedOutgoingFrame);
         snapshotTransitionLayer.visible = true;
@@ -1944,19 +2199,23 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       }
     },
     updateScene: (scene) => {
+      const previousScene = currentScene;
+      const isRoomChanged = previousScene !== null && previousScene.roomId !== scene.roomId;
+      if (!isRoomChanged) {
+        syncLightingMovementTweens(previousScene, scene, false);
+      }
       if (currentScene && areScenesRenderEquivalent(currentScene, scene)) {
         currentScene = scene;
+        activeSurfaceScene = scene;
         return;
       }
 
-      const previousScene = currentScene;
       currentScene = scene;
       if (!isReady || isDisposed) {
         return;
       }
 
       const generation = ++renderGeneration;
-      const isRoomChanged = previousScene !== null && previousScene.roomId !== scene.roomId;
       if (isRoomChanged) {
         roomLightingController?.setEnabled(false);
         if (roomLightingController) {
@@ -1974,6 +2233,9 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         && roomTransitionEffectsEnabled
         && (requestedTransitionMode === "fade-blackout" || requestedTransitionMode === "slide")
         && transitionDurationMs > 0;
+      const lightingTransitionEnabled = isLightingPresentationEnabled(presentationIsolationSettings);
+      const shouldUseLightingSnapshots = lightingTransitionEnabled
+        && (requestedTransitionMode === "fade" || requestedTransitionMode === "fade-blackout");
 
       let outgoingSnapshot: CapturedRoomTexture | undefined;
       if (isRoomChanged) {
@@ -1992,14 +2254,16 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
 
       if (isRoomChanged
         && roomTransitionEffectsEnabled
-        && requestedTransitionMode === "slide"
+        && (requestedTransitionMode === "slide" || shouldUseLightingSnapshots)
         && transitionDurationMs > 0
         && previousScene) {
         if (preparedOutgoingSnapshot
-          && preparedOutgoingSnapshot.roomId === (activeSurfaceScene?.roomId ?? previousScene.roomId ?? "")) {
+          && preparedOutgoingSnapshot.roomId === (activeSurfaceScene?.roomId ?? previousScene.roomId ?? "")
+          && preparedOutgoingLightingEnabled === lightingTransitionEnabled) {
           outgoingSnapshot = preparedOutgoingSnapshot;
           preparedOutgoingSnapshot = null;
           preparedOutgoingFrame = null;
+          preparedOutgoingLightingEnabled = null;
         } else {
           clearPreparedOutgoingSnapshot();
           try {
@@ -2013,6 +2277,11 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         }
       } else if (isRoomChanged) {
         clearPreparedOutgoingSnapshot();
+      }
+
+      if (isRoomChanged) {
+        lightingMovementTweensByObjectId.clear();
+        pendingSpriteLightingMovementIds.clear();
       }
 
       if (!shouldDelayBoundsSwap) {
@@ -2032,10 +2301,13 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
           }
 
           let transitionStarted = false;
-          if (requestedTransitionMode === "slide" && transitionDurationMs > 0 && previousScene) {
+          const shouldPrepareSnapshotTransition = transitionDurationMs > 0
+            && previousScene
+            && (requestedTransitionMode === "slide" || shouldUseLightingSnapshots);
+          if (shouldPrepareSnapshotTransition) {
             freezeStagedSurfaceForSnapshotHandoff();
             const snapshotsPrepared = outgoingSnapshot
-              ? prepareSnapshotTransition(previousScene, scene, outgoingSnapshot)
+              ? prepareSnapshotTransition(previousScene, scene, outgoingSnapshot, lightingTransitionEnabled)
               : false;
             outgoingSnapshot = undefined;
 
@@ -2043,7 +2315,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
               updateClipMask(scene.bounds.width, scene.bounds.height);
               applyViewportTransform();
               transitionStarted = beginRoomSwapTween(scene, generation);
-            } else {
+            } else if (requestedTransitionMode === "slide") {
               emit("warning", "Falling back from snapshot slide to fade-blackout.", {
                 outgoingRoomId: previousScene.roomId || "(unknown)",
                 incomingRoomId: scene.roomId || "(unknown)",
@@ -2051,6 +2323,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
                 durationMs: transitionDurationMs
               });
               transitionStarted = beginRoomSwapTween(scene, generation, "fade-blackout");
+            } else {
+              transitionStarted = beginRoomSwapTween(scene, generation);
             }
           } else {
             transitionStarted = beginRoomSwapTween(scene, generation);

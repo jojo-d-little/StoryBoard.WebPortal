@@ -3,6 +3,6 @@ export interface HostObjectSpatialFootprint {
   cellY: number;
   sizeXCells?: number;
   sizeYCells?: number;
-  shape?: "rectangle" | "rounded-rectangle";
+  cornerStyle?: "sharp" | "rounded";
   elevationCells?: number;
 }

@@ -175,6 +175,16 @@ export class RoomLightingController {
     }
   }
 
+  renderForCapture(surface: Container, scene: GameRenderSceneSnapshot, timeSeconds: number): Texture | null {
+    if (this.disposed) return null;
+    const wasEnabled = this.enabled;
+    this.setEnabled(true);
+    const rendered = this.render(surface, scene, timeSeconds);
+    const texture = rendered ? this.presentationSprite.texture : null;
+    this.setEnabled(wasEnabled);
+    return texture;
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
