@@ -261,6 +261,7 @@ export interface HostWorkflowState {
   presentationIsolationSettings: PresentationIsolationSettings;
   presentationIsolationCategoryOptions: PresentationIsolationCategoryOption[];
   setPresentationIsolationEnabled: (value: boolean) => void;
+  setLightingEnabled: (value: boolean) => void;
   setPresentationIsolationCategoryEnabled: (category: PresentationIsolationCategory, value: boolean) => void;
   roomTransitionCueOptions: RoomTransitionCueOption[];
   selectedRoomTransitionCueEffectKey: string;
@@ -383,6 +384,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
   const [ambientVolumePercent, setAmbientVolumePercent] = useState<number>(options.audioDefaults.lanes.ambient.volumePercent);
   const [presentationIsolationSettings, setPresentationIsolationSettings] = useState<PresentationIsolationSettings>(() => ({
     enabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.enabled,
+    lightingEnabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.lightingEnabled,
     categories: { ...DEFAULT_PRESENTATION_ISOLATION_SETTINGS.categories }
   }));
   const [gameplayInteractionSubstate, setGameplayInteractionSubstate] = useState<GameplayInteractionSubstate>("DefaultClick");
@@ -478,6 +480,16 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
       enabled: value
     }));
     options.addDiagnostic("info", "presentation-cues", "Updated global Portal presentation isolation setting.", {
+      enabled: value
+    });
+  }, [options.addDiagnostic]);
+
+  const setLightingEnabled = useCallback((value: boolean): void => {
+    setPresentationIsolationSettings((previous) => ({
+      ...previous,
+      lightingEnabled: value
+    }));
+    options.addDiagnostic("info", "presentation-effects", "Updated Portal lighting presentation setting.", {
       enabled: value
     });
   }, [options.addDiagnostic]);
@@ -1143,6 +1155,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     presentationIsolationSettings,
     presentationIsolationCategoryOptions,
     setPresentationIsolationEnabled,
+    setLightingEnabled,
     setPresentationIsolationCategoryEnabled,
     roomTransitionCueOptions,
     selectedRoomTransitionCueEffectKey,

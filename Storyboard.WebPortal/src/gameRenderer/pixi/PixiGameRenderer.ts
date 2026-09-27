@@ -9,6 +9,7 @@ import { areHudOverlayEntriesEquivalent, createHudOverlayController } from "./hu
 import { createAppearanceOutlineEffectController, type AppearanceOutlineEffectController } from "./effects/appearanceOutline/AppearanceOutlineEffectController";
 import { createAppearanceSilhouetteEffectController, type AppearanceSilhouetteEffectController } from "./effects/appearanceSilhouette/AppearanceSilhouetteEffectController";
 import { captureRoomTexture, type CapturedRoomTexture } from "./RoomSnapshotRenderer";
+import { RoomLightingController } from "./lighting/RoomLightingController";
 import {
   createStyledPointEffectController,
   type StyledPointEffectController,
@@ -16,6 +17,7 @@ import {
 } from "./effects/styledPoint/StyledPointEffectController";
 import {
   DEFAULT_PRESENTATION_ISOLATION_SETTINGS,
+  isLightingPresentationEnabled,
   isPresentationCategoryEnabled,
   type PresentationIsolationSettings
 } from "../presentationIsolation";
@@ -182,10 +184,12 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   let presentationIsolationSettings: PresentationIsolationSettings = options.presentationIsolationSettings
     ? {
         enabled: options.presentationIsolationSettings.enabled,
+        lightingEnabled: options.presentationIsolationSettings.lightingEnabled ?? false,
         categories: { ...options.presentationIsolationSettings.categories }
       }
     : {
         enabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.enabled,
+        lightingEnabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.lightingEnabled,
         categories: { ...DEFAULT_PRESENTATION_ISOLATION_SETTINGS.categories }
       };
 
@@ -270,6 +274,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   let preparedOutgoingSnapshot: CapturedRoomTexture | null = null;
   let preparedOutgoingFrame: Container | null = null;
   let activeSurfaceScene: GameRenderSceneSnapshot | null = null;
+  let roomLightingController: RoomLightingController | null = null;
   let interactionMode: GameRendererInteractionMode = "CommandClick";
   const waypointDraft: GameRendererRoomPoint[] = [];
   const hudOverlayController = createHudOverlayController(() => isDisposed);
@@ -1120,6 +1125,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     const previousSettings = presentationIsolationSettings;
     presentationIsolationSettings = {
       enabled: settings.enabled,
+      lightingEnabled: settings.lightingEnabled,
       categories: { ...settings.categories }
     };
 
@@ -1787,11 +1793,55 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     }
   }
 
+  function updateLightingPresentation(ticker: Ticker): void {
+    const transitionInProgress = Boolean(
+      activeRoomSwapTween || snapshotTransitionState || snapshotTransitionLayer.visible || blackoutOverlay.visible
+    );
+    const shouldEnable = isLightingPresentationEnabled(presentationIsolationSettings) && !transitionInProgress;
+    roomLightingController?.setEnabled(shouldEnable);
+
+    if (!shouldEnable) {
+      if (roomLightingController) {
+        roomLightingController.presentationSprite.visible = false;
+      }
+      if (!transitionInProgress) {
+        activeRoomSurface.root.visible = true;
+      }
+      return;
+    }
+
+    const scene = currentScene;
+    if (!scene || !activeSurfaceScene || activeSurfaceScene.roomId !== scene.roomId) {
+      if (roomLightingController) {
+        roomLightingController.presentationSprite.visible = false;
+      }
+      return;
+    }
+
+    const viewportPosition = { x: stageRoot.position.x, y: stageRoot.position.y };
+    const viewportScale = { x: stageRoot.scale.x, y: stageRoot.scale.y };
+    stageRoot.position.set(0, 0);
+    stageRoot.scale.set(1, 1);
+    let composed = false;
+    try {
+      composed = roomLightingController?.render(
+        activeRoomSurface.root,
+        scene,
+        ticker.lastTime / 1000
+      ) ?? false;
+    } finally {
+      stageRoot.position.set(viewportPosition.x, viewportPosition.y);
+      stageRoot.scale.set(viewportScale.x, viewportScale.y);
+    }
+    activeRoomSurface.root.visible = !composed;
+  }
+
   async function initialize(): Promise<void> {
     await app.init({
       backgroundColor: 0x0f172a,
       backgroundAlpha: 1,
       antialias: true,
+      preference: "webgl",
       width: viewportWidth,
       height: viewportHeight
     });
@@ -1808,9 +1858,24 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     app.stage.addChild(snapshotTransitionLayer);
     app.stage.addChild(snapshotTransitionMask);
     app.stage.addChild(hudOverlayController.layer);
+    try {
+      roomLightingController = new RoomLightingController({
+        renderer: app.renderer,
+        presentationLayer: stageRoot,
+        diagnostics
+      });
+    } catch (error) {
+      diagnostics?.({
+        category: "lifecycle",
+        level: "warning",
+        message: "Failed to initialize room lighting; continuing with raw room rendering.",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
     app.ticker.add(updateMovementTweens);
     app.ticker.add(updateRoomSwapTween);
     app.ticker.add(hudOverlayController.update);
+    app.ticker.add(updateLightingPresentation);
     isReady = true;
     updateSnapshotTransitionMask();
 
@@ -1852,6 +1917,11 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         return;
       }
 
+      roomLightingController?.setEnabled(false);
+      if (roomLightingController) {
+        roomLightingController.presentationSprite.visible = false;
+      }
+      activeRoomSurface.root.visible = true;
       clearPreparedOutgoingSnapshot();
       reportRoomTransitionState("preparing");
       try {
@@ -1887,6 +1957,13 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
 
       const generation = ++renderGeneration;
       const isRoomChanged = previousScene !== null && previousScene.roomId !== scene.roomId;
+      if (isRoomChanged) {
+        roomLightingController?.setEnabled(false);
+        if (roomLightingController) {
+          roomLightingController.presentationSprite.visible = false;
+        }
+        activeRoomSurface.root.visible = true;
+      }
       const transitionDurationMs = Math.max(0, Math.round(scene.roomTransition?.durationMs ?? 0));
       const requestedTransitionMode = scene.roomTransition?.mode ?? "slide";
       const roomTransitionEffectsEnabled = isPresentationCategoryEnabled(
@@ -2150,6 +2227,12 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       const canvas = app.canvas;
 
       try {
+        app.ticker.remove(updateMovementTweens);
+        app.ticker.remove(updateRoomSwapTween);
+        app.ticker.remove(hudOverlayController.update);
+        app.ticker.remove(updateLightingPresentation);
+        roomLightingController?.dispose();
+        roomLightingController = null;
         clearAllSceneSprites();
         cancelRoomSwapTween(false, "renderer-disposed");
         clearPreparedOutgoingSnapshot();
@@ -2161,9 +2244,6 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
           mountElement.removeChild(canvas);
         }
 
-        app.ticker.remove(updateMovementTweens);
-        app.ticker.remove(updateRoomSwapTween);
-        app.ticker.remove(hudOverlayController.update);
         app.destroy(true, { children: true });
       } catch (error) {
         diagnostics?.({

@@ -5,7 +5,7 @@ Use the [detailed plan](WebPortal_Lighting_Detailed_Implementation_Plan.md) for 
 
 ## Current progress
 
-Completed through step 3. The scene stores each Host object once in `objectsById`; sprite and lighting data are optional components on that object. The pure mapper now produces room geometry and a complete Lighting frame from that state. Step 4 is next.
+Completed through step 5. The scene stores each Host object once in `objectsById`; sprite and lighting data are optional components on that object. The pure mapper produces complete Lighting frames, and the Devtools Lighting checkbox now controls the disabled-by-default Pixi lighting path. Step 6 is next.
 
 ## Implementation checklist
 
@@ -27,15 +27,15 @@ Completed through step 3. The scene stores each Host object once in `objectsById
    - [x] Keep viewport transforms and sprite rendering coordinates out of package mapping.
    - [x] Add focused mapping tests for ambient-only, light-only, sprite-and-light, blocker-only, zero values, invalid inputs, and capacity overflow.
 
-4. **[ ] Add one Pixi lighting controller**
-   - [ ] After Pixi WebGL initialization, create the borrowed room-size source texture and package pipeline.
-   - [ ] Submit the complete lighting frame and absolute time each enabled frame, then present the composed texture.
-   - [ ] Keep the disabled and failed paths on the existing raw room surface; dispose owned GPU resources correctly.
+4. **[x] Add one Pixi lighting controller**
+   - [x] Request Pixi WebGL and create one controller after renderer initialization; keep the borrowed room-size source texture separate from the composed output.
+   - [x] After movement and room-swap ticker updates, capture the active room in room coordinates, submit the complete lighting frame and absolute time, then present the composed texture.
+   - [x] Keep lighting disabled by default; disabled, invalid, failed, and transition paths use the existing raw room surface. Dispose the pipeline and owned textures before the Pixi app.
 
-5. **[ ] Wire the live Devtools switch**
-   - [ ] Add a catalog-independent Lighting checkbox in Presentation Effects, initially off.
-   - [ ] Make the master visual-effects switch suppress lighting as well.
-   - [ ] Place the effective on/off branch at the room-presentation seam so the off path skips capture and package calls.
+5. **[x] Wire the live Devtools switch**
+   - [x] Add a catalog-independent Lighting checkbox in Presentation Effects, initially off.
+   - [x] Make the master visual-effects switch suppress lighting as well.
+   - [x] Place the effective on/off branch at the room-presentation seam so the off path skips capture and package calls.
 
 6. **[ ] Complete movement and transitions**
    - [ ] Interpolate object-owned light positions from Host before/after endpoints during presentation tweens; switch blocker cells at leg boundaries.

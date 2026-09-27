@@ -36,6 +36,7 @@ export type {
 
 export {
   DEFAULT_PRESENTATION_ISOLATION_SETTINGS,
+  isLightingPresentationEnabled,
   isPresentationCategoryEnabled,
   normalizePresentationCategory,
   resolvePresentationIsolationCategoryOptions
