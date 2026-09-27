@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HostCommandSoundCue } from "../hostApi/HostContracts";
 import { useHostRendererSessionWorkflow } from "./useHostRendererSessionWorkflow";
 import type { HostApiClient } from "../hostApi/client";
+import { webPortalAssetCache } from "../cache/webPortalAssetCache";
 
 const useSessionDeltaPollingMock = vi.fn();
 
@@ -100,6 +101,90 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
     expect(firstSoundBatch?.sessionDeltaWatermark).toBe("42");
     expect(firstSoundBatch?.soundCues).toHaveLength(1);
     expect(firstSoundBatch?.soundCues?.[0]?.resultCode).toBe("SessionBaseline.PhaseAmbient");
+  });
+
+  it("publishes a baseline scene when one image request fails", async () => {
+    vi.spyOn(webPortalAssetCache, "get").mockImplementation((cacheKey) => {
+      return cacheKey.includes("wall.png")
+        ? Promise.reject(new Error("Temporary cache failure"))
+        : Promise.resolve({ entry: null, source: "none" });
+    });
+    vi.spyOn(webPortalAssetCache, "set").mockResolvedValue(undefined);
+    const getAssetPreviewDataUrl = vi.fn().mockImplementation((_credential: string, path: string) => {
+      return path === "assets/floor.png"
+        ? Promise.reject(new Error("Temporary asset request failure"))
+        : Promise.resolve("data:image/png;base64,AAAA");
+    });
+    const hostApiClient = {
+      getSessionBaseline: vi.fn().mockResolvedValue({
+        sessionDeltaWatermark: "42",
+        soundCues: [],
+        orderedTextPresentationSteps: [],
+        roomChange: {
+          newRoom: {
+            roomId: "room-1",
+            name: "Sample Room",
+            roomDisplayMode: "Overlay",
+            directionalRenderableImages: ["assets/floor.png", "assets/wall.png"].map((imagePath, index) => ({
+              slot: index === 0 ? "Down" : "North",
+              renderableImage: { imagePath, x: 0, y: 0, rotationDegrees: 0, scale: 1 }
+            })),
+            renderableRoomObjects: []
+          }
+        },
+        authoredRenderWidth: 800,
+        authoredRenderHeight: 600
+      }),
+      getSessionDeltas: vi.fn(),
+      getAssetPreviewDataUrl
+    } as unknown as HostApiClient;
+    const setRendererSceneSnapshot = vi.fn();
+    const addDiagnostic = vi.fn();
+
+    const workflowOptions: Parameters<typeof useHostRendererSessionWorkflow>[0] = {
+      hostApiClient,
+      credentialHandle: "cred-1",
+      activeSessionId: "session-1",
+      selectedGameId: "game-1",
+      selectedGameKey: "game-key",
+      presentationCueCatalogRevision: 0,
+      rendererSceneSnapshot: null,
+      setRendererSceneSnapshot,
+      applyMovementCueDurations: (scene) => scene,
+      getCurrentPresentationCueCatalog: () => null,
+      presentationCueCatalogSource: "none",
+      getHudOverlayEntries: () => [],
+      pollIntervalMs: 100,
+      heartbeatEveryNPolls: 100,
+      sessionDeltaResetEpoch: 0,
+      consumeSessionDeltaPhasePresentation: vi.fn(),
+      consumeSessionDeltaEcho: vi.fn(),
+      consumeSessionDeltaSoundCues: vi.fn(),
+      refreshCacheStats: vi.fn(),
+      addDiagnostic
+    };
+    renderHook(() => useHostRendererSessionWorkflow(workflowOptions));
+
+    await waitFor(() => expect(setRendererSceneSnapshot).toHaveBeenCalledTimes(1));
+    const scene = setRendererSceneSnapshot.mock.calls[0]?.[0];
+    expect(scene?.roomId).toBe("room-1");
+    expect(scene?.directionalOverlays.map((overlay: { asset: { assetPath: string } }) => overlay.asset.assetPath)).toEqual([
+      "assets/floor.png",
+      "data:image/png;base64,AAAA"
+    ]);
+    expect(getAssetPreviewDataUrl).toHaveBeenCalledTimes(2);
+    expect(addDiagnostic).toHaveBeenCalledWith(
+      "warn",
+      "session-render",
+      "Failed to resolve image asset for renderer.",
+      expect.objectContaining({ assetPath: "assets/floor.png" })
+    );
+    expect(addDiagnostic).toHaveBeenCalledWith(
+      "warn",
+      "asset-cache",
+      "Could not read renderer image asset cache; fetching from Host.",
+      expect.objectContaining({ assetPath: "assets/wall.png" })
+    );
   });
 
   it("passes a resync baseline callback into polling workflow", async () => {

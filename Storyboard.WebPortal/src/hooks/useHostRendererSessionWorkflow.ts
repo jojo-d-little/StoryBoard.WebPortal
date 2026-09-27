@@ -590,52 +590,81 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
         kind: "image-data-url"
       });
 
-      const cachedLookup = await webPortalAssetCache.get(assetCacheKey);
-      options.refreshCacheStats();
+      try {
+        const cachedLookup = await webPortalAssetCache.get(assetCacheKey);
+        options.refreshCacheStats();
 
-      if (cachedLookup.entry?.value) {
-        resolvedByPath.set(assetPath, cachedLookup.entry.value);
-        addDiagnosticRef.current("info", "asset-cache", "Resolved renderer asset from cache.", {
-          source: cachedLookup.source,
-          cacheKey: assetCacheKey,
-          assetPath,
-          roomId: scene.roomId || "(unknown)"
-        });
-        continue;
-      }
-
-      webPortalAssetCache.recordNetworkFetch();
-      options.refreshCacheStats();
-
-      const dataUrl = await options.hostApiClient.getAssetPreviewDataUrl(
-        options.credentialHandle,
-        assetPath,
-        options.selectedGameId,
-        options.selectedGameKey
-      );
-
-      if (!dataUrl) {
-        missingAssetPaths.push(assetPath);
-        addDiagnosticRef.current("warn", "session-render", "Failed to resolve directional image asset for renderer.", {
+        if (cachedLookup.entry?.value) {
+          resolvedByPath.set(assetPath, cachedLookup.entry.value);
+          addDiagnosticRef.current("info", "asset-cache", "Resolved renderer asset from cache.", {
+            source: cachedLookup.source,
+            cacheKey: assetCacheKey,
+            assetPath,
+            roomId: scene.roomId || "(unknown)"
+          });
+          continue;
+        }
+      } catch (error) {
+        addDiagnosticRef.current("warn", "asset-cache", "Could not read renderer image asset cache; fetching from Host.", {
           source,
           roomId: scene.roomId || "(unknown)",
           assetPath,
-          cacheKey: assetCacheKey
+          error: error instanceof Error ? error.message : String(error)
         });
-        continue;
       }
 
-      resolvedByPath.set(assetPath, dataUrl);
-      await webPortalAssetCache.set({
-        cacheKey: assetCacheKey,
-        gameId: options.selectedGameId,
-        gameKey: options.selectedGameKey,
-        relativeLocator: assetPath,
-        kind: "image-data-url",
-        contentType: extractContentTypeFromDataUrl(dataUrl),
-        value: dataUrl
-      });
-      options.refreshCacheStats();
+      try {
+        webPortalAssetCache.recordNetworkFetch();
+        options.refreshCacheStats();
+
+        const dataUrl = await options.hostApiClient.getAssetPreviewDataUrl(
+          options.credentialHandle,
+          assetPath,
+          options.selectedGameId,
+          options.selectedGameKey
+        );
+
+        if (!dataUrl) {
+          missingAssetPaths.push(assetPath);
+          addDiagnosticRef.current("warn", "session-render", "Failed to resolve image asset for renderer.", {
+            source,
+            roomId: scene.roomId || "(unknown)",
+            assetPath,
+            cacheKey: assetCacheKey
+          });
+          continue;
+        }
+
+        resolvedByPath.set(assetPath, dataUrl);
+        try {
+          await webPortalAssetCache.set({
+            cacheKey: assetCacheKey,
+            gameId: options.selectedGameId,
+            gameKey: options.selectedGameKey,
+            relativeLocator: assetPath,
+            kind: "image-data-url",
+            contentType: extractContentTypeFromDataUrl(dataUrl),
+            value: dataUrl
+          });
+          options.refreshCacheStats();
+        } catch (error) {
+          addDiagnosticRef.current("warn", "asset-cache", "Could not cache renderer image asset.", {
+            source,
+            roomId: scene.roomId || "(unknown)",
+            assetPath,
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      } catch (error) {
+        missingAssetPaths.push(assetPath);
+        addDiagnosticRef.current("warn", "session-render", "Failed to resolve image asset for renderer.", {
+          source,
+          roomId: scene.roomId || "(unknown)",
+          assetPath,
+          cacheKey: assetCacheKey,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
     }
 
     if (generation !== sceneHydrationGenerationRef.current) {
@@ -672,7 +701,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     });
 
     if (missingAssetPaths.length > 0) {
-      addDiagnosticRef.current("warn", "session-render", "One or more directional assets could not be resolved for rendering.", {
+      addDiagnosticRef.current("warn", "session-render", "One or more image assets could not be resolved for rendering.", {
         source,
         roomId: scene.roomId || "(unknown)",
         missingAssetCount: missingAssetPaths.length,
