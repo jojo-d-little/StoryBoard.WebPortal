@@ -14,6 +14,10 @@ export type {
   GameRenderLightOcclusion,
   GameRenderAmbientLighting,
   GameRenderPointLightDefaults,
+  GameRenderLightingBlockerInput,
+  GameRenderLightingFrameInput,
+  GameRenderLightingPointLightInput,
+  GameRenderRoomGeometryInput,
   GameRenderPresentationCue,
   GameRenderHudOverlayEntry
 } from "./contracts/sceneTypes";

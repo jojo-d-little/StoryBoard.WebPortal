@@ -24,5 +24,11 @@ export type {
   GameRenderPointLightDefaults,
   GameRenderSpatialFootprint
 } from "./sceneTypes/GameRenderLightingState";
+export type {
+  GameRenderLightingBlockerInput,
+  GameRenderLightingFrameInput,
+  GameRenderLightingPointLightInput,
+  GameRenderRoomGeometryInput
+} from "./sceneTypes/GameRenderLightingFrameInput";
 export type { GameRenderRoomTransition } from "./sceneTypes/GameRenderRoomTransition";
 export type { GameRenderSceneSnapshot } from "./sceneTypes/GameRenderSceneSnapshot";

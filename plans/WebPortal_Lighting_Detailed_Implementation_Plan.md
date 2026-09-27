@@ -4,7 +4,7 @@
 
 Implementation plan, 2026-09-27. This is the current WebPortal plan; [the short implementation sequence](WebPortal_Lighting_Implementation_Sequence.md) is its execution checklist. The [Host handoff](LIGHTING_WEBPORTAL_HANDOFF.md) is authoritative where it differs from the older [portal integration plan](WebPortal_Lighting_Integration_Plan.md). The Contracts [Designer handover](../../StoryBoard.Contracts/plans/Lighting_Data_Contract_Designer_Handover.md) supplies the authoring and lifecycle decisions. The Lighting repository's `TopDown/plan/WebPortalLightingIntegrationHandover.md` supplies the Pixi pipeline API and ownership rules.
 
-`@jojo-d-little/storyboard-contracts` has been refreshed to exact version `1.0.6` in `Storyboard.WebPortal/package.json` and its lockfile. WebPortal still uses its own `src/hostApi/HostContracts` TypeScript definitions. The staged generated types in `StoryBoard.Contracts/CodegenManagment/Staging/HostContractTypeScript/HostCommandDtos` are a reference for updating those definitions. The published Lighting package version and registry access still need verification before installing it; the local Lighting source identifies itself as `0.1.2`, which alone does not prove a published version is available.
+The npm dependency ranges use the project's patch-range convention: `@jojo-d-little/storyboard-contracts` is `1.0.x` and resolves to `1.0.6` in the lockfile; `@jojo-d-little/storyboard-lighting` is `0.1.x` and resolves to `0.1.2`. WebPortal still uses its own `src/hostApi/HostContracts` TypeScript definitions, updated from the staged generated interfaces. The package is installed; validating its browser/WebGL behavior remains part of renderer integration and acceptance.
 
 ## Outcome and scope
 
@@ -16,11 +16,12 @@ The lit source includes the room's directional overlays, visible object sprites,
 
 | Current seam | Finding | Implementation action |
 | --- | --- | --- |
-| `src/hostApi/HostContracts` | The checked-in DTOs lack the new lighting fields. | Update only the affected local DTOs and barrel exports using the staged generated types and Contracts schemas; retain the current local-contract convention. |
-| `src/hooks/useHostRendererSessionWorkflow.ts` | Baseline maps `HostRuntimePresentationResult` directly; its synthetic envelope currently omits `sessionPresentationSettings`. | Feed settings into baseline scene mapping and synthetic envelope; reset retained state on new session and resync. |
-| `src/gameRenderer/adapters/mapHostSessionScene.ts` | The visual mapper filters out empty `renderableImage.imagePath`. Delta handling tracks only visual objects. | Map lighting from every Host object before the image filter. Keep a separate keyed lighting/footprint state in the renderer-neutral scene. |
-| `GameRenderSceneSnapshot` | Has no lighting or `cellSizePx`. | Add a small optional room-lighting state with geometry and keyed object records, independent of `roomObjects`. |
-| `PixiGameRenderer.ts` | Owns active/staging room surfaces, movement ticker, raw presentation, and captures. `areScenesRenderEquivalent` ignores lighting. | Add one controller call after movement/effect ticks and before Pixi's screen render; make lighting-only scene changes observable without rerunning asset reconciliation. |
+| `src/hostApi/HostContracts` | Local DTOs do not import generated interfaces directly. | Completed: updated affected local DTOs and barrel exports from staged generated types while retaining the local-contract convention. |
+| `src/hooks/useHostRendererSessionWorkflow.ts` | Baseline/resync and deltas need retained settings and session reset behavior. | Completed: feed settings through mapping, retain complete scene state, and reset stale state on new sessions/resync. |
+| `src/gameRenderer/adapters/mapHostSessionScene.ts` | Visual objects may have empty image paths, while lighting-only objects must remain represented. | Completed: map every Host object to `objectsById`, with optional sprite and lighting components; apply complete replacements. |
+| `GameRenderSceneSnapshot` | Room lighting settings and object lighting need renderer-neutral state. | Completed: snapshot has room/session lighting state and one canonical `objectsById` table shared by optional sprite and lighting components. |
+| `mapLightingFrameInput.ts` | Scene state must become a pure, complete package frame without viewport transforms. | Completed in step 3: maps room-pixel geometry, ambient, point lights, and blockers; validates geometry/capacity and reports malformed capabilities. |
+| `PixiGameRenderer.ts` | Owns active/staging room surfaces, movement ticker, raw presentation, and captures. `areScenesRenderEquivalent` ignores lighting. | Upcoming: add one controller call after movement/effect ticks and before Pixi's screen render; make lighting-only scene changes observable without rerunning asset reconciliation. |
 | `RoomSnapshotRenderer.ts` | Captures a raw `Container`; slide preparation can capture before the new Host room arrives. | Provide a final lit/raw capture seam so outgoing and incoming transition images reflect their respective lighting state. |
 | `presentationIsolation.ts`, `useHostWorkflow.ts`, `DevToolsPanel.tsx` | The existing visual category list is filtered by presentation cue catalog categories. Lighting is a renderer stage, not a cue category. | Add an explicit `lightingEnabled` renderer setting and checkbox in Presentation Effects. Do not depend on cue catalog discovery. |
 
@@ -29,14 +30,14 @@ The lit source includes the room's directional overlays, visible object sprites,
 ```text
 Host baseline / deltas
   -> local Host DTOs
-  -> mapHostSessionScene: retained session settings + complete room/object lighting state
-  -> GameRenderSceneSnapshot.lighting (renderer-neutral)
-  -> mapLightingFrameInput (pure mapping)
+  -> mapHostSessionScene: retained settings + canonical objectsById (optional sprite and lighting components)
+  -> GameRenderSceneSnapshot (renderer-neutral room settings and object lighting)
+  -> mapLightingFrameInput.ts (pure mapping)
   -> RoomLightingController (only package import)
   -> Pixi composed room texture or raw room surface
 ```
 
-Prefer a scene-scoped value, for example `lighting: { cellSizePx, ambientLighting, pointLightDefaults, objectsById }`. The map may be represented as a sorted array in the immutable snapshot if that fits existing test fixtures better. Keep each object's optional `pointLight`, `spatialFootprint`, and `lightOcclusion` together by `objectId`; an object can contribute a light or blocker with no image. Store optional transition interpolation metadata separately from authoritative current state. The scene bounds remain the canonical room pixel dimensions.
+The implemented scene uses room/session settings in `GameRenderSceneSnapshot.lighting` and a canonical top-level `objectsById` table. Each `GameRenderSceneObject` has shared identity plus optional `sprite` and `lighting` components; a light or blocker can exist without an image. Keep optional transition interpolation metadata separate from authoritative current state. The scene bounds remain the canonical room pixel dimensions.
 
 ### Host update rules
 
@@ -58,7 +59,7 @@ Prefer a scene-scoped value, for example `lighting: { cellSizePx, ambientLightin
 | `blockers` | Objects with both `spatialFootprint` and `lightOcclusion`; forward cell position, size (default 1), elevation, and strength including zero. Map `rectangle` to `square` and `rounded-rectangle` to `round`. Footprint alone creates no blocker. |
 | `pipeline.shadowSoften` | A WebPortal quality constant/configuration, not a Host or Designer field. |
 
-The package's point-light and blocker arrays describe the complete current frame, so submit both every lit frame, including empty arrays after removals. Submit explicit room ambient and project defaults at room/session boundaries, or every frame if simpler; avoid the package's persistent optional-field semantics causing stale values. Map only package-supported fields and validate finite coordinates and legal geometry at this boundary. Record invalid-input and capacity diagnostics, then fall back to raw presentation when geometry or pipeline setup is unusable.
+The package's point-light and blocker arrays describe the complete current frame, so submit both every lit frame, including empty arrays after removals. The pure mapper emits explicit room ambient and the current arrays each time. It maps project defaults when present; because package defaults persist when omitted, the controller must reset or recreate package state on session changes where defaults are absent. Map only package-supported fields and validate finite coordinates and legal geometry at this boundary. Record invalid-input and capacity diagnostics, then fall back to raw presentation when geometry or pipeline setup is unusable. The mapper's initial capacity defaults match the package's current 64-light/64-blocker defaults; profile and tune these during acceptance before rollout.
 
 The Host already resolves local offset, object rotation, footprint, elevation, and effective ambient. Room origin is top-left; positive Y is down. Light positions are pixels; footprint positions and sizes are cells. Sprite anchor, appearance scale, canvas placement, contain scaling, and browser size must not alter these values. `lighting.resize()` runs only when internal room width/height or cell size changes.
 

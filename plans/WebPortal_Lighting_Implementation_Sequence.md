@@ -5,7 +5,7 @@ Use the [detailed plan](WebPortal_Lighting_Detailed_Implementation_Plan.md) for 
 
 ## Current progress
 
-Completed through step 2. The scene now stores each Host object once in `objectsById`; sprite and lighting data are optional components on that object. Step 3 has not started. The renderer-neutral scene types are in place as state containers, but the pure mapping from scene state to Lighting package inputs remains to be implemented.
+Completed through step 3. The scene stores each Host object once in `objectsById`; sprite and lighting data are optional components on that object. The pure mapper now produces room geometry and a complete Lighting frame from that state. Step 4 is next.
 
 ## Implementation checklist
 
@@ -21,11 +21,11 @@ Completed through step 2. The scene now stores each Host object once in `objects
    - [x] Apply object changes as complete replacements and preserve image-free lighting objects in scene state.
    - [x] Verify the state mapping and compatibility paths with tests.
 
-3. **[ ] Create a pure mapping boundary**
-   - [ ] Map room pixels, effective ambient, current point lights, and blockers from renderer-neutral state to Lighting package inputs.
-   - [ ] Preserve explicit zero values and ensure removed objects do not leave stale lights or blockers.
-   - [ ] Keep viewport transforms and sprite rendering coordinates out of package mapping.
-   - [ ] Add focused mapping tests for ambient-only, light-only, sprite-and-light, blockers, zero values, and removals.
+3. **[x] Create a pure mapping boundary**
+   - [x] Map room pixels, effective ambient, current point lights, and blockers from renderer-neutral state to Lighting package inputs.
+   - [x] Preserve explicit zero values and emit complete point-light and blocker arrays so removed objects cannot leave stale entries.
+   - [x] Keep viewport transforms and sprite rendering coordinates out of package mapping.
+   - [x] Add focused mapping tests for ambient-only, light-only, sprite-and-light, blocker-only, zero values, invalid inputs, and capacity overflow.
 
 4. **[ ] Add one Pixi lighting controller**
    - [ ] After Pixi WebGL initialization, create the borrowed room-size source texture and package pipeline.
