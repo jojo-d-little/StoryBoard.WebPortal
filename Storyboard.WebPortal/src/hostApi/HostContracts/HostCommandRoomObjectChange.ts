@@ -7,7 +7,8 @@ export interface HostCommandRoomObjectChange {
   changeKind: HostRoomObjectChangeKind;
   objectId: string;
   objectName: string;
-  renderableRoomObject?: HostCommandRenderableRoomObject;
+  renderableRoomObject?: HostCommandRenderableRoomObject | null;
+  fromRenderableObject?: HostCommandRenderableRoomObject | null;
   presentationCues: HostCommandPresentationCue[];
   moveLegTelemetry?: HostCommandMoveLegTelemetry[];
 }

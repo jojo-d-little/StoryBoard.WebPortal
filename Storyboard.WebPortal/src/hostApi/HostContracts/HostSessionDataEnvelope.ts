@@ -3,6 +3,7 @@ import type { HostCommandPresentationCueText } from "./HostCommandPresentationCu
 import type { HostCommandRoomChangeData } from "./HostCommandRoomChangeData";
 import type { HostCommandRoomObjectChange } from "./HostCommandRoomObjectChange";
 import type { HostCommandSoundCue } from "./HostCommandSoundCue";
+import type { HostSessionPresentationSettings } from "./HostSessionPresentationSettings";
 
 export interface HostSessionDataEnvelope {
   sessionDeltaWatermark: string;
@@ -10,6 +11,7 @@ export interface HostSessionDataEnvelope {
   soundCues: HostCommandSoundCue[];
   outputLines: string[];
   diagnostics: string[];
+  sessionPresentationSettings?: HostSessionPresentationSettings | null;
   roomChange?: HostCommandRoomChangeData;
   phaseChange?: HostCommandPhaseChangeData;
   orderedTextPresentationSteps: HostCommandPresentationCueText[];

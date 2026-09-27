@@ -14,7 +14,8 @@
     "test:visual:update": "playwright test --update-snapshots"
   },
   "dependencies": {
-    "@jojo-d-little/storyboard-contracts": "1.0.6",
+    "@jojo-d-little/storyboard-contracts": "1.0.x",
+    "@jojo-d-little/storyboard-lighting": "0.1.x",
     "pixi.js": "^8.20.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

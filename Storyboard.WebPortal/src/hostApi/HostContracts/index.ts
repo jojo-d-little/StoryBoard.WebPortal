@@ -51,6 +51,12 @@ export type { HostCommandPresentationCueText } from "./HostCommandPresentationCu
 export type { HostCommandRenderableImage } from "./HostCommandRenderableImage";
 export type { HostCommandRoomDirectionalImage } from "./HostCommandRoomDirectionalImage";
 export type { HostCommandRenderableRoomObject } from "./HostCommandRenderableRoomObject";
+export type { HostObjectPointLight } from "./HostObjectPointLight";
+export type { HostObjectSpatialFootprint } from "./HostObjectSpatialFootprint";
+export type { HostObjectLightOcclusion } from "./HostObjectLightOcclusion";
+export type { HostPointLightDefaults } from "./HostPointLightDefaults";
+export type { HostRoomAmbientLighting } from "./HostRoomAmbientLighting";
+export type { HostSessionPresentationSettings } from "./HostSessionPresentationSettings";
 export type { HostCommandMoveLegTelemetry } from "./HostCommandMoveLegTelemetry";
 export type { HostCommandRoomObjectChange } from "./HostCommandRoomObjectChange";
 export type { HostCommandNewRoomSummary } from "./HostCommandNewRoomSummary";
