@@ -1,4 +1,5 @@
 import { createGameRenderer, type GameRenderSceneSnapshot } from "../index";
+import { createSceneObjectsFromRoomObjects } from "../scene/sceneObjects";
 
 function svgDataUrl(fill: string, width: number, height: number, label?: string): string {
   const text = label
@@ -36,7 +37,7 @@ const scene: GameRenderSceneSnapshot = {
       zOrder: 1
     }
   ],
-  roomObjects: [
+  objectsById: createSceneObjectsFromRoomObjects([
     {
       objectId: "crate",
       objectName: "Crate",
@@ -81,7 +82,7 @@ const scene: GameRenderSceneSnapshot = {
       zOrder: 1003,
       presentationCues: []
     }
-  ]
+  ])
 };
 
 renderer.updateScene(scene);

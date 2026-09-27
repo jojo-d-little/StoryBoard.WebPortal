@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { HostSessionDataEnvelope } from "../../hostApi/HostContracts";
+import type { GameRenderSceneSnapshot } from "../contracts/sceneTypes";
 import { mapHostPresentationToSceneSnapshot, mapHostSessionDataToSceneSnapshot } from "./mapHostSessionScene";
+import { selectRenderableRoomObjects } from "../scene/sceneObjects";
+
+function renderedRoomObjects(scene: GameRenderSceneSnapshot | null | undefined) {
+  return scene ? selectRenderableRoomObjects(scene) : [];
+}
 
 function buildSessionData(overrides: Partial<HostSessionDataEnvelope> = {}): HostSessionDataEnvelope {
   const normalizedOrderedTextSteps = overrides.orderedTextPresentationSteps ?? [];
@@ -94,10 +100,10 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     expect(snapshot?.bounds.width).toBe(800);
     expect(snapshot?.bounds.height).toBe(600);
     expect(snapshot?.directionalOverlays).toHaveLength(2);
-    expect(snapshot?.roomObjects).toHaveLength(1);
+    expect(renderedRoomObjects(snapshot)).toHaveLength(1);
     expect(snapshot?.roomTransition?.travelDirection).toBe("East");
     expect(snapshot?.roomTransition?.cueEffectKey).toBe("room.transition.authored.east");
-    expect(snapshot?.roomObjects[0]).toMatchObject({
+    expect(renderedRoomObjects(snapshot)[0]).toMatchObject({
       objectId: "obj-1",
       objectName: "Lantern",
       x: 120,
@@ -110,6 +116,217 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
       offsetY: 15,
       rotationDegrees: 90
     });
+  });
+
+  it("retains session, room, light-only object, blocker, and explicit zero lighting data", () => {
+    const sessionData = buildSessionData({
+      sessionPresentationSettings: {
+        cellSizePx: 32,
+        pointLightDefaults: { radiusPx: 48, intensityScale: 0 }
+      },
+      roomChange: {
+        newRoom: {
+          roomId: "room-1",
+          name: "Atrium",
+          roomDisplayMode: "Independent",
+          roomImageCanvasWidth: 800,
+          roomImageCanvasHeight: 600,
+          ambientLighting: { ambient: 0, ambientColor: "#102030" },
+          directionalRenderableImages: [],
+          renderableRoomObjects: [
+            {
+              objectId: "lantern",
+              name: "Lantern",
+              renderableImage: {
+                imagePath: "assets/lantern.png",
+                anchorX: 0,
+                anchorY: 0,
+                iconOffsetX: 0,
+                iconOffsetY: 0,
+                x: 0,
+                y: 0,
+                rotationDegrees: 0,
+                scale: 1
+              },
+              renderZOrder: 1,
+              pointLight: { x: 0, y: 0, intensityScale: 0, radiusPx: 0 }
+            },
+            {
+              objectId: "invisible-blocker",
+              name: "Invisible blocker",
+              renderableImage: {
+                imagePath: "",
+                anchorX: 0,
+                anchorY: 0,
+                iconOffsetX: 0,
+                iconOffsetY: 0,
+                x: 0,
+                y: 0,
+                rotationDegrees: 0,
+                scale: 1
+              },
+              renderZOrder: 0,
+              spatialFootprint: { cellX: 3, cellY: 4, sizeXCells: 2, shape: "rounded-rectangle" },
+              lightOcclusion: { strength: 0 }
+            }
+          ]
+        }
+      }
+    });
+
+    const snapshot = mapHostSessionDataToSceneSnapshot(sessionData);
+    expect(renderedRoomObjects(snapshot)).toHaveLength(1);
+    expect(snapshot?.lighting).toEqual({
+      cellSizePx: 32,
+      pointLightDefaults: { radiusPx: 48, intensityScale: 0 },
+      ambientLighting: { ambient: 0, ambientColor: "#102030" }
+    });
+    expect(snapshot?.objectsById).toEqual({
+      lantern: {
+        objectId: "lantern",
+        objectName: "Lantern",
+        sprite: expect.objectContaining({ asset: { assetPath: "assets/lantern.png", cacheKey: "assets/lantern.png" } }),
+        lighting: { pointLight: { x: 0, y: 0, intensityScale: 0, radiusPx: 0 } },
+        presentationCues: []
+      },
+      "invisible-blocker": {
+        objectId: "invisible-blocker",
+        objectName: "Invisible blocker",
+        lighting: {
+          spatialFootprint: { cellX: 3, cellY: 4, sizeXCells: 2, shape: "rounded-rectangle" },
+          lightOcclusion: { strength: 0 }
+        },
+        presentationCues: []
+      }
+    });
+  });
+
+  it("retains session settings on ordinary deltas and replaces room/object lighting completely", () => {
+    const baseline = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      sessionPresentationSettings: { cellSizePx: 24, pointLightDefaults: { radiusPx: 40 } },
+      roomChange: {
+        newRoom: {
+          roomId: "room-1",
+          name: "Atrium",
+          roomDisplayMode: "Independent",
+          ambientLighting: { ambient: 0.25 },
+          directionalRenderableImages: [],
+          renderableRoomObjects: [
+            {
+              objectId: "old",
+              name: "Old light",
+              renderableImage: {
+                imagePath: "",
+                anchorX: 0,
+                anchorY: 0,
+                iconOffsetX: 0,
+                iconOffsetY: 0,
+                x: 0,
+                y: 0,
+                rotationDegrees: 0,
+                scale: 1
+              },
+              renderZOrder: 0,
+              pointLight: { x: 15, y: 20 }
+            }
+          ]
+        }
+      }
+    }));
+    expect(baseline).not.toBeNull();
+
+    const sameRoomReplacement = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      hasRoomChange: true,
+      roomChange: {
+        newRoom: {
+          roomId: "room-1",
+          name: "Atrium revised",
+          roomDisplayMode: "Independent",
+          ambientLighting: { ambient: 0.5 },
+          directionalRenderableImages: [],
+          renderableRoomObjects: [
+            {
+              objectId: "new-blocker",
+              name: "New blocker",
+              renderableImage: {
+                imagePath: "assets/blocker.png",
+                anchorX: 0,
+                anchorY: 0,
+                iconOffsetX: 0,
+                iconOffsetY: 0,
+                x: 0,
+                y: 0,
+                rotationDegrees: 0,
+                scale: 1
+              },
+              renderZOrder: 0,
+              pointLight: { x: 20, y: 40, intensityScale: 0.5 },
+              spatialFootprint: { cellX: 1, cellY: 2 },
+              lightOcclusion: { strength: 1 }
+            }
+          ]
+        }
+      }
+    }), baseline);
+
+    expect(sameRoomReplacement?.lighting).toEqual({
+      cellSizePx: 24,
+      pointLightDefaults: { radiusPx: 40 },
+      ambientLighting: { ambient: 0.5 }
+    });
+    expect(Object.keys(sameRoomReplacement?.objectsById ?? {})).toEqual(["new-blocker"]);
+    expect(sameRoomReplacement?.objectsById["new-blocker"]).toMatchObject({
+      objectName: "New blocker",
+      sprite: { asset: { assetPath: "assets/blocker.png" } },
+      lighting: {
+        pointLight: { x: 20, y: 40, intensityScale: 0.5 },
+        spatialFootprint: { cellX: 1, cellY: 2 },
+        lightOcclusion: { strength: 1 }
+      }
+    });
+
+    const ordinaryDelta = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      roomChange: undefined,
+      hasRoomChange: false,
+      roomObjectChanges: [
+        {
+          changeKind: "Updated",
+          objectId: "new-blocker",
+          objectName: "New blocker",
+          renderableRoomObject: {
+            objectId: "new-blocker",
+            name: "New blocker",
+            renderableImage: {
+              imagePath: "",
+              anchorX: 0,
+              anchorY: 0,
+              iconOffsetX: 0,
+              iconOffsetY: 0,
+              x: 0,
+              y: 0,
+              rotationDegrees: 0,
+              scale: 1
+            },
+            renderZOrder: 0
+          },
+          presentationCues: []
+        }
+      ]
+    }), sameRoomReplacement);
+
+    expect(ordinaryDelta?.lighting).toEqual({
+      cellSizePx: 24,
+      pointLightDefaults: { radiusPx: 40 },
+      ambientLighting: { ambient: 0.5 }
+    });
+    expect(ordinaryDelta?.objectsById["new-blocker"]).toMatchObject({
+      objectId: "new-blocker",
+      objectName: "New blocker",
+      presentationCues: []
+    });
+    expect(ordinaryDelta?.objectsById["new-blocker"]?.sprite).toBeUndefined();
+    expect(ordinaryDelta?.objectsById["new-blocker"]?.lighting).toBeUndefined();
+    expect(renderedRoomObjects(ordinaryDelta).some((object) => object.objectId === "new-blocker")).toBe(false);
   });
 
   it("maps room transition effect from roomTransition presentation cues", () => {
@@ -339,7 +556,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     expect(snapshot?.displayMode).toBe("independent");
     expect(snapshot?.directionalOverlays).toHaveLength(1);
     expect(snapshot?.directionalOverlays[0].slot).toBe("Default");
-    expect(snapshot?.roomObjects).toHaveLength(0);
+    expect(renderedRoomObjects(snapshot)).toHaveLength(0);
   });
 
   it("uses composed directional overlay behavior when display mode is Overlay string", () => {
@@ -450,7 +667,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     expect(snapshot?.bounds.width).toBe(600);
     expect(snapshot?.bounds.height).toBe(800);
     expect(snapshot?.directionalOverlays).toHaveLength(1);
-    expect(snapshot?.roomObjects).toHaveLength(1);
+    expect(renderedRoomObjects(snapshot)).toHaveLength(1);
   });
 
   it("applies room-object delta changes when no room-change payload is present", () => {
@@ -519,11 +736,11 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
 
     const merged = mapHostSessionDataToSceneSnapshot(deltaOnly, previousSnapshot);
     expect(merged).not.toBeNull();
-    expect(merged?.roomObjects).toHaveLength(2);
-    expect(merged?.roomObjects.find((entry) => entry.objectId === "obj-1")?.x).toBe(144);
-    expect(merged?.roomObjects.find((entry) => entry.objectId === "obj-1")?.presentationCues).toHaveLength(1);
-    expect(merged?.roomObjects.find((entry) => entry.objectId === "obj-1")?.movementDurationMs).toBe(640);
-    expect(merged?.roomObjects.find((entry) => entry.objectId === "obj-1")?.movementFrames).toBe(16);
+    expect(renderedRoomObjects(merged)).toHaveLength(2);
+    expect(renderedRoomObjects(merged).find((entry) => entry.objectId === "obj-1")?.x).toBe(144);
+    expect(renderedRoomObjects(merged).find((entry) => entry.objectId === "obj-1")?.presentationCues).toHaveLength(1);
+    expect(renderedRoomObjects(merged).find((entry) => entry.objectId === "obj-1")?.movementDurationMs).toBe(640);
+    expect(renderedRoomObjects(merged).find((entry) => entry.objectId === "obj-1")?.movementFrames).toBe(16);
 
     const removed = mapHostSessionDataToSceneSnapshot(buildSessionData({
       hasRoomChange: false,
@@ -538,8 +755,8 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
       ]
     }), merged);
 
-    expect(removed?.roomObjects).toHaveLength(1);
-    expect(removed?.roomObjects[0].objectId).toBe("obj-2");
+    expect(renderedRoomObjects(removed)).toHaveLength(1);
+    expect(renderedRoomObjects(removed)[0].objectId).toBe("obj-2");
   });
 
   it("keeps room metadata and directional overlays stable during delta-only movement updates", () => {
@@ -579,8 +796,8 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     expect(moved?.roomId).toBe(previousSnapshot?.roomId);
     expect(moved?.roomLabel).toBe(previousSnapshot?.roomLabel);
     expect(moved?.directionalOverlays).toEqual(previousSnapshot?.directionalOverlays);
-    expect(moved?.roomObjects).toHaveLength(1);
-    expect(moved?.roomObjects[0]).toMatchObject({
+    expect(renderedRoomObjects(moved)).toHaveLength(1);
+    expect(renderedRoomObjects(moved)[0]).toMatchObject({
       objectId: "obj-1",
       x: 320,
       y: 220,
@@ -680,7 +897,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     }), previousSnapshot);
 
     expect(merged).not.toBeNull();
-    expect(merged?.roomObjects.map((entry) => entry.objectId)).toEqual(["a-0", "z-1", "z-2"]);
+    expect(renderedRoomObjects(merged).map((entry) => entry.objectId)).toEqual(["a-0", "z-1", "z-2"]);
   });
 
   it("prefers movement cue timing with non-zero duration when multiple movement cues are present", () => {
@@ -733,7 +950,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
       ]
     }), previousSnapshot);
 
-    const movedObject = moved?.roomObjects.find((entry) => entry.objectId === "obj-1");
+    const movedObject = renderedRoomObjects(moved).find((entry) => entry.objectId === "obj-1");
     expect(movedObject?.movementDurationMs).toBe(640);
     expect(movedObject?.movementFrames).toBe(16);
   });
@@ -813,7 +1030,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
       ]
     }), previousSnapshot);
 
-    const movedObject = moved?.roomObjects.find((entry) => entry.objectId === "obj-1");
+    const movedObject = renderedRoomObjects(moved).find((entry) => entry.objectId === "obj-1");
     expect(movedObject?.presentationCues.some((cue) => cue.category.toLowerCase() === "appearance")).toBe(false);
     expect(movedObject?.presentationCues.some((cue) => cue.category.toLowerCase() === "movement")).toBe(true);
   });
@@ -891,7 +1108,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
       ]
     }), selectedSnapshot);
 
-    const movedObject = movedWithRoomChange?.roomObjects.find((entry) => entry.objectId === "obj-1");
+    const movedObject = renderedRoomObjects(movedWithRoomChange).find((entry) => entry.objectId === "obj-1");
     expect(movedObject?.presentationCues.some((cue) => cue.category.toLowerCase() === "appearance")).toBe(false);
     expect(movedObject?.presentationCues.some((cue) => cue.category.toLowerCase() === "movement")).toBe(true);
   });
@@ -963,7 +1180,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
       ]
     }), selectedSnapshot);
 
-    const clearedObject = clearedSnapshot?.roomObjects.find((entry) => entry.objectId === "obj-1");
+    const clearedObject = renderedRoomObjects(clearedSnapshot).find((entry) => entry.objectId === "obj-1");
     expect(clearedObject?.presentationCues).toHaveLength(0);
   });
 });

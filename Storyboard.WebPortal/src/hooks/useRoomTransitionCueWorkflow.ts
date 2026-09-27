@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { GameRenderSceneSnapshot } from "../gameRenderer";
 import type { GameRenderTravelDirection } from "../gameRenderer/contracts/sceneTypes";
+import { mapRenderableRoomObjects } from "../gameRenderer/scene/sceneObjects";
 import {
   resolveAppearanceOutlineStyle,
   resolveAppearanceSilhouetteStyle,
@@ -293,15 +294,16 @@ export function useRoomTransitionCueWorkflow(
         ?? options.roomTransitionDefaults.fallbackDurationMs
       : undefined;
 
-    return {
-      ...scene,
-      roomObjects: scene.roomObjects.map((roomObject) => ({
+    const resolvedScene = mapRenderableRoomObjects(scene, (roomObject) => ({
         ...roomObject,
         movementDurationMs: roomObject.movementDurationMs
           ?? resolveMovementCueDurationMs(roomObject.presentationCues, catalog),
         appearanceOutlineStyle: resolveAppearanceOutlineStyle(roomObject.presentationCues, catalog),
         appearanceSilhouetteStyle: resolveAppearanceSilhouetteStyle(roomObject.presentationCues, catalog)
-      })),
+      }));
+
+    return {
+      ...resolvedScene,
       roomTransition: transition
         ? {
             ...transition,

@@ -196,6 +196,7 @@ const pixiMocks = vi.hoisted(() => {
 vi.mock("pixi.js", () => pixiMocks);
 
 import { createGameRenderer, type GameRenderSceneSnapshot, type GameRendererDiagnosticsEvent } from "../index";
+import { createSceneObjectsFromRoomObjects } from "../scene/sceneObjects";
 
 function buildScene(withOutline: boolean): GameRenderSceneSnapshot {
   return {
@@ -207,7 +208,7 @@ function buildScene(withOutline: boolean): GameRenderSceneSnapshot {
       height: 600
     },
     directionalOverlays: [],
-    roomObjects: [
+    objectsById: createSceneObjectsFromRoomObjects([
       {
         objectId: "selected-object",
         objectName: "Selected Object",
@@ -227,7 +228,7 @@ function buildScene(withOutline: boolean): GameRenderSceneSnapshot {
             }
           : undefined
       }
-    ]
+    ])
   };
 }
 
@@ -241,7 +242,7 @@ function buildSilhouetteScene(withSilhouette: boolean): GameRenderSceneSnapshot 
       height: 600
     },
     directionalOverlays: [],
-    roomObjects: [
+    objectsById: createSceneObjectsFromRoomObjects([
       {
         objectId: "selected-object",
         objectName: "Selected Object",
@@ -269,7 +270,7 @@ function buildSilhouetteScene(withSilhouette: boolean): GameRenderSceneSnapshot 
             }
           : undefined
       }
-    ]
+    ])
   };
 }
 
@@ -345,7 +346,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
       displayMode: "composed",
       bounds: { width: 800, height: 600 },
       directionalOverlays: [],
-      roomObjects: [
+      objectsById: createSceneObjectsFromRoomObjects([
         {
           objectId: "moving-object",
           objectName: "Moving Object",
@@ -358,7 +359,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
           presentationCues: [],
           movementDurationMs: 1000
         }
-      ]
+      ])
     });
 
     await waitFor(() => (pixiMocks.__appInstances as Array<{ stage: { children: unknown[] } }>).length > 0, 600);
@@ -377,7 +378,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
       displayMode: "composed",
       bounds: { width: 800, height: 600 },
       directionalOverlays: [],
-      roomObjects: [
+      objectsById: createSceneObjectsFromRoomObjects([
         {
           objectId: "moving-object",
           objectName: "Moving Object",
@@ -396,7 +397,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
           ],
           movementDurationMs: 1000
         }
-      ]
+      ])
     });
 
     await waitFor(
@@ -446,7 +447,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
       displayMode: "composed",
       bounds: { width: 800, height: 600 },
       directionalOverlays: [],
-      roomObjects: [
+      objectsById: createSceneObjectsFromRoomObjects([
         {
           objectId: "moving-object",
           objectName: "Moving Object",
@@ -459,7 +460,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
           presentationCues: [],
           movementDurationMs: 1000
         }
-      ]
+      ])
     });
 
     await waitFor(() => (pixiMocks.__appInstances as Array<{ stage: { children: unknown[] } }>).length > 0, 600);
@@ -478,7 +479,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
       displayMode: "composed",
       bounds: { width: 800, height: 600 },
       directionalOverlays: [],
-      roomObjects: [
+      objectsById: createSceneObjectsFromRoomObjects([
         {
           objectId: "moving-object",
           objectName: "Moving Object",
@@ -497,7 +498,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
           ],
           movementDurationMs: 1000
         }
-      ]
+      ])
     });
 
     await waitFor(
@@ -540,7 +541,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
       displayMode: "composed",
       bounds: { width: 800, height: 600 },
       directionalOverlays: [],
-      roomObjects: [
+      objectsById: createSceneObjectsFromRoomObjects([
         {
           objectId: "moving-object",
           objectName: "Moving Object",
@@ -553,7 +554,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
           presentationCues: [],
           movementDurationMs: 1000
         }
-      ]
+      ])
     });
 
     await waitFor(() => (pixiMocks.__appInstances as Array<{ stage: { children: unknown[] } }>).length > 0, 600);
@@ -572,7 +573,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
       displayMode: "composed",
       bounds: { width: 800, height: 600 },
       directionalOverlays: [],
-      roomObjects: [
+      objectsById: createSceneObjectsFromRoomObjects([
         {
           objectId: "moving-object",
           objectName: "Moving Object",
@@ -591,7 +592,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
           ],
           movementDurationMs: 1000
         }
-      ]
+      ])
     });
 
     await waitFor(
@@ -700,7 +701,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
           zOrder: 13
         }
       ],
-      roomObjects: []
+      objectsById: {}
     });
 
     await waitFor(() => getDirectionalSprites().length === 4, 1200);
@@ -762,7 +763,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
           zOrder: 23
         }
       ],
-      roomObjects: []
+      objectsById: {}
     });
 
     await waitFor(() => {
@@ -809,7 +810,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
           zOrder: 30
         }
       ],
-      roomObjects: []
+      objectsById: {}
     });
 
     await waitFor(() => {

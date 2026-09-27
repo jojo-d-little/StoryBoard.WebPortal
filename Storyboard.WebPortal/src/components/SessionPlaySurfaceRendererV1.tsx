@@ -50,7 +50,7 @@ function createFallbackScene(): GameRenderSceneSnapshot {
       height: 600
     },
     directionalOverlays: [],
-    roomObjects: []
+    objectsById: {}
   };
 }
 

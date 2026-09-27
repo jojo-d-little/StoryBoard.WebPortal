@@ -1,4 +1,5 @@
 import { createGameRenderer, type GameRenderSceneSnapshot, type GameRendererDiagnosticsEvent } from "../index";
+import { createSceneObjectsFromRoomObjects } from "../scene/sceneObjects";
 
 type MovementStressResult = {
   animationStarts: number;
@@ -97,7 +98,7 @@ function buildScene(runnerX: number): GameRenderSceneSnapshot {
         zOrder: 1
       }
     ],
-    roomObjects: [
+    objectsById: createSceneObjectsFromRoomObjects([
       {
         objectId: "runner",
         objectName: "Runner",
@@ -110,7 +111,7 @@ function buildScene(runnerX: number): GameRenderSceneSnapshot {
         presentationCues: [],
         movementDurationMs: 900
       }
-    ]
+    ])
   };
 }
 

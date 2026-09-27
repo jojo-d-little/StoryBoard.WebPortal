@@ -31,8 +31,15 @@ import type {
   HostListSessionsRequest,
   HostListSessionsResult,
   HostCommandRenderableImage,
+  HostCommandRenderableRoomObject,
+  HostObjectLightOcclusion,
+  HostObjectPointLight,
+  HostObjectSpatialFootprint,
+  HostPointLightDefaults,
+  HostRoomAmbientLighting,
   HostRequestContext,
   HostSessionDescriptor,
+  HostSessionPresentationSettings,
   HostStartSessionRequest,
   HostStartSessionResult,
   HostResultEnvelope
@@ -379,6 +386,7 @@ export class HostApiClient {
 
     return {
       sessionDeltaWatermark: this.readString(data, ["sessionDeltaWatermark", "SessionDeltaWatermark"]),
+      sessionPresentationSettings: this.readSessionPresentationSettings(data),
       roomChange,
       phaseChange,
       soundCues: this.readSoundCues(data),
@@ -589,6 +597,7 @@ export class HostApiClient {
       soundCues: this.readSoundCues(sessionData),
       outputLines: this.readArray(sessionData, ["outputLines", "OutputLines"]).map((x) => String(x)),
       diagnostics: this.readArray(sessionData, ["diagnostics", "Diagnostics"]).map((x) => String(x)),
+      sessionPresentationSettings: this.readSessionPresentationSettings(sessionData),
       roomChange: this.readRoomChangeData(sessionData),
       phaseChange,
       orderedTextPresentationSteps,
@@ -733,9 +742,147 @@ export class HostApiClient {
     });
   }
 
+  private readNullableRecord(source: Record<string, unknown>, keys: string[]): Record<string, unknown> | null | undefined {
+    for (const key of keys) {
+      if (!Object.prototype.hasOwnProperty.call(source, key)) {
+        continue;
+      }
+
+      const value = source[key];
+      if (value === null) {
+        return null;
+      }
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        return value as Record<string, unknown>;
+      }
+      return undefined;
+    }
+
+    return undefined;
+  }
+
+  private readSessionPresentationSettings(source: Record<string, unknown>): HostSessionPresentationSettings | null | undefined {
+    const settings = this.readNullableRecord(source, ["sessionPresentationSettings", "SessionPresentationSettings"]);
+    if (settings === null || settings === undefined) {
+      return settings;
+    }
+
+    const defaults = this.readNullableRecord(settings, ["pointLightDefaults", "PointLightDefaults"]);
+    return {
+      cellSizePx: this.readNumber(settings, ["cellSizePx", "CellSizePx"]),
+      pointLightDefaults: defaults === null ? null : defaults ? this.readPointLightDefaults(defaults) : undefined
+    };
+  }
+
+  private readPointLightDefaults(source: Record<string, unknown>): HostPointLightDefaults {
+    return {
+      radiusPx: this.readOptionalFiniteNumber(source, ["radiusPx", "RadiusPx"]),
+      intensityScale: this.readOptionalFiniteNumber(source, ["intensityScale", "IntensityScale"]),
+      color: this.readOptionalString(source, ["color", "Color"]),
+      outerColor: this.readOptionalString(source, ["outerColor", "OuterColor"]),
+      gradientExponent: this.readOptionalFiniteNumber(source, ["gradientExponent", "GradientExponent"]),
+      lightHeightCells: this.readOptionalFiniteNumber(source, ["lightHeightCells", "LightHeightCells"]),
+      swayAmountPx: this.readOptionalFiniteNumber(source, ["swayAmountPx", "SwayAmountPx"]),
+      swayHz: this.readOptionalFiniteNumber(source, ["swayHz", "SwayHz"]),
+      swayDirectionDeg: this.readOptionalFiniteNumber(source, ["swayDirectionDeg", "SwayDirectionDeg"]),
+      flickerAmount: this.readOptionalFiniteNumber(source, ["flickerAmount", "FlickerAmount"]),
+      flickerHz: this.readOptionalFiniteNumber(source, ["flickerHz", "FlickerHz"]),
+      flickerStyle: this.readFlickerStyle(source)
+    };
+  }
+
+  private readPointLight(source: Record<string, unknown>): HostObjectPointLight {
+    return {
+      x: this.readNumber(source, ["x", "X"]),
+      y: this.readNumber(source, ["y", "Y"]),
+      radiusPx: this.readOptionalFiniteNumber(source, ["radiusPx", "RadiusPx"]),
+      directionDeg: this.readOptionalFiniteNumber(source, ["directionDeg", "DirectionDeg"]),
+      coneAngleDeg: this.readOptionalFiniteNumber(source, ["coneAngleDeg", "ConeAngleDeg"]),
+      intensityScale: this.readOptionalFiniteNumber(source, ["intensityScale", "IntensityScale"]),
+      color: this.readOptionalString(source, ["color", "Color"]),
+      outerColor: this.readOptionalString(source, ["outerColor", "OuterColor"]),
+      gradientExponent: this.readOptionalFiniteNumber(source, ["gradientExponent", "GradientExponent"]),
+      lightHeightCells: this.readOptionalFiniteNumber(source, ["lightHeightCells", "LightHeightCells"]),
+      motionMode: this.readMotionMode(source),
+      phase: this.readOptionalFiniteNumber(source, ["phase", "Phase"]),
+      swayAmountPx: this.readOptionalFiniteNumber(source, ["swayAmountPx", "SwayAmountPx"]),
+      swayHz: this.readOptionalFiniteNumber(source, ["swayHz", "SwayHz"]),
+      swayDirectionDeg: this.readOptionalFiniteNumber(source, ["swayDirectionDeg", "SwayDirectionDeg"]),
+      flickerAmount: this.readOptionalFiniteNumber(source, ["flickerAmount", "FlickerAmount"]),
+      flickerHz: this.readOptionalFiniteNumber(source, ["flickerHz", "FlickerHz"]),
+      flickerStyle: this.readFlickerStyle(source)
+    };
+  }
+
+  private readMotionMode(source: Record<string, unknown>): HostObjectPointLight["motionMode"] {
+    const value = this.readString(source, ["motionMode", "MotionMode"]);
+    return value === "static" || value === "sway" || value === "flicker" || value === "sway-flicker"
+      ? value
+      : undefined;
+  }
+
+  private readFlickerStyle(source: Record<string, unknown>): HostPointLightDefaults["flickerStyle"] {
+    const value = this.readString(source, ["flickerStyle", "FlickerStyle"]);
+    return value === "swell" || value === "flame" ? value : undefined;
+  }
+
+  private readSpatialFootprint(source: Record<string, unknown>): HostObjectSpatialFootprint {
+    const shape = this.readString(source, ["shape", "Shape"]);
+    return {
+      cellX: this.readNumber(source, ["cellX", "CellX"]),
+      cellY: this.readNumber(source, ["cellY", "CellY"]),
+      sizeXCells: this.readOptionalFiniteNumber(source, ["sizeXCells", "SizeXCells"]),
+      sizeYCells: this.readOptionalFiniteNumber(source, ["sizeYCells", "SizeYCells"]),
+      shape: shape === "rectangle" || shape === "rounded-rectangle" ? shape : undefined,
+      elevationCells: this.readOptionalFiniteNumber(source, ["elevationCells", "ElevationCells"])
+    };
+  }
+
+  private readLightOcclusion(source: Record<string, unknown>): HostObjectLightOcclusion {
+    return { strength: this.readOptionalFiniteNumber(source, ["strength", "Strength"]) };
+  }
+
+  private readRoomAmbientLighting(source: Record<string, unknown>): HostRoomAmbientLighting {
+    return {
+      ambient: this.readOptionalFiniteNumber(source, ["ambient", "Ambient"]),
+      ambientColor: this.readOptionalString(source, ["ambientColor", "AmbientColor"])
+    };
+  }
+
+  private readOptionalRoomAmbientLighting(source: Record<string, unknown>): HostRoomAmbientLighting | null | undefined {
+    const ambientLighting = this.readNullableRecord(source, ["ambientLighting", "AmbientLighting"]);
+    return ambientLighting === null || ambientLighting === undefined
+      ? ambientLighting
+      : this.readRoomAmbientLighting(ambientLighting);
+  }
+
+  private readRenderableRoomObject(source: Record<string, unknown>): HostCommandRenderableRoomObject {
+    const renderableImage = this.readObject(source, ["renderableImage", "RenderableImage"]);
+    const pointLight = this.readNullableRecord(source, ["pointLight", "PointLight"]);
+    const spatialFootprint = this.readNullableRecord(source, ["spatialFootprint", "SpatialFootprint"]);
+    const lightOcclusion = this.readNullableRecord(source, ["lightOcclusion", "LightOcclusion"]);
+    return {
+      objectId: this.readString(source, ["objectId", "ObjectId"]),
+      name: this.readString(source, ["name", "Name"]),
+      renderableImage: this.readRenderableImage(renderableImage),
+      renderZOrder: this.readNumber(source, ["renderZOrder", "RenderZOrder"]),
+      pointLight: pointLight === null ? null : pointLight ? this.readPointLight(pointLight) : undefined,
+      spatialFootprint: spatialFootprint === null ? null : spatialFootprint ? this.readSpatialFootprint(spatialFootprint) : undefined,
+      lightOcclusion: lightOcclusion === null ? null : lightOcclusion ? this.readLightOcclusion(lightOcclusion) : undefined
+    };
+  }
+
+  private readOptionalRenderableRoomObject(
+    source: Record<string, unknown>,
+    keys: string[]
+  ): HostCommandRenderableRoomObject | null | undefined {
+    const roomObject = this.readNullableRecord(source, keys);
+    return roomObject === null || roomObject === undefined ? roomObject : this.readRenderableRoomObject(roomObject);
+  }
+
   private readRoomChangeData(source: Record<string, unknown>): HostSessionDataEnvelope["roomChange"] {
     const roomChange = this.readObject(source, ["roomChange", "RoomChange"]);
-    const newRoom = this.readObject(roomChange, ["newRoom", "NewRoom"]);
+    const newRoom = this.readNullableRecord(roomChange, ["newRoom", "NewRoom"]);
     const directionalRenderableImages = this.readArray(newRoom, ["directionalRenderableImages", "DirectionalRenderableImages"]);
     const renderableRoomObjects = this.readArray(newRoom, ["renderableRoomObjects", "RenderableRoomObjects"]);
     const presentationCues = this.readArray(roomChange, ["presentationCues", "PresentationCues"]);
@@ -747,25 +894,19 @@ export class HostApiClient {
     return {
       travelDirection: this.readRoomChangeTravelDirection(roomChange),
       presentationCues: presentationCues.map((cueEntry) => this.readPresentationCue(cueEntry)),
-      newRoom: Object.keys(newRoom).length === 0
+      newRoom: newRoom === null
+        ? null
+        : !newRoom
         ? undefined
         : {
             roomId: this.readString(newRoom, ["roomId", "RoomId"]),
             name: this.readString(newRoom, ["name", "Name"]),
+            description: this.readOptionalString(newRoom, ["description", "Description"]),
             roomDisplayMode: this.readRoomDisplayMode(newRoom),
             roomImageCanvasWidth: this.readOptionalPositiveInt(newRoom, ["roomImageCanvasWidth", "RoomImageCanvasWidth"]),
             roomImageCanvasHeight: this.readOptionalPositiveInt(newRoom, ["roomImageCanvasHeight", "RoomImageCanvasHeight"]),
-            renderableRoomObjects: renderableRoomObjects.map((entry) => {
-              const roomObject = this.asRecord(entry);
-              const renderableImage = this.readObject(roomObject, ["renderableImage", "RenderableImage"]);
-
-              return {
-                objectId: this.readString(roomObject, ["objectId", "ObjectId"]),
-                name: this.readString(roomObject, ["name", "Name"]),
-                renderableImage: this.readRenderableImage(renderableImage),
-                renderZOrder: this.readNumber(roomObject, ["renderZOrder", "RenderZOrder"])
-              };
-            }),
+            ambientLighting: this.readOptionalRoomAmbientLighting(newRoom),
+            renderableRoomObjects: renderableRoomObjects.map((entry) => this.readRenderableRoomObject(this.asRecord(entry))),
             directionalRenderableImages: directionalRenderableImages.map((entry) => {
               const directional = this.asRecord(entry);
               const renderableImage = this.readObject(directional, ["renderableImage", "RenderableImage"]);
@@ -847,8 +988,7 @@ export class HostApiClient {
 
     return changes.map((entry) => {
       const change = this.asRecord(entry);
-      const renderableRoomObject = this.readObject(change, ["renderableRoomObject", "RenderableRoomObject"]);
-      const renderableImage = this.readObject(renderableRoomObject, ["renderableImage", "RenderableImage"]);
+      const fromRenderableObject = this.readOptionalRenderableRoomObject(change, ["fromRenderableObject", "FromRenderableObject"]);
       const presentationCues = this.readArray(change, ["presentationCues", "PresentationCues"]);
 
       const rawKind = this.readString(change, ["changeKind", "ChangeKind"]);
@@ -860,14 +1000,8 @@ export class HostApiClient {
         changeKind,
         objectId: this.readString(change, ["objectId", "ObjectId"]),
         objectName: this.readString(change, ["objectName", "ObjectName"]),
-        renderableRoomObject: Object.keys(renderableRoomObject).length === 0
-          ? undefined
-          : {
-              objectId: this.readString(renderableRoomObject, ["objectId", "ObjectId"]),
-              name: this.readString(renderableRoomObject, ["name", "Name"]),
-              renderableImage: this.readRenderableImage(renderableImage),
-              renderZOrder: this.readNumber(renderableRoomObject, ["renderZOrder", "RenderZOrder"])
-            },
+        renderableRoomObject: this.readOptionalRenderableRoomObject(change, ["renderableRoomObject", "RenderableRoomObject"]),
+        fromRenderableObject,
         presentationCues: presentationCues.map((cueEntry) => {
           return this.readPresentationCue(cueEntry);
         }),
@@ -1077,10 +1211,19 @@ export class HostApiClient {
   }
 
   private readOptionalFiniteNumber(source: Record<string, unknown>, keys: string[]): number | undefined {
-    const value = this.readNumber(source, keys);
-    return Number.isFinite(value)
-      ? Number(value)
-      : undefined;
+    return this.readOptionalNumber(source, keys);
+  }
+
+  private readOptionalString(source: Record<string, unknown>, keys: string[]): string | undefined {
+    const record = this.asRecord(source);
+    for (const key of keys) {
+      const candidate = record[key];
+      if (typeof candidate === "string") {
+        return candidate;
+      }
+    }
+
+    return undefined;
   }
 
   private readSoundCues(source: Record<string, unknown>): HostCommandSoundCue[] {

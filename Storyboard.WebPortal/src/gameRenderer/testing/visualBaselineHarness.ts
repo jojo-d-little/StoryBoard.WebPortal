@@ -21,7 +21,7 @@ const scene: GameRenderSceneSnapshot = {
     width: 800,
     height: 600
   },
-  roomObjects: [],
+  objectsById: {},
   directionalOverlays: [
     {
       id: "down",

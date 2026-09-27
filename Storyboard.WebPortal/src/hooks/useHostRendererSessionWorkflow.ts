@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GameRenderSceneSnapshot, GameRendererRoomTransitionState } from "../gameRenderer";
 import { mapHostPresentationToSceneSnapshot, mapHostSessionDataToSceneSnapshot } from "../gameRenderer/adapters";
+import { mapRenderableRoomObjects, selectRenderableRoomObjects } from "../gameRenderer/scene/sceneObjects";
 import type { DiagnosticsLevel } from "../components/DiagnosticsConsole";
 import { HostApiClient } from "../hostApi/client";
 import type { HostCommandSoundCue, HostRuntimePresentationResult, HostSessionDataEnvelope } from "../hostApi/HostContracts";
@@ -233,7 +234,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       previousRevision,
       nextRevision,
       roomId: resolvedScene.roomId || "(unknown)",
-      roomObjectCount: resolvedScene.roomObjects.length
+      roomObjectCount: selectRenderableRoomObjects(resolvedScene).length
     });
   }, [options.presentationCueCatalogRevision, options.setRendererSceneSnapshot]);
 
@@ -252,7 +253,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       return;
     }
 
-    const previousById = new Map((previousScene?.roomObjects ?? []).map((roomObject) => [roomObject.objectId, roomObject]));
+    const previousById = new Map((previousScene ? selectRenderableRoomObjects(previousScene) : []).map((roomObject) => [roomObject.objectId, roomObject]));
     const diagnosticsRows: Array<{
       objectId: string;
       objectName: string;
@@ -266,7 +267,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       status: "animated" | "instant-no-cue" | "instant-unresolved-cue" | "instant-zero-duration-cue";
     }> = [];
 
-    for (const roomObject of resolvedScene.roomObjects) {
+    for (const roomObject of selectRenderableRoomObjects(resolvedScene)) {
       const change = changedById.get(roomObject.objectId);
       if (!change) {
         continue;
@@ -344,7 +345,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       reason: "catalog-effect-key-not-found";
     }> = [];
 
-    for (const roomObject of resolvedScene.roomObjects) {
+    for (const roomObject of selectRenderableRoomObjects(resolvedScene)) {
       if (source === "delta" && changedObjectIds.size > 0 && !changedObjectIds.has(roomObject.objectId)) {
         continue;
       }
@@ -440,7 +441,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     sessionData: HostSessionDataEnvelope
   ): void => {
     const changedById = new Map((sessionData.roomObjectChanges ?? []).map((change) => [change.objectId, change]));
-    const previousById = new Map((previousScene?.roomObjects ?? []).map((roomObject) => [roomObject.objectId, roomObject]));
+    const previousById = new Map((previousScene ? selectRenderableRoomObjects(previousScene) : []).map((roomObject) => [roomObject.objectId, roomObject]));
 
     const movementRows: Array<{
       objectId: string;
@@ -454,7 +455,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       movementCueEffectKeys: string[];
     }> = [];
 
-    for (const roomObject of resolvedScene.roomObjects) {
+    for (const roomObject of selectRenderableRoomObjects(resolvedScene)) {
       if (!changedById.has(roomObject.objectId)) {
         continue;
       }
@@ -540,7 +541,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     const uniqueAssetPaths = Array.from(new Set(
       [
         ...scene.directionalOverlays.map((overlay) => overlay.asset.assetPath.trim()),
-        ...scene.roomObjects.map((roomObject) => roomObject.asset.assetPath.trim())
+        ...selectRenderableRoomObjects(scene).map((roomObject) => roomObject.asset.assetPath.trim())
       ]
         .filter((path) => path.length > 0 && !path.startsWith("data:") && !path.startsWith("blob:"))
     ));
@@ -671,7 +672,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       return;
     }
 
-    const hydratedScene: GameRenderSceneSnapshot = {
+    const hydratedScene = mapRenderableRoomObjects({
       ...scene,
       directionalOverlays: scene.directionalOverlays.map((overlay) => {
         const resolved = resolvedByPath.get(overlay.asset.assetPath.trim());
@@ -682,18 +683,17 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
             assetPath: resolved || overlay.asset.assetPath
           }
         };
-      }),
-      roomObjects: scene.roomObjects.map((roomObject) => {
-        const resolved = resolvedByPath.get(roomObject.asset.assetPath.trim());
-        return {
-          ...roomObject,
-          asset: {
-            ...roomObject.asset,
-            assetPath: resolved || roomObject.asset.assetPath
-          }
-        };
       })
-    };
+    }, (roomObject) => {
+      const resolved = resolvedByPath.get(roomObject.asset.assetPath.trim());
+      return {
+        ...roomObject,
+        asset: {
+          ...roomObject.asset,
+          assetPath: resolved || roomObject.asset.assetPath
+        }
+      };
+    });
 
     options.setRendererSceneSnapshot({
       ...hydratedScene,
@@ -715,7 +715,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       resolvedAssetCount: resolvedByPath.size,
       missingAssetCount: missingAssetPaths.length,
       overlayCount: hydratedScene.directionalOverlays.length,
-      roomObjectCount: hydratedScene.roomObjects.length
+      roomObjectCount: selectRenderableRoomObjects(hydratedScene).length
     });
   }, [
     options.credentialHandle,
@@ -741,6 +741,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       soundCues: baseline.soundCues,
       outputLines: [],
       diagnostics: [],
+      sessionPresentationSettings: baseline.sessionPresentationSettings,
       roomChange: baseline.roomChange,
       phaseChange: baseline.phaseChange,
       orderedTextPresentationSteps: baseline.orderedTextPresentationSteps ?? [],
@@ -759,6 +760,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     }
 
     if (!baselineSnapshot) {
+      options.setRendererSceneSnapshot(null);
       addDiagnosticRef.current("warn", "session-render", "Session baseline did not include a room scene payload.", {
         source,
         sessionId: options.activeSessionId,
@@ -777,7 +779,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       sessionId: options.activeSessionId,
       roomId: baselineSnapshot.roomId || "(unknown)",
       overlayCount: baselineSnapshot.directionalOverlays.length,
-      roomObjectCount: baselineSnapshot.roomObjects.length,
+      roomObjectCount: selectRenderableRoomObjects(baselineSnapshot).length,
       baselineTextStepCount,
       watermark: baseline.sessionDeltaWatermark || "(none)"
     });
@@ -786,19 +788,22 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     emitMovementCueResolutionDiagnostics,
     emitRoomTransitionCueResolutionDiagnostics,
     hydrateSceneSnapshotAssets,
-    options.activeSessionId
+    options.activeSessionId,
+    options.setRendererSceneSnapshot
   ]);
 
   useEffect(() => {
     if (!options.credentialHandle || !options.activeSessionId) {
       setBaselineSyncReady(false);
       setBaselineWatermark("");
+      options.setRendererSceneSnapshot(null);
       return;
     }
 
     let cancelled = false;
     setBaselineSyncReady(false);
     setBaselineWatermark("");
+    options.setRendererSceneSnapshot(null);
 
     const hydrateFromBaseline = async (): Promise<void> => {
       try {
@@ -828,7 +833,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     return () => {
       cancelled = true;
     };
-  }, [options.credentialHandle, options.activeSessionId, options.hostApiClient, applySessionBaseline]);
+  }, [options.credentialHandle, options.activeSessionId, options.hostApiClient, options.setRendererSceneSnapshot, applySessionBaseline]);
 
   const handleSessionDataUpdate = useCallback((sessionData: HostSessionDataEnvelope): void => {
     if (sessionData.hasRoomChange) {

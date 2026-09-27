@@ -12,7 +12,17 @@ export type { GameRenderAppearanceSilhouettePass } from "./sceneTypes/GameRender
 export type { GameRenderAppearanceSilhouetteStyle } from "./sceneTypes/GameRenderAppearanceSilhouetteStyle";
 
 export type { GameRenderRoomObject } from "./sceneTypes/GameRenderRoomObject";
+export type { GameRenderSceneObject, GameRenderSpriteComponent } from "./sceneTypes/GameRenderSceneObject";
 export type { GameRenderMoveLegTelemetry } from "./sceneTypes/GameRenderMoveLegTelemetry";
 export type { GameRenderHudOverlayEntry } from "./sceneTypes/GameRenderHudOverlayEntry";
+export type {
+  GameRenderAmbientLighting,
+  GameRenderLightingState,
+  GameRenderLightOcclusion,
+  GameRenderObjectLighting,
+  GameRenderPointLight,
+  GameRenderPointLightDefaults,
+  GameRenderSpatialFootprint
+} from "./sceneTypes/GameRenderLightingState";
 export type { GameRenderRoomTransition } from "./sceneTypes/GameRenderRoomTransition";
 export type { GameRenderSceneSnapshot } from "./sceneTypes/GameRenderSceneSnapshot";

@@ -8,6 +8,6 @@ export function buildEmptySceneFixture(): GameRenderSceneSnapshot {
       height: 600
     },
     directionalOverlays: [],
-    roomObjects: []
+    objectsById: {}
   };
 }

@@ -4,6 +4,100 @@ import { describe, expect, it, vi } from "vitest";
 import { HostApiClient } from "./client";
 
 describe("HostApiClient", () => {
+  it("decodes lighting state from baseline-compatible deltas, including explicit zeros and prior snapshots", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        resultCode: "Success",
+        sessionData: {
+          sessionPresentationSettings: {
+            cellSizePx: 32,
+            pointLightDefaults: { radiusPx: 0, intensityScale: 0, color: "#abcdef" }
+          },
+          roomChange: {
+            newRoom: {
+              roomId: "room-light",
+              name: "Lighting room",
+              description: "A test room",
+              roomDisplayMode: "Independent",
+              roomImageCanvasWidth: 800,
+              roomImageCanvasHeight: 600,
+              ambientLighting: { ambient: 0, ambientColor: "#010203" },
+              directionalRenderableImages: [],
+              renderableRoomObjects: [
+                {
+                  objectId: "no-image-light",
+                  name: "Light without image",
+                  renderableImage: { imagePath: "", x: 0, y: 0, scale: 1 },
+                  renderZOrder: 0,
+                  pointLight: { x: 0, y: 0, radiusPx: 0, intensityScale: 0, motionMode: "static" }
+                }
+              ]
+            }
+          },
+          roomObjectChanges: [
+            {
+              changeKind: "Updated",
+              objectId: "no-image-light",
+              objectName: "Light without image",
+              fromRenderableObject: {
+                objectId: "no-image-light",
+                name: "Light without image",
+                renderableImage: { imagePath: "", x: 0, y: 0, scale: 1 },
+                renderZOrder: 0,
+                pointLight: { x: 10, y: 20 }
+              },
+              renderableRoomObject: {
+                objectId: "no-image-light",
+                name: "Light without image",
+                renderableImage: { imagePath: "", x: 0, y: 0, scale: 1 },
+                renderZOrder: 0,
+                pointLight: { x: 0, y: 0, radiusPx: 0, intensityScale: 0, color: "#ffffff" },
+                spatialFootprint: { cellX: 0, cellY: 1, sizeXCells: 0, shape: "rounded-rectangle", elevationCells: 0 },
+                lightOcclusion: { strength: 0 }
+              },
+              presentationCues: []
+            }
+          ],
+          soundCues: [],
+          outputLines: [],
+          diagnostics: [],
+          sessionDeltaWatermark: "8"
+        },
+        sessionDeltaWatermark: "8",
+        diagnostics: []
+      })
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new HostApiClient({ baseUrl: "http://127.0.0.1:5199" });
+    const response = await client.getSessionDeltas("cred-1", "session-1", "7", "Medium");
+    const sessionData = response.sessionData;
+
+    expect(sessionData?.sessionPresentationSettings).toEqual({
+      cellSizePx: 32,
+      pointLightDefaults: { radiusPx: 0, intensityScale: 0, color: "#abcdef" }
+    });
+    expect(sessionData?.roomChange?.newRoom?.ambientLighting).toEqual({ ambient: 0, ambientColor: "#010203" });
+    expect(sessionData?.roomChange?.newRoom?.renderableRoomObjects[0].pointLight).toEqual({
+      x: 0,
+      y: 0,
+      radiusPx: 0,
+      intensityScale: 0,
+      motionMode: "static"
+    });
+    expect(sessionData?.roomObjectChanges[0].fromRenderableObject?.pointLight).toEqual({ x: 10, y: 20 });
+    expect(sessionData?.roomObjectChanges[0].renderableRoomObject).toMatchObject({
+      pointLight: { x: 0, y: 0, radiusPx: 0, intensityScale: 0, color: "#ffffff" },
+      spatialFootprint: { cellX: 0, cellY: 1, sizeXCells: 0, shape: "rounded-rectangle", elevationCells: 0 },
+      lightOcclusion: { strength: 0 }
+    });
+
+    vi.unstubAllGlobals();
+  });
+
   it("uses a unique logical correlation id, sends it as a transport header, and reports request metadata", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

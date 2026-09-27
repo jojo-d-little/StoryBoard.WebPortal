@@ -5,6 +5,15 @@ export type {
   GameRenderDisplayMode,
   GameRenderAssetReference,
   GameRenderRoomObject,
+  GameRenderSceneObject,
+  GameRenderSpriteComponent,
+  GameRenderLightingState,
+  GameRenderObjectLighting,
+  GameRenderPointLight,
+  GameRenderSpatialFootprint,
+  GameRenderLightOcclusion,
+  GameRenderAmbientLighting,
+  GameRenderPointLightDefaults,
   GameRenderPresentationCue,
   GameRenderHudOverlayEntry
 } from "./contracts/sceneTypes";

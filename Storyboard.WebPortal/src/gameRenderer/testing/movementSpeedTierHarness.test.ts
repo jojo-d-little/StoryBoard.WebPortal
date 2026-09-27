@@ -1,4 +1,5 @@
 import { createGameRenderer, type GameRenderSceneSnapshot, type GameRendererDiagnosticsEvent } from "../index";
+import { createSceneObjectsFromRoomObjects } from "../scene/sceneObjects";
 
 type SpeedTierResult = {
   observedMs: Record<string, number>;
@@ -116,7 +117,7 @@ function buildScene(targetX: number): GameRenderSceneSnapshot {
         zOrder: 1
       }
     ],
-    roomObjects: runners.map((runner) => ({
+    objectsById: createSceneObjectsFromRoomObjects(runners.map((runner) => ({
       objectId: runner.id,
       objectName: runner.id,
       asset: { assetPath: svgDataUrl(runner.color, 56, 56, runner.label) },
@@ -127,7 +128,7 @@ function buildScene(targetX: number): GameRenderSceneSnapshot {
       zOrder: 1000,
       presentationCues: [],
       movementDurationMs: runner.durationMs
-    }))
+    })))
   };
 }
 

@@ -1,4 +1,5 @@
 import { createGameRenderer, type GameRenderSceneSnapshot } from "../index";
+import { createSceneObjectsFromRoomObjects } from "../scene/sceneObjects";
 
 function svgDataUrl(fill: string, width: number, height: number): string {
   const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'><rect width='100%' height='100%' fill='${fill}'/></svg>`;
@@ -55,7 +56,7 @@ const outgoing: GameRenderSceneSnapshot = {
     scale: 1,
     zOrder: 1
   }],
-  roomObjects: [{
+  objectsById: createSceneObjectsFromRoomObjects([{
     objectId: "intentional-overflow",
     objectName: "Intentional Overflow",
     asset: { assetPath: svgDataUrl("#ff00ff", 200, 180) },
@@ -65,7 +66,7 @@ const outgoing: GameRenderSceneSnapshot = {
     scale: 1,
     zOrder: 1000,
     presentationCues: []
-  }]
+  }])
 };
 
 const incoming: GameRenderSceneSnapshot = {
@@ -82,7 +83,7 @@ const incoming: GameRenderSceneSnapshot = {
     scale: 1,
     zOrder: 1
   }],
-  roomObjects: [{
+  objectsById: createSceneObjectsFromRoomObjects([{
     objectId: "incoming-cyan",
     objectName: "Incoming Cyan",
     asset: { assetPath: svgDataUrl("#00ffff", 120, 90) },
@@ -103,7 +104,7 @@ const incoming: GameRenderSceneSnapshot = {
     scale: 1,
     zOrder: 200,
     presentationCues: []
-  }],
+  }]),
   moveLegTelemetry: [{
     targetObjectId: "incoming-cyan",
     targetObjectName: "Incoming Cyan",

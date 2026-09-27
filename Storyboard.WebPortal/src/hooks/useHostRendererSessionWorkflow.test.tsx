@@ -165,8 +165,8 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
     };
     renderHook(() => useHostRendererSessionWorkflow(workflowOptions));
 
-    await waitFor(() => expect(setRendererSceneSnapshot).toHaveBeenCalledTimes(1));
-    const scene = setRendererSceneSnapshot.mock.calls[0]?.[0];
+    await waitFor(() => expect(setRendererSceneSnapshot.mock.calls.some(([scene]) => scene?.roomId === "room-1")).toBe(true));
+    const scene = setRendererSceneSnapshot.mock.calls.find(([snapshot]) => snapshot?.roomId === "room-1")?.[0];
     expect(scene?.roomId).toBe("room-1");
     expect(scene?.directionalOverlays.map((overlay: { asset: { assetPath: string } }) => overlay.asset.assetPath)).toEqual([
       "assets/floor.png",

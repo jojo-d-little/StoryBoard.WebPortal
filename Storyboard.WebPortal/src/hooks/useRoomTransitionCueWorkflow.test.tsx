@@ -18,7 +18,7 @@ function buildSceneSnapshot(
       height: 600
     },
     directionalOverlays: [],
-    roomObjects: [],
+    objectsById: {},
     roomTransition: {
       travelDirection,
       cueEffectKey: roomTransitionCueEffectKey

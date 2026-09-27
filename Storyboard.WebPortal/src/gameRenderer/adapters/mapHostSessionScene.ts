@@ -1,6 +1,7 @@
-import type { HostCommandMoveLegTelemetry, HostCommandRenderableRoomObject, HostRoomDisplayMode, HostSessionDataEnvelope } from "../../hostApi/HostContracts";
-import type { GameRenderDisplayMode, GameRenderMoveLegTelemetry, GameRenderRoomObject, GameRenderSceneSnapshot } from "../contracts/sceneTypes";
+import type { HostCommandMoveLegTelemetry, HostCommandRenderableRoomObject, HostRoomDisplayMode, HostSessionDataEnvelope, HostSessionPresentationSettings } from "../../hostApi/HostContracts";
+import type { GameRenderDisplayMode, GameRenderMoveLegTelemetry, GameRenderObjectLighting, GameRenderRoomObject, GameRenderSceneObject, GameRenderSceneSnapshot } from "../contracts/sceneTypes";
 import { buildDirectionalOverlayScene } from "../scene";
+import { toSpriteComponent } from "../scene/sceneObjects";
 
 const FALLBACK_ROOM_WIDTH = 800;
 const FALLBACK_ROOM_HEIGHT = 600;
@@ -63,16 +64,7 @@ function resolveRoomTransitionCueEffectKey(roomChange: HostSessionDataEnvelope["
   return undefined;
 }
 
-function mergePresentationCues(
-  previous: GameRenderRoomObject["presentationCues"],
-  incoming: GameRenderRoomObject["presentationCues"]
-): GameRenderRoomObject["presentationCues"] {
-  void previous;
-  // Host-provided cue list is authoritative for this object update.
-  return incoming;
-}
-
-function resolveMovementTimingFromCues(cues: HostSessionDataEnvelope["roomObjectChanges"][number]["presentationCues"]): {
+function resolveMovementTimingFromCues(cues: Array<Pick<GameRenderSceneObject["presentationCues"][number], "category" | "movementDurationMs" | "movementFrames">>): {
   movementDurationMs?: number;
   movementFrames?: number;
 } {
@@ -106,8 +98,120 @@ function resolveMovementTimingFromCues(cues: HostSessionDataEnvelope["roomObject
 
 export interface HostPresentationSceneSource {
   roomChange?: HostSessionDataEnvelope["roomChange"];
+  sessionPresentationSettings?: HostSessionPresentationSettings | null;
   authoredRenderWidth?: number;
   authoredRenderHeight?: number;
+}
+
+function mapObjectLighting(roomObject: HostCommandRenderableRoomObject): GameRenderObjectLighting | undefined {
+  const pointLight = roomObject.pointLight;
+  const spatialFootprint = roomObject.spatialFootprint;
+  const lightOcclusion = roomObject.lightOcclusion;
+  if (!pointLight && !spatialFootprint && !lightOcclusion) {
+    return undefined;
+  }
+
+  return {
+    ...(pointLight ? { pointLight } : {}),
+    ...(spatialFootprint ? { spatialFootprint } : {}),
+    ...(lightOcclusion ? { lightOcclusion } : {})
+  };
+}
+
+function mapLightingState(source: HostPresentationSceneSource): NonNullable<GameRenderSceneSnapshot["lighting"]> {
+  const settings = source.sessionPresentationSettings;
+  return {
+    ...(settings && Number.isFinite(settings.cellSizePx) ? { cellSizePx: settings.cellSizePx } : {}),
+    ...(settings ? { pointLightDefaults: settings.pointLightDefaults } : settings === null ? { pointLightDefaults: null } : {}),
+    ...(source.roomChange?.newRoom?.ambientLighting === undefined
+      ? {}
+      : { ambientLighting: source.roomChange.newRoom.ambientLighting })
+  };
+}
+
+function mapHostObject(
+  roomObject: HostCommandRenderableRoomObject,
+  presentationCues: GameRenderSceneObject["presentationCues"] = []
+): GameRenderSceneObject {
+  const spriteObject = mapRenderableRoomObject(roomObject);
+  const lighting = mapObjectLighting(roomObject);
+  return {
+    objectId: roomObject.objectId,
+    objectName: roomObject.name,
+    ...(spriteObject ? { sprite: toSpriteComponent(spriteObject) } : {}),
+    ...(lighting ? { lighting } : {}),
+    presentationCues,
+    ...resolveMovementTimingFromCues(presentationCues)
+  };
+}
+
+function mapRoomObjectsFromNewRoom(source: HostPresentationSceneSource): Record<string, GameRenderSceneObject> {
+  const roomObjects = source.roomChange?.newRoom?.renderableRoomObjects ?? [];
+  return Object.fromEntries(roomObjects.map((roomObject) => {
+    const mapped = mapHostObject(roomObject);
+    return [mapped.objectId, mapped];
+  }));
+}
+
+function applyObjectChanges(
+  initial: Record<string, GameRenderSceneObject>,
+  changes: HostSessionDataEnvelope["roomObjectChanges"]
+): Record<string, GameRenderSceneObject> {
+  const objectsById = { ...initial };
+  for (const change of changes) {
+    if (change.changeKind === "Removed") {
+      delete objectsById[change.objectId];
+      continue;
+    }
+
+    const renderableRoomObject = change.renderableRoomObject;
+    const presentationCues = change.presentationCues.map((cue) => ({
+      cueType: cue.cueType,
+      category: cue.category,
+      effectKey: cue.effectKey,
+      moveDirection: cue.moveDirection,
+      movementDurationMs: cue.movementDurationMs,
+      movementFrames: cue.movementFrames
+    }));
+    const mapped = renderableRoomObject
+      ? mapHostObject(renderableRoomObject, presentationCues)
+      : {
+          objectId: change.objectId,
+          objectName: change.objectName,
+          presentationCues,
+          ...resolveMovementTimingFromCues(presentationCues)
+        };
+    objectsById[change.objectId] = {
+      ...mapped,
+      objectId: change.objectId,
+      objectName: change.objectName || mapped.objectName
+    };
+  }
+
+  return objectsById;
+}
+
+function applyLightingSessionSettings(
+  previous: NonNullable<GameRenderSceneSnapshot["lighting"]>,
+  settings: HostSessionPresentationSettings | null | undefined
+): NonNullable<GameRenderSceneSnapshot["lighting"]> {
+  if (settings === undefined) {
+    return previous;
+  }
+
+  if (settings === null) {
+    return {
+      ...previous,
+      cellSizePx: undefined,
+      pointLightDefaults: null
+    };
+  }
+
+  return {
+    ...previous,
+    ...(Number.isFinite(settings.cellSizePx) ? { cellSizePx: settings.cellSizePx } : { cellSizePx: undefined }),
+    pointLightDefaults: settings.pointLightDefaults ?? null
+  };
 }
 
 function resolveRoomBounds(source: HostPresentationSceneSource): { width: number; height: number } {
@@ -147,71 +251,6 @@ function mapRenderableRoomObject(
     zOrder: roomObject.renderZOrder,
     presentationCues: []
   };
-}
-
-function mapRoomObjectsFromNewRoom(source: HostPresentationSceneSource): GameRenderRoomObject[] {
-  const roomObjects = source.roomChange?.newRoom?.renderableRoomObjects ?? [];
-  return roomObjects
-    .map((roomObject) => mapRenderableRoomObject(roomObject))
-    .filter((roomObject): roomObject is GameRenderRoomObject => Boolean(roomObject));
-}
-
-function applyRoomObjectChanges(
-  initialObjects: GameRenderRoomObject[],
-  changes: HostSessionDataEnvelope["roomObjectChanges"]
-): GameRenderRoomObject[] {
-  if (changes.length === 0) {
-    return initialObjects;
-  }
-
-  const byId = new Map<string, GameRenderRoomObject>(initialObjects.map((roomObject) => [roomObject.objectId, roomObject]));
-
-  for (const change of changes) {
-    if (change.changeKind === "Removed") {
-      byId.delete(change.objectId);
-      continue;
-    }
-
-    const renderableRoomObject = change.renderableRoomObject;
-    if (!renderableRoomObject) {
-      continue;
-    }
-
-    const mappedObject = mapRenderableRoomObject(renderableRoomObject);
-    if (!mappedObject) {
-      byId.delete(change.objectId);
-      continue;
-    }
-
-    const previousRoomObject = byId.get(change.objectId);
-    const incomingPresentationCues = change.presentationCues.map((cue) => ({
-      cueType: cue.cueType,
-      category: cue.category,
-      effectKey: cue.effectKey,
-      moveDirection: cue.moveDirection,
-      movementDurationMs: cue.movementDurationMs,
-      movementFrames: cue.movementFrames
-    }));
-    const mergedPresentationCues = mergePresentationCues(
-      previousRoomObject?.presentationCues ?? [],
-      incomingPresentationCues);
-
-    byId.set(change.objectId, {
-      ...mappedObject,
-      objectId: change.objectId,
-      objectName: change.objectName || mappedObject.objectName,
-      presentationCues: mergedPresentationCues,
-      ...resolveMovementTimingFromCues(change.presentationCues)
-    });
-  }
-
-  return Array.from(byId.values()).sort((left, right) => {
-    if (left.zOrder !== right.zOrder) {
-      return left.zOrder - right.zOrder;
-    }
-
-    return left.objectId.localeCompare(right.objectId);
-  });
 }
 
 function mapMoveLegTelemetry(entries: HostCommandMoveLegTelemetry[]): GameRenderMoveLegTelemetry[] {
@@ -275,7 +314,8 @@ export function mapHostPresentationToSceneSnapshot(source: HostPresentationScene
     displayMode: mapDisplayMode(newRoom.roomDisplayMode),
     bounds: resolveRoomBounds(source),
     directionalOverlays,
-    roomObjects: mapRoomObjectsFromNewRoom(source),
+    objectsById: mapRoomObjectsFromNewRoom(source),
+    lighting: mapLightingState(source),
     moveLegTelemetry: [],
     roomTransition: source.roomChange?.travelDirection
       ? {
@@ -293,10 +333,23 @@ export function mapHostSessionDataToSceneSnapshot(
   const baselineSnapshot = mapHostPresentationToSceneSnapshot(sessionData);
 
   if (baselineSnapshot) {
+    const baselineLighting = baselineSnapshot.lighting!;
+    const baselineObjects = baselineSnapshot.objectsById;
+    const previousLighting = previousSnapshot?.lighting;
+    const roomLightingWithRetainedSessionSettings = sessionData.sessionPresentationSettings === undefined && previousLighting
+      ? {
+          ...baselineLighting,
+          ...(previousLighting.cellSizePx === undefined ? {} : { cellSizePx: previousLighting.cellSizePx }),
+          ...(previousLighting.pointLightDefaults === undefined ? {} : { pointLightDefaults: previousLighting.pointLightDefaults })
+        }
+      : baselineLighting;
     return {
       ...baselineSnapshot,
       moveLegTelemetry: collectMoveLegTelemetry(sessionData.roomObjectChanges),
-      roomObjects: applyRoomObjectChanges(baselineSnapshot.roomObjects, sessionData.roomObjectChanges)
+      objectsById: applyObjectChanges(baselineObjects, sessionData.roomObjectChanges),
+      lighting: {
+        ...applyLightingSessionSettings(roomLightingWithRetainedSessionSettings, sessionData.sessionPresentationSettings),
+      }
     };
   }
 
@@ -304,9 +357,18 @@ export function mapHostSessionDataToSceneSnapshot(
     return null;
   }
 
+  const previousLighting = previousSnapshot.lighting ?? {};
+  const lightingWithSettings = applyLightingSessionSettings(previousLighting, sessionData.sessionPresentationSettings);
+
   return {
     ...previousSnapshot,
     moveLegTelemetry: collectMoveLegTelemetry(sessionData.roomObjectChanges),
-    roomObjects: applyRoomObjectChanges(previousSnapshot.roomObjects, sessionData.roomObjectChanges)
+    objectsById: applyObjectChanges(previousSnapshot.objectsById, sessionData.roomObjectChanges),
+    lighting: {
+      ...lightingWithSettings,
+      ...(sessionData.roomChange?.newRoom?.ambientLighting !== undefined
+        ? { ambientLighting: sessionData.roomChange.newRoom.ambientLighting }
+        : {}),
+    }
   };
 }

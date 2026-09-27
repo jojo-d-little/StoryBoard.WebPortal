@@ -1,7 +1,8 @@
 import type { GameRendererDiagnosticsSink } from "../diagnostics/RendererDiagnostics";
 import type { GameRendererIntentSink } from "../contracts/intents";
-import type { GameRenderSceneSnapshot } from "../contracts/sceneTypes";
+import type { GameRenderRoomObject, GameRenderSceneSnapshot } from "../contracts/sceneTypes";
 import { computeContainTransform } from "../scaling/containScaling";
+import { selectRenderableRoomObjects } from "../scene/sceneObjects";
 import { planMovementRetarget } from "./reconciliation/movementRetargetPlanner";
 import { buildLegByLegSegments, type MovementTweenSegment } from "./reconciliation/legByLegPathBuilder";
 import { areHudOverlayEntriesEquivalent, createHudOverlayController } from "./hud/HudOverlayController";
@@ -116,8 +117,8 @@ interface SnapshotTransitionState {
 }
 
 function areSilhouettePassesEquivalent(
-  leftStyle: GameRenderSceneSnapshot["roomObjects"][number]["appearanceSilhouetteStyle"] | undefined,
-  rightStyle: GameRenderSceneSnapshot["roomObjects"][number]["appearanceSilhouetteStyle"] | undefined
+  leftStyle: GameRenderRoomObject["appearanceSilhouetteStyle"] | undefined,
+  rightStyle: GameRenderRoomObject["appearanceSilhouetteStyle"] | undefined
 ): boolean {
   const leftPasses = leftStyle?.passes ?? [];
   const rightPasses = rightStyle?.passes ?? [];
@@ -1189,6 +1190,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   }
 
   function areScenesRenderEquivalent(left: GameRenderSceneSnapshot, right: GameRenderSceneSnapshot): boolean {
+    const leftRoomObjects = selectRenderableRoomObjects(left);
+    const rightRoomObjects = selectRenderableRoomObjects(right);
     if (left.roomId !== right.roomId
       || left.roomLabel !== right.roomLabel
       || left.displayMode !== right.displayMode
@@ -1199,7 +1202,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       || left.bounds.width !== right.bounds.width
       || left.bounds.height !== right.bounds.height
       || left.directionalOverlays.length !== right.directionalOverlays.length
-      || left.roomObjects.length !== right.roomObjects.length
+      || leftRoomObjects.length !== rightRoomObjects.length
       || (left.hudOverlayEntries?.length ?? 0) !== (right.hudOverlayEntries?.length ?? 0)) {
       return false;
     }
@@ -1219,9 +1222,9 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       }
     }
 
-    for (let index = 0; index < left.roomObjects.length; index += 1) {
-      const leftObject = left.roomObjects[index];
-      const rightObject = right.roomObjects[index];
+    for (let index = 0; index < leftRoomObjects.length; index += 1) {
+      const leftObject = leftRoomObjects[index];
+      const rightObject = rightRoomObjects[index];
       if (leftObject.objectId !== rightObject.objectId
         || leftObject.objectName !== rightObject.objectName
         || leftObject.asset.assetPath !== rightObject.asset.assetPath
@@ -1361,11 +1364,12 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   ): Promise<void> {
     const appearanceEffectsEnabled = isPresentationCategoryEnabled(presentationIsolationSettings, "appearance");
     const movementEffectsEnabled = isPresentationCategoryEnabled(presentationIsolationSettings, "movement");
+    const roomObjects = selectRenderableRoomObjects(scene);
     const previousRoomObjectsById = new Map(
-      (previousScene?.roomObjects ?? []).map((roomObject) => [roomObject.objectId, roomObject])
+      (previousScene ? selectRenderableRoomObjects(previousScene) : []).map((roomObject) => [roomObject.objectId, roomObject])
     );
 
-    const nextRoomObjectIds = new Set(scene.roomObjects.map((roomObject) => roomObject.objectId));
+    const nextRoomObjectIds = new Set(roomObjects.map((roomObject) => roomObject.objectId));
     for (const objectId of surface.roomObjectSpritesById.keys()) {
       if (!nextRoomObjectIds.has(objectId)) {
         removeRoomObjectSprite(surface, objectId);
@@ -1376,7 +1380,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     let objectsWithAppearanceCues = 0;
     let objectsWithSilhouetteCueEffectKeys = 0;
     let objectsWithSilhouetteStyle = 0;
-    for (const roomObject of scene.roomObjects) {
+    for (const roomObject of roomObjects) {
       const appearanceCues = roomObject.presentationCues.filter((cue) => cue.category.toLowerCase() === "appearance");
       if (appearanceCues.length > 0) {
         objectsWithAppearanceCues += 1;
@@ -1406,7 +1410,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       message: "Appearance silhouette summary for scene update.",
       details: {
         roomId: scene.roomId ?? "(unknown)",
-        roomObjectCount: scene.roomObjects.length,
+        roomObjectCount: roomObjects.length,
         objectsWithAppearanceCues,
         objectsWithSilhouetteCueEffectKeys,
         objectsWithSilhouetteStyle,
@@ -1414,7 +1418,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       }
     });
 
-    for (const roomObject of scene.roomObjects) {
+    for (const roomObject of roomObjects) {
       const assetUrl = roomObject.asset.assetPath.trim();
       if (!assetUrl) {
         removeRoomObjectSprite(surface, roomObject.objectId);
@@ -2021,7 +2025,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       emit("debug", "Applied scene update.", {
         roomId: scene.roomId || "(unknown)",
         overlayCount: scene.directionalOverlays.length,
-        roomObjectCount: scene.roomObjects.length,
+        roomObjectCount: selectRenderableRoomObjects(scene).length,
         roomWidth: scene.bounds.width,
         roomHeight: scene.bounds.height,
         viewportWidth,
