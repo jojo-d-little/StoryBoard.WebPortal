@@ -132,6 +132,44 @@ describe("mapLightingFrameInput", () => {
     ]);
   });
 
+  it("passes sway styles through for individual lights and point-light defaults", () => {
+    const result = mapLightingFrameInput(scene({
+      lighting: {
+        cellSizePx: 40,
+        pointLightDefaults: { swayStyle: "breeze", swayHz: 0.4 }
+      },
+      objectsById: {
+        lantern: {
+          objectId: "lantern",
+          objectName: "Lantern",
+          presentationCues: [],
+          lighting: {
+            pointLight: {
+              x: 120,
+              y: 80,
+              motionMode: "sway",
+              swayStyle: "directional",
+              swayAmountPx: 12,
+              swayDirectionDeg: 30
+            }
+          }
+        }
+      }
+    }));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.frame.pointLightDefaults).toEqual({ swayStyle: "breeze", swayHz: 0.4 });
+    expect(result.frame.pointLights).toEqual([{
+      x: 120,
+      y: 80,
+      motionMode: "sway",
+      swayStyle: "directional",
+      swayAmountPx: 12,
+      swayDirectionDeg: 30
+    }]);
+  });
+
   it("reports out-of-range ambient and safely uses full ambient", () => {
     const result = mapLightingFrameInput(scene({
       lighting: { cellSizePx: 40, ambientLighting: { ambient: 1.5 } }

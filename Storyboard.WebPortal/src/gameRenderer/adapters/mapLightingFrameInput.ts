@@ -100,6 +100,7 @@ function mapPointLight(
   if (source.color !== undefined) result.color = source.color;
   if (source.outerColor !== undefined) result.outerColor = source.outerColor;
   if (source.motionMode !== undefined) result.motionMode = source.motionMode;
+  if (source.swayStyle !== undefined) result.swayStyle = source.swayStyle;
   if (source.flickerStyle !== undefined) result.flickerStyle = source.flickerStyle;
   return result;
 }
@@ -126,6 +127,7 @@ function mapDefaults(
   }
   if (defaults.color !== undefined) result.color = defaults.color;
   if (defaults.outerColor !== undefined) result.outerColor = defaults.outerColor;
+  if (defaults.swayStyle !== undefined) result.swayStyle = defaults.swayStyle;
   if (defaults.flickerStyle !== undefined) result.flickerStyle = defaults.flickerStyle;
   return result;
 }

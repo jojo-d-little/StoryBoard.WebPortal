@@ -13,7 +13,7 @@ describe("HostApiClient", () => {
         sessionData: {
           sessionPresentationSettings: {
             cellSizePx: 32,
-            pointLightDefaults: { radiusPx: 0, intensityScale: 0, color: "#abcdef" }
+            pointLightDefaults: { radiusPx: 0, intensityScale: 0, color: "#abcdef", SwayStyle: "breeze" }
           },
           roomChange: {
             newRoom: {
@@ -31,7 +31,7 @@ describe("HostApiClient", () => {
                   name: "Light without image",
                   renderableImage: { imagePath: "", x: 0, y: 0, scale: 1 },
                   renderZOrder: 0,
-                  pointLight: { x: 0, y: 0, radiusPx: 0, intensityScale: 0, motionMode: "static" },
+                  pointLight: { x: 0, y: 0, radiusPx: 0, intensityScale: 0, motionMode: "sway", swayStyle: "breeze" },
                   spatialFootprint: { cellX: 2, cellY: 3 }
                 }
               ]
@@ -79,7 +79,7 @@ describe("HostApiClient", () => {
 
     expect(sessionData?.sessionPresentationSettings).toEqual({
       cellSizePx: 32,
-      pointLightDefaults: { radiusPx: 0, intensityScale: 0, color: "#abcdef" }
+      pointLightDefaults: { radiusPx: 0, intensityScale: 0, color: "#abcdef", swayStyle: "breeze" }
     });
     expect(sessionData?.roomChange?.newRoom?.ambientLighting).toEqual({ ambient: 0, ambientColor: "#010203" });
     expect(sessionData?.roomChange?.newRoom?.renderableRoomObjects[0].pointLight).toEqual({
@@ -87,7 +87,8 @@ describe("HostApiClient", () => {
       y: 0,
       radiusPx: 0,
       intensityScale: 0,
-      motionMode: "static"
+      motionMode: "sway",
+      swayStyle: "breeze"
     });
     expect(sessionData?.roomChange?.newRoom?.renderableRoomObjects[0].spatialFootprint).toEqual({
       cellX: 2,

@@ -5,13 +5,14 @@ Use the [detailed plan](WebPortal_Lighting_Detailed_Implementation_Plan.md) for 
 
 ## Current progress
 
-Steps 1–7 are complete. The scene stores each Host object once in `objectsById`; sprite and lighting data are optional components on that object. The pure mapper produces complete Lighting frames, the Devtools Lighting checkbox controls the Pixi lighting path, movement updates project Host light endpoints during presentation tweens, and room transitions capture frozen final images when lighting is enabled. The official lighting package `0.1.3` is now locked and validated by the build, all unit tests, and the full Playwright suite. Step 7's performance history and release rerun are recorded in the [performance baseline](WebPortal_Lighting_Performance_Baseline.md); see its GPU and hardware limits before generalizing the results.
+Steps 1–7 are implemented. The scene stores each Host object once in `objectsById`; sprite and lighting data are optional components on that object. Host `swayStyle` now survives Host response decoding, scene projection, and pure frame mapping for individual lights and defaults. The Devtools Lighting checkbox controls the Pixi lighting path, movement updates project Host light endpoints during presentation tweens, and room transitions capture frozen final images when lighting is enabled. Official Lighting package `0.1.4` is locked under the existing `0.1.x` dependency range. Contract verification, production build, and all 248 unit tests pass; the latest browser suite is not fully clean, as summarized in the [detailed plan](WebPortal_Lighting_Detailed_Implementation_Plan.md). Step 7's earlier performance measurements remain historical; see the [performance baseline](WebPortal_Lighting_Performance_Baseline.md) for their GPU and hardware limits.
 
 ## Implementation checklist
 
 1. **[x] Prepare dependencies and contracts**
    - [x] Refresh the npm package references, including `@jojo-d-little/storyboard-contracts` at `1.0.6` and the Lighting package using the project’s patch-range convention.
    - [x] Add the local Host TypeScript definitions needed for the new lighting contract fields, using the staged generated interfaces as the reference.
+   - [x] Carry Host `swayStyle` through point-light and point-light-default projections into the Lighting frame input.
    - [x] Compare the local definitions with the staged contract interfaces and confirm the intentional local adaptation.
 
 2. **[x] Retain complete Host lighting state**

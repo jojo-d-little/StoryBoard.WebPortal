@@ -12,6 +12,7 @@ export interface HostObjectPointLight {
   motionMode?: "static" | "sway" | "flicker" | "sway-flicker";
   phase?: number;
   swayAmountPx?: number;
+  swayStyle?: "directional" | "breeze";
   swayHz?: number;
   swayDirectionDeg?: number;
   flickerAmount?: number;

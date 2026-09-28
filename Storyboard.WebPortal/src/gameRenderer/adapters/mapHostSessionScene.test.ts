@@ -178,7 +178,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     const sessionData = buildSessionData({
       sessionPresentationSettings: {
         cellSizePx: 32,
-        pointLightDefaults: { radiusPx: 48, intensityScale: 0 }
+        pointLightDefaults: { radiusPx: 48, intensityScale: 0, swayStyle: "breeze" }
       },
       roomChange: {
         newRoom: {
@@ -205,7 +205,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
                 scale: 1
               },
               renderZOrder: 1,
-              pointLight: { x: 0, y: 0, intensityScale: 0, radiusPx: 0 }
+              pointLight: { x: 0, y: 0, intensityScale: 0, radiusPx: 0, motionMode: "sway", swayStyle: "breeze" }
             },
             {
               objectId: "invisible-blocker",
@@ -234,7 +234,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     expect(renderedRoomObjects(snapshot)).toHaveLength(1);
     expect(snapshot?.lighting).toEqual({
       cellSizePx: 32,
-      pointLightDefaults: { radiusPx: 48, intensityScale: 0 },
+      pointLightDefaults: { radiusPx: 48, intensityScale: 0, swayStyle: "breeze" },
       ambientLighting: { ambient: 0, ambientColor: "#102030" }
     });
     expect(snapshot?.objectsById).toEqual({
@@ -242,7 +242,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
         objectId: "lantern",
         objectName: "Lantern",
         sprite: expect.objectContaining({ asset: { assetPath: "assets/lantern.png", cacheKey: "assets/lantern.png" } }),
-        lighting: { pointLight: { x: 0, y: 0, intensityScale: 0, radiusPx: 0 } },
+        lighting: { pointLight: { x: 0, y: 0, intensityScale: 0, radiusPx: 0, motionMode: "sway", swayStyle: "breeze" } },
         presentationCues: []
       },
       "invisible-blocker": {

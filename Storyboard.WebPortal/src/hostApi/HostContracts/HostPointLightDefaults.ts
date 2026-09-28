@@ -6,6 +6,7 @@ export interface HostPointLightDefaults {
   gradientExponent?: number;
   lightHeightCells?: number;
   swayAmountPx?: number;
+  swayStyle?: "directional" | "breeze";
   swayHz?: number;
   swayDirectionDeg?: number;
   flickerAmount?: number;

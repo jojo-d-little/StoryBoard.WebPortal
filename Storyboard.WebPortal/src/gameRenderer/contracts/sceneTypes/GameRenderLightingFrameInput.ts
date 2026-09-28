@@ -23,6 +23,7 @@ export interface GameRenderLightingPointLightInput {
   intensityScale?: number;
   lightHeightCells?: number;
   swayAmountPx?: number;
+  swayStyle?: "directional" | "breeze";
   swayHz?: number;
   swayDirectionDeg?: number;
   flickerAmount?: number;
@@ -54,6 +55,7 @@ export interface GameRenderLightingFrameInput {
     gradientExponent?: number;
     lightHeightCells?: number;
     swayAmountPx?: number;
+    swayStyle?: "directional" | "breeze";
     swayHz?: number;
     swayDirectionDeg?: number;
     flickerAmount?: number;

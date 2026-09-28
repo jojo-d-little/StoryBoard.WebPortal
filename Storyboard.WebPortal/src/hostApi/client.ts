@@ -783,6 +783,7 @@ export class HostApiClient {
       gradientExponent: this.readOptionalFiniteNumber(source, ["gradientExponent", "GradientExponent"]),
       lightHeightCells: this.readOptionalFiniteNumber(source, ["lightHeightCells", "LightHeightCells"]),
       swayAmountPx: this.readOptionalFiniteNumber(source, ["swayAmountPx", "SwayAmountPx"]),
+      swayStyle: this.readSwayStyle(source),
       swayHz: this.readOptionalFiniteNumber(source, ["swayHz", "SwayHz"]),
       swayDirectionDeg: this.readOptionalFiniteNumber(source, ["swayDirectionDeg", "SwayDirectionDeg"]),
       flickerAmount: this.readOptionalFiniteNumber(source, ["flickerAmount", "FlickerAmount"]),
@@ -806,6 +807,7 @@ export class HostApiClient {
       motionMode: this.readMotionMode(source),
       phase: this.readOptionalFiniteNumber(source, ["phase", "Phase"]),
       swayAmountPx: this.readOptionalFiniteNumber(source, ["swayAmountPx", "SwayAmountPx"]),
+      swayStyle: this.readSwayStyle(source),
       swayHz: this.readOptionalFiniteNumber(source, ["swayHz", "SwayHz"]),
       swayDirectionDeg: this.readOptionalFiniteNumber(source, ["swayDirectionDeg", "SwayDirectionDeg"]),
       flickerAmount: this.readOptionalFiniteNumber(source, ["flickerAmount", "FlickerAmount"]),
@@ -819,6 +821,11 @@ export class HostApiClient {
     return value === "static" || value === "sway" || value === "flicker" || value === "sway-flicker"
       ? value
       : undefined;
+  }
+
+  private readSwayStyle(source: Record<string, unknown>): HostObjectPointLight["swayStyle"] {
+    const value = this.readString(source, ["swayStyle", "SwayStyle"]);
+    return value === "directional" || value === "breeze" ? value : undefined;
   }
 
   private readFlickerStyle(source: Record<string, unknown>): HostPointLightDefaults["flickerStyle"] {
