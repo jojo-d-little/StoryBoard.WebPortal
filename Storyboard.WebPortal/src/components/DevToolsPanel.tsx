@@ -187,6 +187,7 @@ interface DevToolsPanelProps {
   presentationIsolationCategoryOptions: PresentationIsolationCategoryOption[];
   onPresentationIsolationEnabledChange: (value: boolean) => void;
   onLightingEnabledChange: (value: boolean) => void;
+  onLightingGridEnabledChange: (value: boolean) => void;
   onPresentationIsolationCategoryEnabledChange: (category: PresentationIsolationCategory, value: boolean) => void;
   roomTransitionCueOptions: Array<{
     effectKey: string;
@@ -580,6 +581,15 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                     type="checkbox"
                     checked={props.presentationIsolationSettings.lightingEnabled}
                     onChange={(e) => props.onLightingEnabledChange(e.target.checked)}
+                  />
+                </label>
+
+                <label>
+                  <span>Lighting Grid Diagnostic</span>
+                  <input
+                    type="checkbox"
+                    checked={props.presentationIsolationSettings.lightingGridEnabled}
+                    onChange={(e) => props.onLightingGridEnabledChange(e.target.checked)}
                   />
                 </label>
 

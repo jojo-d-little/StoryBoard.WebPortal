@@ -10,6 +10,7 @@ export type PresentationIsolationCategory =
 export interface PresentationIsolationSettings {
   enabled: boolean;
   lightingEnabled: boolean;
+  lightingGridEnabled: boolean;
   categories: Record<PresentationIsolationCategory, boolean>;
 }
 
@@ -21,7 +22,8 @@ export interface PresentationIsolationCategoryOption {
 
 export const DEFAULT_PRESENTATION_ISOLATION_SETTINGS: PresentationIsolationSettings = {
   enabled: true,
-  lightingEnabled: false,
+  lightingEnabled: true,
+  lightingGridEnabled: false,
   categories: {
     movement: true,
     roomTransition: true,

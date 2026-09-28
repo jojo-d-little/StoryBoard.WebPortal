@@ -5,7 +5,7 @@ Use the [detailed plan](WebPortal_Lighting_Detailed_Implementation_Plan.md) for 
 
 ## Current progress
 
-Completed through step 6. The scene stores each Host object once in `objectsById`; sprite and lighting data are optional components on that object. The pure mapper produces complete Lighting frames, the Devtools Lighting checkbox controls the disabled-by-default Pixi lighting path, movement updates project Host light endpoints during presentation tweens, and room transitions capture frozen final images when lighting is enabled. Step 7 is next.
+Steps 1–7 are complete. The scene stores each Host object once in `objectsById`; sprite and lighting data are optional components on that object. The pure mapper produces complete Lighting frames, the Devtools Lighting checkbox controls the Pixi lighting path, movement updates project Host light endpoints during presentation tweens, and room transitions capture frozen final images when lighting is enabled. The official lighting package `0.1.3` is now locked and validated by the build, all unit tests, and the full Playwright suite. Step 7's performance history and release rerun are recorded in the [performance baseline](WebPortal_Lighting_Performance_Baseline.md); see its GPU and hardware limits before generalizing the results.
 
 ## Implementation checklist
 
@@ -30,10 +30,10 @@ Completed through step 6. The scene stores each Host object once in `objectsById
 4. **[x] Add one Pixi lighting controller**
    - [x] Request Pixi WebGL and create one controller after renderer initialization; keep the borrowed room-size source texture separate from the composed output.
    - [x] After movement and room-swap ticker updates, capture the active room in room coordinates, submit the complete lighting frame and absolute time, then present the composed texture.
-   - [x] Keep lighting disabled by default; disabled, invalid, failed, and transition paths use the existing raw room surface. Dispose the pipeline and owned textures before the Pixi app.
+   - [x] Keep invalid, failed, and disabled paths on the existing raw room surface. Lighting now defaults on; the Devtools Lighting checkbox disables it. Dispose the pipeline and owned textures before the Pixi app.
 
 5. **[x] Wire the live Devtools switch**
-   - [x] Add a catalog-independent Lighting checkbox in Presentation Effects, initially off.
+   - [x] Add a catalog-independent Lighting checkbox in Presentation Effects; lighting defaults on and the checkbox turns it off.
    - [x] Make the master visual-effects switch suppress lighting as well.
    - [x] Place the effective on/off branch at the room-presentation seam so the off path skips capture and package calls.
 
@@ -43,7 +43,9 @@ Completed through step 6. The scene stores each Host object once in `objectsById
    - [x] Feed final lit images to bounded captures when lighting is enabled and raw room images otherwise.
    - [x] Use one lighting pipeline and frozen outgoing/incoming images for lit slide, fade, and fade-blackout transitions.
 
-7. **[ ] Add the grid diagnostic and verify in the browser**
-   - [ ] Add the separate, initially-off room-grid Devtools control.
-   - [ ] Test ambient-only rooms, light-only objects, blockers and explicit zero, same-room phase changes, removals, older projects, room swaps, live toggling, viewport resize, and failure/disposal paths.
-   - [ ] Run build, unit, and visual suites; measure representative GPU cost before changing the lighting default to on.
+7. **[x] Add the grid diagnostic and verify the integration**
+   - [x] Add the separate, initially-off room-grid Devtools control.
+   - [x] Make lighting on by default and retain the Lighting checkbox as the live off switch.
+   - [x] Run build, all unit tests, and the existing Playwright visual suite using installed system Chrome.
+   - [x] Add/run lighting-specific browser fixtures for ambient-only rooms, light-only objects, blockers and explicit zero, same-room phase changes, removals, legacy rooms, room swaps, flicker, sprite movement, live toggling, viewport resize, and failure/disposal paths (controller failure/disposal are covered by unit tests).
+   - [x] Measure compact, WorkshopTutorial, and higher-load synthetic GPU cost; record frame-time and GPU memory results in the [performance baseline](WebPortal_Lighting_Performance_Baseline.md). Lighting-on-by-default was explicitly requested and remains the default.

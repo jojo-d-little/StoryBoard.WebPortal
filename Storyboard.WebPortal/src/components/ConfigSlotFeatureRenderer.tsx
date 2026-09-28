@@ -281,6 +281,7 @@ export function ConfigSlotFeatureRenderer(props: ConfigSlotFeatureRendererProps)
         presentationIsolationCategoryOptions={hostWorkflow.presentationIsolationCategoryOptions}
         onPresentationIsolationEnabledChange={hostWorkflow.setPresentationIsolationEnabled}
         onLightingEnabledChange={hostWorkflow.setLightingEnabled}
+        onLightingGridEnabledChange={hostWorkflow.setLightingGridEnabled}
         onPresentationIsolationCategoryEnabledChange={(category: PresentationIsolationCategory, enabled: boolean) => {
           hostWorkflow.setPresentationIsolationCategoryEnabled(category, enabled);
         }}

@@ -442,9 +442,12 @@ for both lighting-enabled and lighting-disabled presentation.
 - Run the existing unit, build, and visual suites.
 - Add lighting visual baselines.
 - Measure representative room sizes and light counts.
-- Roll out with lighting disabled by default until the visual and performance
-  gates pass.
-- Enable it deliberately through the advanced presentation setting.
+- Lighting now defaults on by explicit project direction; Devtools Presentation
+  Effects includes a Lighting checkbox to turn it off.
+- Completed lighting-specific browser tests and a representative on/off GPU
+  memory and frame-cadence profile. See
+  [the WebPortal lighting performance baseline](WebPortal_Lighting_Performance_Baseline.md)
+  for workload details and single-machine limits.
 
 ## Validation matrix
 

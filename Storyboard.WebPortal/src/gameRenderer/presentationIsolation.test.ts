@@ -10,7 +10,8 @@ describe("presentation isolation settings", () => {
   it("defaults every approved category to enabled", () => {
     expect(DEFAULT_PRESENTATION_ISOLATION_SETTINGS).toEqual({
       enabled: true,
-      lightingEnabled: false,
+      lightingEnabled: true,
+      lightingGridEnabled: false,
       categories: {
         movement: true,
         roomTransition: true,
@@ -24,7 +25,8 @@ describe("presentation isolation settings", () => {
   it("recognizes catalog category spellings and keeps global suppression authoritative", () => {
     const settings = {
       enabled: true,
-      lightingEnabled: false,
+      lightingEnabled: true,
+      lightingGridEnabled: false,
       categories: {
         ...DEFAULT_PRESENTATION_ISOLATION_SETTINGS.categories,
         roomTransition: false
@@ -36,7 +38,7 @@ describe("presentation isolation settings", () => {
     expect(isPresentationCategoryEnabled({ ...settings, enabled: false }, "Movement")).toBe(false);
   });
 
-  it("gates lighting behind both its own checkbox and the master effects switch", () => {
+  it("defaults lighting on while keeping its checkbox and the master effects switch authoritative", () => {
     const lightingRequested = {
       ...DEFAULT_PRESENTATION_ISOLATION_SETTINGS,
       lightingEnabled: true
@@ -44,7 +46,8 @@ describe("presentation isolation settings", () => {
 
     expect(isLightingPresentationEnabled(lightingRequested)).toBe(true);
     expect(isLightingPresentationEnabled({ ...lightingRequested, enabled: false })).toBe(false);
-    expect(isLightingPresentationEnabled(DEFAULT_PRESENTATION_ISOLATION_SETTINGS)).toBe(false);
+    expect(isLightingPresentationEnabled({ ...lightingRequested, lightingEnabled: false })).toBe(false);
+    expect(isLightingPresentationEnabled(DEFAULT_PRESENTATION_ISOLATION_SETTINGS)).toBe(true);
   });
 
   it("uses approved categories found in the loaded catalog", () => {

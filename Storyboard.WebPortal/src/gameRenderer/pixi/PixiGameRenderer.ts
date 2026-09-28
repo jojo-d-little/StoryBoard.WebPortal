@@ -10,6 +10,7 @@ import { createAppearanceOutlineEffectController, type AppearanceOutlineEffectCo
 import { createAppearanceSilhouetteEffectController, type AppearanceSilhouetteEffectController } from "./effects/appearanceSilhouette/AppearanceSilhouetteEffectController";
 import { captureRoomTexture, type CapturedRoomTexture } from "./RoomSnapshotRenderer";
 import { RoomLightingController } from "./lighting/RoomLightingController";
+import { buildRoomGridLines } from "./roomGridGeometry";
 import {
   advanceLightingMovementTweens,
   createLightingMovementTween,
@@ -194,12 +195,14 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   let presentationIsolationSettings: PresentationIsolationSettings = options.presentationIsolationSettings
     ? {
         enabled: options.presentationIsolationSettings.enabled,
-        lightingEnabled: options.presentationIsolationSettings.lightingEnabled ?? false,
+        lightingEnabled: options.presentationIsolationSettings.lightingEnabled ?? DEFAULT_PRESENTATION_ISOLATION_SETTINGS.lightingEnabled,
+        lightingGridEnabled: options.presentationIsolationSettings.lightingGridEnabled ?? false,
         categories: { ...options.presentationIsolationSettings.categories }
       }
     : {
         enabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.enabled,
         lightingEnabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.lightingEnabled,
+        lightingGridEnabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.lightingGridEnabled,
         categories: { ...DEFAULT_PRESENTATION_ISOLATION_SETTINGS.categories }
       };
 
@@ -208,6 +211,9 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   stageRoot.sortableChildren = true;
 
   const blackoutOverlay = new Graphics();
+  const lightingGridOverlay = new Graphics();
+  lightingGridOverlay.visible = false;
+  lightingGridOverlay.eventMode = "none";
   const snapshotTransitionLayer = new Container();
   const snapshotTransitionMask = new Graphics();
   snapshotTransitionLayer.visible = false;
@@ -268,10 +274,12 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   stageRoot.addChild(activeRoomSurface.root);
   stageRoot.addChild(stagingRoomSurface.root);
   stageRoot.addChild(blackoutOverlay);
+  stageRoot.addChild(lightingGridOverlay);
 
   blackoutOverlay.zIndex = 10_000;
   blackoutOverlay.alpha = 0;
   blackoutOverlay.visible = false;
+  lightingGridOverlay.zIndex = 6;
 
   let isReady = false;
   let isDisposed = false;
@@ -286,6 +294,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   let preparedOutgoingLightingEnabled: boolean | null = null;
   let activeSurfaceScene: GameRenderSceneSnapshot | null = null;
   let roomLightingController: RoomLightingController | null = null;
+  let lightingGridGeometryKey = "";
   const lightingMovementTweensByObjectId = new Map<string, LightingMovementTween>();
   const pendingSpriteLightingMovementIds = new Set<string>();
   let interactionMode: GameRendererInteractionMode = "CommandClick";
@@ -1324,6 +1333,35 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       .fill(0x000000);
   }
 
+  function updateLightingGridDiagnostic(): void {
+    const scene = currentScene;
+    const cellSizePx = scene?.lighting?.cellSizePx;
+    const transitionInProgress = Boolean(
+      activeRoomSwapTween || snapshotTransitionState || snapshotTransitionLayer.visible || blackoutOverlay.visible
+    );
+    if (!presentationIsolationSettings.lightingGridEnabled || !scene || transitionInProgress) {
+      lightingGridOverlay.visible = false;
+      return;
+    }
+
+    const lines = buildRoomGridLines(scene.bounds.width, scene.bounds.height, cellSizePx ?? Number.NaN);
+    if (!lines) {
+      lightingGridOverlay.visible = false;
+      return;
+    }
+
+    const geometryKey = `${scene.bounds.width}:${scene.bounds.height}:${cellSizePx}`;
+    if (lightingGridGeometryKey !== geometryKey) {
+      lightingGridOverlay.clear();
+      for (const line of lines) {
+        lightingGridOverlay.moveTo(line.fromX, line.fromY).lineTo(line.toX, line.toY);
+      }
+      lightingGridOverlay.stroke({ width: 1, color: 0x45d9ff, alpha: 0.55 });
+      lightingGridGeometryKey = geometryKey;
+    }
+    lightingGridOverlay.visible = true;
+  }
+
   function freezeStagedSurfaceForSnapshotHandoff(): void {
     // A room-boundary scene is rendered into a fresh staging surface at its authoritative
     // coordinates. Move-leg telemetry belongs to the delta that led to that room and must not
@@ -1367,6 +1405,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     presentationIsolationSettings = {
       enabled: settings.enabled,
       lightingEnabled: settings.lightingEnabled,
+      lightingGridEnabled: settings.lightingGridEnabled ?? false,
       categories: { ...settings.categories }
     };
 
@@ -2042,6 +2081,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   }
 
   function updateLightingPresentation(ticker: Ticker): void {
+    updateLightingGridDiagnostic();
     const transitionInProgress = Boolean(
       activeRoomSwapTween || snapshotTransitionState || snapshotTransitionLayer.visible || blackoutOverlay.visible
     );

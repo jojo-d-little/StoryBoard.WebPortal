@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lighting Visual Fixture</title>
+  <style>
+    body { margin: 0; background: #0b1220; color: #e2e8f0; font: 14px Segoe UI, sans-serif; }
+    .controls { min-height: 44px; display: flex; align-items: center; gap: 20px; padding: 0 16px; }
+    .controls label { display: inline-flex; align-items: center; gap: 8px; }
+    #mount { width: min(100vw, 1024px); height: min(calc(100vh - 44px), 768px); margin: 0 auto; background: #111827; }
+    #mount canvas { display: block; }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <strong>Lighting renderer fixture</strong>
+    <label for="lighting-toggle">Lighting</label>
+    <input id="lighting-toggle" type="checkbox" checked />
+    <label for="lighting-grid-toggle">Lighting Grid Diagnostic</label>
+    <input id="lighting-grid-toggle" type="checkbox" />
+    <output id="fixture-name">compact</output>
+  </div>
+  <div id="mount"></div>
+  <script type="module" src="/src/gameRenderer/testing/lightingVisualHarness.ts"></script>
+</body>
+</html>
