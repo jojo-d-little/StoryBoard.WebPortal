@@ -41,11 +41,11 @@ Steps 1–7 are complete. The scene stores each Host object once in `objectsById
    - [x] Carry Host `fromRenderableObject` lighting into the transient scene projection. Sprite-owned lights follow the sprite renderer's live eased path and retarget position; light-only objects use timed endpoint interpolation.
    - [x] Send fractional room-image blocker positions from the live interpolated sprite position each frame; retain Host cell-derived endpoints and settle footprint dimensions/occlusion values at the Host endpoint.
    - [x] Feed final lit images to bounded captures when lighting is enabled and raw room images otherwise.
-   - [x] Use one lighting pipeline and frozen outgoing/incoming images for lit slide, fade, and fade-blackout transitions.
+   - [x] Use one lighting pipeline and frozen outgoing/incoming images for lit slide, fade, and fade-blackout transitions; keep the staged destination clip mask at destination bounds before its offscreen render/capture.
 
 7. **[x] Add the grid diagnostic and verify the integration**
    - [x] Add the separate, initially-off room-grid Devtools control.
    - [x] Make lighting on by default and retain the Lighting checkbox as the live off switch.
    - [x] Run build, all unit tests, and the existing Playwright visual suite using installed system Chrome.
-   - [x] Add/run lighting-specific browser fixtures for ambient-only rooms, light-only objects, blockers and explicit zero, same-room phase changes, removals, legacy rooms, room swaps, flicker, sprite movement, live toggling, viewport resize, and failure/disposal paths (controller failure/disposal are covered by unit tests).
+   - [x] Add/run lighting-specific browser fixtures for ambient-only rooms, light-only objects, blockers and explicit zero, same-room phase changes, removals, legacy rooms, room swaps with different outgoing/destination bounds during fade-blackout, flicker, sprite movement, live toggling, viewport resize, and failure/disposal paths (controller failure/disposal are covered by unit tests).
    - [x] Measure compact, WorkshopTutorial, and higher-load synthetic GPU cost; record frame-time and GPU memory results in the [performance baseline](WebPortal_Lighting_Performance_Baseline.md). Lighting-on-by-default was explicitly requested and remains the default.

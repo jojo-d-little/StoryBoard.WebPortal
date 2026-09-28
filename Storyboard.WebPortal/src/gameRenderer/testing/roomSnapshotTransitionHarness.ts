@@ -14,6 +14,14 @@ function oversizedStripedRoomDataUrl(): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
+function wideDestinationRoomDataUrl(): string {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='600'>
+    <rect width='1200' height='600' fill='#1d4ed8'/>
+    <rect x='950' y='0' width='150' height='600' fill='#00ff00'/>
+  </svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 const mount = document.getElementById("mount");
 if (!mount) {
   throw new Error("Missing mount element for room snapshot transition harness.");
@@ -22,6 +30,7 @@ if (!mount) {
 let midpointScheduled = false;
 const requestedMode = new URLSearchParams(window.location.search).get("mode");
 const transitionMode = requestedMode === "fade-blackout" ? "fade-blackout" : "slide";
+const useWideDestination = new URLSearchParams(window.location.search).has("wide-room");
 const renderer = createGameRenderer(mount, {
   onRoomTransitionStateChanged: (state) => {
     if (state === "complete" && midpointScheduled) {
@@ -46,6 +55,7 @@ const outgoing: GameRenderSceneSnapshot = {
   roomId: "outgoing-room",
   displayMode: "composed",
   bounds: { width: 800, height: 600 },
+  ...(useWideDestination ? { lighting: { cellSizePx: 40, ambientLighting: { ambient: 1 } } } : {}),
   directionalOverlays: [{
     id: "outgoing-background",
     slot: "Down",
@@ -72,11 +82,12 @@ const outgoing: GameRenderSceneSnapshot = {
 const incoming: GameRenderSceneSnapshot = {
   roomId: "incoming-room",
   displayMode: "composed",
-  bounds: { width: 800, height: 600 },
+  bounds: { width: useWideDestination ? 1200 : 800, height: 600 },
+  ...(useWideDestination ? { lighting: { cellSizePx: 40, ambientLighting: { ambient: 1 } } } : {}),
   directionalOverlays: [{
     id: "incoming-background",
     slot: "Center",
-    asset: { assetPath: oversizedStripedRoomDataUrl() },
+    asset: { assetPath: useWideDestination ? wideDestinationRoomDataUrl() : oversizedStripedRoomDataUrl() },
     offsetX: 0,
     offsetY: 0,
     rotationDegrees: 0,

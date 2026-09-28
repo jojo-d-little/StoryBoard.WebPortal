@@ -1318,19 +1318,21 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   }
 
   function updateClipMask(width: number, height: number): void {
-    const normalizedWidth = Math.max(1, width);
-    const normalizedHeight = Math.max(1, height);
     for (const surface of [activeRoomSurface, stagingRoomSurface]) {
-      surface.clipMask
-        .clear()
-        .rect(0, 0, normalizedWidth, normalizedHeight)
-        .fill(0xffffff);
+      updateSurfaceClipMask(surface, width, height);
     }
 
     blackoutOverlay
       .clear()
-      .rect(0, 0, normalizedWidth, normalizedHeight)
+      .rect(0, 0, Math.max(1, width), Math.max(1, height))
       .fill(0x000000);
+  }
+
+  function updateSurfaceClipMask(surface: RoomSurfaceState, width: number, height: number): void {
+    surface.clipMask
+      .clear()
+      .rect(0, 0, Math.max(1, width), Math.max(1, height))
+      .fill(0xffffff);
   }
 
   function updateLightingGridDiagnostic(): void {
@@ -2332,6 +2334,10 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
 
       if (isRoomChanged) {
         clearSurfaceSprites(stagingRoomSurface);
+        // Keep the outgoing surface clipped to its current room during a delayed
+        // bounds swap, but prepare the destination surface with its own room bounds
+        // before rendering or capturing its transition image.
+        updateSurfaceClipMask(stagingRoomSurface, scene.bounds.width, scene.bounds.height);
         stagingRoomSurface.root.visible = false;
 
         void renderScene(scene, generation, previousScene, stagingRoomSurface, false).then(() => {
