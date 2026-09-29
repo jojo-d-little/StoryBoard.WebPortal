@@ -228,6 +228,9 @@ export function ConfigSlotFeatureRenderer(props: ConfigSlotFeatureRendererProps)
   if (slot.featureKey === "devToolsPanel") {
     return (
       <DevToolsPanelComponent
+        sessionRecording={hostWorkflow.sessionRecording}
+        activeSessionId={hostWorkflow.activeSessionId}
+        selectedGameId={hostWorkflow.selectedGameId}
         diagnosticsEnabled={diagnosticsEnabled}
         diagnosticsVerbose={diagnosticsVerbose}
         hostApiBaseUrlOverride={hostApiBaseUrlOverride}

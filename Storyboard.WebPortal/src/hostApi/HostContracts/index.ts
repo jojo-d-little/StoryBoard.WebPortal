@@ -1,4 +1,18 @@
 export type { HostResultEnvelope } from "./HostResultEnvelope";
+export type {
+  HostGetRecordPlaybackCapabilitiesRequest,
+  HostGetRecordPlaybackCapabilitiesResult,
+  HostGetStatusRequest,
+  HostGetStatusResult,
+  HostStartRecordingRequest,
+  HostStartRecordingResult,
+  HostStopRecordingRequest,
+  HostStopRecordingResult,
+  HostRecordPlaybackCapabilities,
+  HostRecordingStatus,
+  HostPlaybackStatus,
+  HostRecordingDescriptor
+} from "./HostRecordPlaybackContracts";
 export type { HostRequestContext } from "./HostRequestContext";
 export type { HostClarificationAnswer } from "./HostClarificationAnswer";
 export type { HostClarificationCandidate } from "./HostClarificationCandidate";

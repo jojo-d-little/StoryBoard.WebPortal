@@ -42,7 +42,14 @@ import type {
   HostSessionPresentationSettings,
   HostStartSessionRequest,
   HostStartSessionResult,
-  HostResultEnvelope
+  HostResultEnvelope,
+  HostGetRecordPlaybackCapabilitiesResult,
+  HostGetStatusResult,
+  HostStartRecordingResult,
+  HostStopRecordingResult,
+  HostRecordingStatus,
+  HostPlaybackStatus,
+  HostRecordingDescriptor
 } from "./HostContracts";
 
 export interface HostApiClientOptions {
@@ -352,6 +359,95 @@ export class HostApiClient {
     return this.readProcessCommandResult(data, rawCommandText, commandCorrelationId);
   }
 
+  async getRecordPlaybackCapabilities(
+    credentialHandle: string,
+    gameId: string,
+    sessionId: string
+  ): Promise<HostGetRecordPlaybackCapabilitiesResult> {
+    const payload = {
+      context: this.buildContext("webportal-record-playback-capabilities", credentialHandle, sessionId),
+      gameId
+    };
+    const data = await this.postJson<Record<string, unknown>>(
+      "/api/v1/session/record-playback/capabilities",
+      payload
+    );
+    const capabilities = this.readObject(data, ["capabilities", "Capabilities"]);
+    return {
+      result: this.readResult(data),
+      capabilities: {
+        available: this.readBoolean(capabilities, ["available", "Available"]),
+        canRecord: this.readBoolean(capabilities, ["canRecord", "CanRecord"]),
+        canList: this.readBoolean(capabilities, ["canList", "CanList"]),
+        canPromote: this.readBoolean(capabilities, ["canPromote", "CanPromote"]),
+        canDiscardScratch: this.readBoolean(capabilities, ["canDiscardScratch", "CanDiscardScratch"]),
+        canPlayTimed: this.readBoolean(capabilities, ["canPlayTimed", "CanPlayTimed"]),
+        canPlayManual: this.readBoolean(capabilities, ["canPlayManual", "CanPlayManual"]),
+        canContinue: this.readBoolean(capabilities, ["canContinue", "CanContinue"]),
+        supportedArtifactVersions: this.readArray(capabilities, ["supportedArtifactVersions", "SupportedArtifactVersions"]).map(String),
+        maxPageSize: this.readNumber(capabilities, ["maxPageSize", "MaxPageSize"]),
+        minSpeedMultiplier: this.readNumber(capabilities, ["minSpeedMultiplier", "MinSpeedMultiplier"]),
+        maxSpeedMultiplier: this.readNumber(capabilities, ["maxSpeedMultiplier", "MaxSpeedMultiplier"])
+      }
+    };
+  }
+
+  async getRecordPlaybackStatus(credentialHandle: string, sessionId: string): Promise<HostGetStatusResult> {
+    const payload = {
+      context: this.buildContext("webportal-record-playback-status", credentialHandle, sessionId)
+    };
+    const data = await this.postJson<Record<string, unknown>>(
+      "/api/v1/session/record-playback/status",
+      payload
+    );
+    const recording = this.readObject(data, ["recordingStatus", "RecordingStatus"]);
+    const playback = this.readObject(data, ["playbackStatus", "PlaybackStatus"]);
+    return {
+      result: this.readResult(data),
+      recordingStatus: Object.keys(recording).length > 0 ? this.readHostRecordingStatus(recording) : undefined,
+      playbackStatus: Object.keys(playback).length > 0 ? this.readHostPlaybackStatus(playback) : undefined
+    };
+  }
+
+  async startSessionRecording(credentialHandle: string, sessionId: string): Promise<HostStartRecordingResult> {
+    const payload = {
+      context: this.buildContext("webportal-start-recording", credentialHandle, sessionId)
+    };
+    const data = await this.postJson<Record<string, unknown>>(
+      "/api/v1/session/record-playback/recordings/start",
+      payload
+    );
+    const status = this.readObject(data, ["recordingStatus", "RecordingStatus"]);
+    return {
+      result: this.readResult(data),
+      recordingStatus: Object.keys(status).length > 0 ? this.readHostRecordingStatus(status) : undefined
+    };
+  }
+
+  async stopSessionRecording(
+    credentialHandle: string,
+    sessionId: string,
+    recordingId: string,
+    expectedRecordingToken: string
+  ): Promise<HostStopRecordingResult> {
+    const payload = {
+      context: this.buildContext("webportal-stop-recording", credentialHandle, sessionId),
+      recordingId,
+      expectedRecordingToken
+    };
+    const data = await this.postJson<Record<string, unknown>>(
+      "/api/v1/session/record-playback/recordings/stop",
+      payload
+    );
+    const status = this.readObject(data, ["recordingStatus", "RecordingStatus"]);
+    const descriptor = this.readObject(data, ["recording", "Recording"]);
+    return {
+      result: this.readResult(data),
+      recordingStatus: Object.keys(status).length > 0 ? this.readHostRecordingStatus(status) : undefined,
+      recording: Object.keys(descriptor).length > 0 ? this.readHostRecordingDescriptor(descriptor) : undefined
+    };
+  }
+
   async getSessionDeltas(
     credentialHandle: string,
     sessionId: string,
@@ -568,7 +664,65 @@ export class HostApiClient {
     return {
       success: this.readBoolean(result, ["success", "Success"]),
       code: this.readString(result, ["code", "Code"]),
-      diagnosticsMessages: this.readArray(result, ["diagnosticsMessages", "DiagnosticsMessages"]).map((x) => String(x))
+      message: this.readString(result, ["message", "Message"]),
+      diagnostics: this.readArray(result, ["diagnostics", "Diagnostics"]).map(String),
+      diagnosticsMessages: this.readArray(result, ["diagnosticsMessages", "DiagnosticsMessages", "diagnostics", "Diagnostics"]).map(String),
+      correlationId: this.readString(result, ["correlationId", "CorrelationId"]),
+      occurredUtc: this.readString(result, ["occurredUtc", "OccurredUtc"]),
+      retryable: this.readBoolean(result, ["retryable", "Retryable"]),
+      actorPrincipalId: this.readString(result, ["actorPrincipalId", "ActorPrincipalId"]),
+      actionName: this.readString(result, ["actionName", "ActionName"]),
+      actionUtc: this.readString(result, ["actionUtc", "ActionUtc"])
+    };
+  }
+
+  private readHostRecordingStatus(source: Record<string, unknown>): HostRecordingStatus {
+    return {
+      recordingId: this.readString(source, ["recordingId", "RecordingId"]),
+      stateToken: this.readString(source, ["stateToken", "StateToken"]),
+      state: this.readString(source, ["state", "State"]) as HostRecordingStatus["state"],
+      scope: this.readString(source, ["scope", "Scope"]) as HostRecordingStatus["scope"],
+      stepCount: this.readNumber(source, ["stepCount", "StepCount"]),
+      startedUtc: this.readString(source, ["startedUtc", "StartedUtc"]),
+      updatedUtc: this.readString(source, ["updatedUtc", "UpdatedUtc"]),
+      failureCode: this.readString(source, ["failureCode", "FailureCode"]) || null
+    };
+  }
+
+  private readHostPlaybackStatus(source: Record<string, unknown>): HostPlaybackStatus {
+    return {
+      playbackId: this.readString(source, ["playbackId", "PlaybackId"]),
+      recordingId: this.readString(source, ["recordingId", "RecordingId"]),
+      recordingStateToken: this.readString(source, ["recordingStateToken", "RecordingStateToken"]),
+      mode: this.readString(source, ["mode", "Mode"]) as HostPlaybackStatus["mode"],
+      state: this.readString(source, ["state", "State"]) as HostPlaybackStatus["state"],
+      version: this.readNumber(source, ["version", "Version"]),
+      nextStepIndex: this.readNumber(source, ["nextStepIndex", "NextStepIndex"]),
+      totalSteps: this.readNumber(source, ["totalSteps", "TotalSteps"]),
+      speedMultiplier: this.readNumber(source, ["speedMultiplier", "SpeedMultiplier"]),
+      startAdvisoryCodes: this.readArray(source, ["startAdvisoryCodes", "StartAdvisoryCodes"]).map(String),
+      startedUtc: this.readString(source, ["startedUtc", "StartedUtc"]),
+      updatedUtc: this.readString(source, ["updatedUtc", "UpdatedUtc"]),
+      endedUtc: this.readString(source, ["endedUtc", "EndedUtc"]) || null,
+      failureCode: this.readString(source, ["failureCode", "FailureCode"]) || null
+    };
+  }
+
+  private readHostRecordingDescriptor(source: Record<string, unknown>): HostRecordingDescriptor {
+    return {
+      recordingId: this.readString(source, ["recordingId", "RecordingId"]),
+      gameId: this.readString(source, ["gameId", "GameId"]),
+      sourceSessionId: this.readString(source, ["sourceSessionId", "SourceSessionId"]) || null,
+      scope: this.readString(source, ["scope", "Scope"]) as HostRecordingDescriptor["scope"],
+      displayName: this.readString(source, ["displayName", "DisplayName"]),
+      artifactSchemaVersion: this.readString(source, ["artifactSchemaVersion", "ArtifactSchemaVersion"]),
+      compatibility: this.readString(source, ["compatibility", "Compatibility"]),
+      startKind: this.readString(source, ["startKind", "StartKind"]) as HostRecordingDescriptor["startKind"],
+      stateToken: this.readString(source, ["stateToken", "StateToken"]),
+      state: this.readString(source, ["state", "State"]),
+      createdUtc: this.readString(source, ["createdUtc", "CreatedUtc"]),
+      updatedUtc: this.readString(source, ["updatedUtc", "UpdatedUtc"]),
+      stepCount: this.readNumber(source, ["stepCount", "StepCount"])
     };
   }
 

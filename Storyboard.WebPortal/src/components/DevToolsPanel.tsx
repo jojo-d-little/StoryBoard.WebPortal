@@ -7,6 +7,7 @@ import type {
   PresentationIsolationSettings
 } from "../gameRenderer/presentationIsolation";
 import { DiagnosticsWorkspace, type DiagnosticsWorkspaceProps } from "./DiagnosticsWorkspace";
+import type { SessionRecordingWorkflow } from "../hooks/useSessionRecordingWorkflow";
 
 type SlotModeOverrides = Record<string, SlotMode>;
 type SlotTechnicalDetailsOverrides = Record<string, boolean>;
@@ -210,10 +211,13 @@ interface DevToolsPanelProps {
     usingFallbackDuration: boolean;
     lastError?: string;
   };
+  sessionRecording: SessionRecordingWorkflow;
+  activeSessionId: string;
+  selectedGameId: string;
 }
 
 export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
-  const [activeSection, setActiveSection] = useState<"host" | "diagnostics" | "polling" | "layout" | "theme" | "cache" | "presentationEffects" | "audio" | "roomTransitions">("polling");
+  const [activeSection, setActiveSection] = useState<"host" | "diagnostics" | "polling" | "layout" | "theme" | "cache" | "presentationEffects" | "audio" | "roomTransitions" | "recording">("polling");
   const [clearingPersistentCache, setClearingPersistentCache] = useState<boolean>(false);
   const slotKeys = Object.keys(props.effectiveSlotModes).sort();
   const themeColorKeys = Object.keys(THEME_COLOR_DESCRIPTIONS) as ThemeColorTokenKey[];
@@ -307,6 +311,13 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
           </button>
           <button
             type="button"
+            className={activeSection === "recording" ? "active" : ""}
+            onClick={() => setActiveSection("recording")}
+          >
+            Recording
+          </button>
+          <button
+            type="button"
             className={activeSection === "roomTransitions" ? "active" : ""}
             onClick={() => setActiveSection("roomTransitions")}
           >
@@ -358,6 +369,52 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
 
           {activeSection === "diagnostics" ? (
             <DiagnosticsWorkspace {...props.diagnosticsWorkspace} />
+          ) : null}
+
+          {activeSection === "recording" ? (
+            <>
+              <h3>Session Recording</h3>
+              <p className="subtitle">Host-managed development recording. Start manually in a fresh session before the first gameplay command or state change.</p>
+              {!props.activeSessionId || !props.selectedGameId ? (
+                <p role="status">Select or attach a development game session to use recording.</p>
+              ) : null}
+              {props.sessionRecording.error ? (
+                <p role="alert" className="status-error">{props.sessionRecording.error}</p>
+              ) : null}
+              {props.activeSessionId && props.selectedGameId ? (
+                <>
+                  <ul className="devtools-status-list" aria-label="Recording capability and status">
+                    <li>Capability: {props.sessionRecording.capabilities ? (props.sessionRecording.capabilities.available && props.sessionRecording.capabilities.canRecord ? "available" : "unavailable") : "checking Host"}</li>
+                    <li>Session: {props.activeSessionId}</li>
+                    <li>Game: {props.selectedGameId}</li>
+                    <li>Recording: {props.sessionRecording.status?.state ?? "none"}</li>
+                    {props.sessionRecording.status ? <li>Captured commands: {props.sessionRecording.status.stepCount}</li> : null}
+                    {props.sessionRecording.status ? <li>Recording ID: {props.sessionRecording.status.recordingId}</li> : null}
+                    {props.sessionRecording.status?.failureCode ? <li>Failure: {props.sessionRecording.status.failureCode}</li> : null}
+                  </ul>
+                  {props.sessionRecording.capabilities && !props.sessionRecording.capabilities.available ? (
+                    <p role="status">Recording is unavailable on this Host. Recording is restricted to development Host configurations.</p>
+                  ) : null}
+                  <div className="events">
+                    <button
+                      type="button"
+                      onClick={() => void props.sessionRecording.start()}
+                      disabled={props.sessionRecording.busy || !props.sessionRecording.capabilities?.available || !props.sessionRecording.capabilities.canRecord || props.sessionRecording.status?.state === "Recording" || props.sessionRecording.status?.state === "Finalizing"}
+                    >Start Recording</button>
+                    <button
+                      type="button"
+                      onClick={() => void props.sessionRecording.stop()}
+                      disabled={props.sessionRecording.busy || props.sessionRecording.status?.state !== "Recording"}
+                    >Stop Recording</button>
+                    <button
+                      type="button"
+                      onClick={() => void props.sessionRecording.refresh()}
+                      disabled={props.sessionRecording.busy}
+                    >Refresh Status</button>
+                  </div>
+                </>
+              ) : null}
+            </>
           ) : null}
 
           {activeSection === "host" ? (
