@@ -1,5 +1,7 @@
 import type { HostRequestContext } from "./HostRequestContext";
 import type { HostResultEnvelope } from "./HostResultEnvelope";
+import type { HostClarificationAnswer } from "./HostClarificationAnswer";
+import type { HostCommandMoveLegTelemetry } from "./HostCommandMoveLegTelemetry";
 
 /** F04 shapes mirrored from the shared SessionRecordPlaybackDtos schemas. */
 export interface HostGetRecordPlaybackCapabilitiesRequest { context: HostRequestContext; gameId: string; }
@@ -35,13 +37,67 @@ export interface HostRecordingDescriptor {
   scope: "Scratch" | "Saved";
   displayName: string;
   artifactSchemaVersion: string;
-  compatibility: string;
-  startKind: "FreshSession" | "UnknownLegacy";
+  compatibility: "Compatible" | "Incompatible" | "Unknown";
+  startKind: "FreshSession" | "UnknownLegacy" | "CapturedState";
   stateToken: string;
   state: string;
   createdUtc: string;
   updatedUtc: string;
   stepCount: number;
+}
+
+export interface HostListRecordingsRequest {
+  context: HostRequestContext;
+  gameId: string;
+  scope?: "Scratch" | "Saved";
+  pageSize: number;
+  continuationToken?: string | null;
+}
+export interface HostListRecordingsResult {
+  result: HostResultEnvelope;
+  recordings: HostRecordingDescriptor[];
+  nextContinuationToken?: string | null;
+}
+export interface HostGetRecordingRequest {
+  context: HostRequestContext;
+  gameId: string;
+  recordingId: string;
+  stepOffset: number;
+  stepPageSize: number;
+}
+export interface HostGetRecordingResult {
+  result: HostResultEnvelope;
+  recording?: HostRecordingDescriptor;
+  steps: HostRecordedStep[];
+  nextStepOffset?: string | null;
+}
+export interface HostPromoteRecordingRequest {
+  context: HostRequestContext;
+  gameId: string;
+  recordingId: string;
+  expectedRecordingToken: string;
+  displayName: string;
+}
+export interface HostPromoteRecordingResult { result: HostResultEnvelope; recording?: HostRecordingDescriptor; }
+export interface HostDiscardScratchRecordingRequest {
+  context: HostRequestContext;
+  gameId: string;
+  recordingId: string;
+  expectedRecordingToken: string;
+}
+export interface HostDiscardScratchRecordingResult { result: HostResultEnvelope; discarded: boolean; }
+export interface HostRecordedStep {
+  sequence: number;
+  acceptedUtc: string;
+  deltaMsFromPrevious: number;
+  commandCorrelationId?: string | null;
+  rawCommandText: string;
+  clarificationAnswers: HostClarificationAnswer[];
+  success: boolean;
+  resultCode: string;
+  outputLines: string[];
+  diagnostics: string[];
+  moveLegTelemetry: HostCommandMoveLegTelemetry[];
 }
 
 export interface HostRecordPlaybackCapabilities {

@@ -49,7 +49,12 @@ import type {
   HostStopRecordingResult,
   HostRecordingStatus,
   HostPlaybackStatus,
-  HostRecordingDescriptor
+  HostRecordingDescriptor,
+  HostListRecordingsResult,
+  HostGetRecordingResult,
+  HostPromoteRecordingResult,
+  HostDiscardScratchRecordingResult,
+  HostRecordedStep
 } from "./HostContracts";
 
 export interface HostApiClientOptions {
@@ -362,10 +367,10 @@ export class HostApiClient {
   async getRecordPlaybackCapabilities(
     credentialHandle: string,
     gameId: string,
-    sessionId: string
+    sessionId = ""
   ): Promise<HostGetRecordPlaybackCapabilitiesResult> {
     const payload = {
-      context: this.buildContext("webportal-record-playback-capabilities", credentialHandle, sessionId),
+      context: this.buildContext("webportal-record-playback-capabilities", credentialHandle, sessionId || null),
       gameId
     };
     const data = await this.postJson<Record<string, unknown>>(
@@ -445,6 +450,110 @@ export class HostApiClient {
       result: this.readResult(data),
       recordingStatus: Object.keys(status).length > 0 ? this.readHostRecordingStatus(status) : undefined,
       recording: Object.keys(descriptor).length > 0 ? this.readHostRecordingDescriptor(descriptor) : undefined
+    };
+  }
+
+  async listSessionRecordings(
+    credentialHandle: string,
+    gameId: string,
+    sessionId: string,
+    options: { scope?: "Scratch" | "Saved"; pageSize?: number; continuationToken?: string } = {}
+  ): Promise<HostListRecordingsResult> {
+    const payload = {
+      context: this.buildContext("webportal-list-recordings", credentialHandle, sessionId || null),
+      gameId,
+      scope: options.scope,
+      pageSize: options.pageSize ?? 100,
+      continuationToken: options.continuationToken
+    };
+    const data = await this.postJson<Record<string, unknown>>(
+      "/api/v1/session/record-playback/recordings/list",
+      payload
+    );
+    return {
+      result: this.readResult(data),
+      recordings: this.readArray(data, ["recordings", "Recordings"]).map((item) =>
+        this.readHostRecordingDescriptor(this.asRecord(item))
+      ),
+      nextContinuationToken: this.readString(data, ["nextContinuationToken", "NextContinuationToken"]) || null
+    };
+  }
+
+  async getSessionRecording(
+    credentialHandle: string,
+    gameId: string,
+    sessionId: string,
+    recordingId: string,
+    stepOffset = 0,
+    stepPageSize = 50
+  ): Promise<HostGetRecordingResult> {
+    const payload = {
+      context: this.buildContext("webportal-get-recording", credentialHandle, sessionId || null),
+      gameId,
+      recordingId,
+      stepOffset,
+      stepPageSize
+    };
+    const data = await this.postJson<Record<string, unknown>>(
+      "/api/v1/session/record-playback/recordings/get",
+      payload
+    );
+    const recording = this.readObject(data, ["recording", "Recording"]);
+    const nextStepOffset = this.readOptionalNumber(data, ["nextStepOffset", "NextStepOffset"]);
+    return {
+      result: this.readResult(data),
+      recording: Object.keys(recording).length > 0 ? this.readHostRecordingDescriptor(recording) : undefined,
+      steps: this.readArray(data, ["steps", "Steps"]).map((item) => this.readHostRecordedStep(this.asRecord(item))),
+      nextStepOffset: nextStepOffset === undefined ? null : String(nextStepOffset)
+    };
+  }
+
+  async promoteSessionRecording(
+    credentialHandle: string,
+    gameId: string,
+    sessionId: string,
+    recordingId: string,
+    expectedRecordingToken: string,
+    displayName: string
+  ): Promise<HostPromoteRecordingResult> {
+    const payload = {
+      context: this.buildContext("webportal-promote-recording", credentialHandle, sessionId || null),
+      gameId,
+      recordingId,
+      expectedRecordingToken,
+      displayName
+    };
+    const data = await this.postJson<Record<string, unknown>>(
+      "/api/v1/session/record-playback/recordings/promote",
+      payload
+    );
+    const recording = this.readObject(data, ["recording", "Recording"]);
+    return {
+      result: this.readResult(data),
+      recording: Object.keys(recording).length > 0 ? this.readHostRecordingDescriptor(recording) : undefined
+    };
+  }
+
+  async discardSessionScratchRecording(
+    credentialHandle: string,
+    gameId: string,
+    sessionId: string,
+    recordingId: string,
+    expectedRecordingToken: string
+  ): Promise<HostDiscardScratchRecordingResult> {
+    const payload = {
+      context: this.buildContext("webportal-discard-scratch-recording", credentialHandle, sessionId || null),
+      gameId,
+      recordingId,
+      expectedRecordingToken
+    };
+    const data = await this.postJson<Record<string, unknown>>(
+      "/api/v1/session/record-playback/recordings/discard-scratch",
+      payload
+    );
+    return {
+      result: this.readResult(data),
+      discarded: this.readBoolean(data, ["discarded", "Discarded"])
     };
   }
 
@@ -716,13 +825,29 @@ export class HostApiClient {
       scope: this.readString(source, ["scope", "Scope"]) as HostRecordingDescriptor["scope"],
       displayName: this.readString(source, ["displayName", "DisplayName"]),
       artifactSchemaVersion: this.readString(source, ["artifactSchemaVersion", "ArtifactSchemaVersion"]),
-      compatibility: this.readString(source, ["compatibility", "Compatibility"]),
+      compatibility: this.readString(source, ["compatibility", "Compatibility"]) as HostRecordingDescriptor["compatibility"],
       startKind: this.readString(source, ["startKind", "StartKind"]) as HostRecordingDescriptor["startKind"],
       stateToken: this.readString(source, ["stateToken", "StateToken"]),
       state: this.readString(source, ["state", "State"]),
       createdUtc: this.readString(source, ["createdUtc", "CreatedUtc"]),
       updatedUtc: this.readString(source, ["updatedUtc", "UpdatedUtc"]),
       stepCount: this.readNumber(source, ["stepCount", "StepCount"])
+    };
+  }
+
+  private readHostRecordedStep(source: Record<string, unknown>): HostRecordedStep {
+    return {
+      sequence: this.readNumber(source, ["sequence", "Sequence"]),
+      acceptedUtc: this.readString(source, ["acceptedUtc", "AcceptedUtc"]),
+      deltaMsFromPrevious: this.readNumber(source, ["deltaMsFromPrevious", "DeltaMsFromPrevious"]),
+      commandCorrelationId: this.readString(source, ["commandCorrelationId", "CommandCorrelationId"]) || null,
+      rawCommandText: this.readString(source, ["rawCommandText", "RawCommandText"]),
+      clarificationAnswers: this.readArray(source, ["clarificationAnswers", "ClarificationAnswers"]) as HostClarificationAnswer[],
+      success: this.readBoolean(source, ["success", "Success"]),
+      resultCode: this.readString(source, ["resultCode", "ResultCode"]),
+      outputLines: this.readArray(source, ["outputLines", "OutputLines"]).map(String),
+      diagnostics: this.readArray(source, ["diagnostics", "Diagnostics"]).map(String),
+      moveLegTelemetry: this.readArray(source, ["moveLegTelemetry", "MoveLegTelemetry"]) as HostCommandMoveLegTelemetry[]
     };
   }
 

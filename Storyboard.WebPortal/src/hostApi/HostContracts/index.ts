@@ -11,7 +11,16 @@ export type {
   HostRecordPlaybackCapabilities,
   HostRecordingStatus,
   HostPlaybackStatus,
-  HostRecordingDescriptor
+  HostRecordingDescriptor,
+  HostListRecordingsRequest,
+  HostListRecordingsResult,
+  HostGetRecordingRequest,
+  HostGetRecordingResult,
+  HostPromoteRecordingRequest,
+  HostPromoteRecordingResult,
+  HostDiscardScratchRecordingRequest,
+  HostDiscardScratchRecordingResult,
+  HostRecordedStep
 } from "./HostRecordPlaybackContracts";
 export type { HostRequestContext } from "./HostRequestContext";
 export type { HostClarificationAnswer } from "./HostClarificationAnswer";

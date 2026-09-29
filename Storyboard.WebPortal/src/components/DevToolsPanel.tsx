@@ -219,6 +219,7 @@ interface DevToolsPanelProps {
 export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
   const [activeSection, setActiveSection] = useState<"host" | "diagnostics" | "polling" | "layout" | "theme" | "cache" | "presentationEffects" | "audio" | "roomTransitions" | "recording">("polling");
   const [clearingPersistentCache, setClearingPersistentCache] = useState<boolean>(false);
+  const [promotionName, setPromotionName] = useState<string>("");
   const slotKeys = Object.keys(props.effectiveSlotModes).sort();
   const themeColorKeys = Object.keys(THEME_COLOR_DESCRIPTIONS) as ThemeColorTokenKey[];
   const hudThemeTypographyKeys = Object.keys(HUD_THEME_TYPOGRAPHY_DESCRIPTIONS) as HudThemeTypographyTokenKey[];
@@ -393,7 +394,7 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                     {props.sessionRecording.status?.failureCode ? <li>Failure: {props.sessionRecording.status.failureCode}</li> : null}
                   </ul>
                   {props.sessionRecording.capabilities && !props.sessionRecording.capabilities.available ? (
-                    <p role="status">Recording is unavailable on this Host. Recording is restricted to development Host configurations.</p>
+                    <p role="status">This Host does not currently advertise recording capability.</p>
                   ) : null}
                   <div className="events">
                     <button
@@ -413,6 +414,115 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                     >Refresh Status</button>
                   </div>
                 </>
+              ) : null}
+
+              {props.selectedGameId ? (
+                <div className="devtools-recording-library">
+                  <h4>Recording Library</h4>
+                  <p className="subtitle">Recordings are stored by GameHost. Select one to inspect its metadata and command count; the library does not expand the command sequence.</p>
+                  {props.sessionRecording.capabilities?.canList ? (
+                    <>
+                      <div className="recording-library-toolbar">
+                        <label className="recording-library-scope">
+                          Recording Scope
+                          <select
+                            aria-label="Recording scope"
+                            value={props.sessionRecording.libraryScope}
+                            onChange={(event) => {
+                              props.sessionRecording.setLibraryScope(event.target.value as "All" | "Scratch" | "Saved");
+                              void props.sessionRecording.selectRecording("");
+                            }}
+                          >
+                            <option value="All">Scratch and saved</option>
+                            <option value="Scratch">Scratch</option>
+                            <option value="Saved">Saved</option>
+                          </select>
+                        </label>
+                        <button type="button" onClick={() => void props.sessionRecording.refreshLibrary()} disabled={props.sessionRecording.busy}>
+                          Refresh Recordings
+                        </button>
+                      </div>
+                      <label className="recording-library-select">
+                        Select Recording
+                        <select
+                          aria-label="Select recording"
+                          value={props.sessionRecording.selectedRecordingId}
+                          onChange={(event) => void props.sessionRecording.selectRecording(event.target.value)}
+                        >
+                          <option value="">Choose a recording</option>
+                          {props.sessionRecording.recordings.map((recording) => (
+                            <option key={recording.recordingId} value={recording.recordingId}>
+                              {recording.displayName || "Untitled"} ({recording.scope}, {recording.stepCount} commands)
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {props.sessionRecording.recordings.length === 0 ? <p role="status">No recordings in this scope.</p> : null}
+                      {props.sessionRecording.hasMoreRecordings ? (
+                        <button type="button" onClick={() => void props.sessionRecording.loadMoreRecordings()} disabled={props.sessionRecording.busy}>
+                          Load More Recordings
+                        </button>
+                      ) : null}
+                      {props.sessionRecording.selectedRecording ? (
+                        <section className="recording-details">
+                          <h4>Recording Details</h4>
+                          <p className="recording-details-summary">
+                            {props.sessionRecording.selectedRecording.displayName || "Untitled scratch recording"}
+                            <span>{props.sessionRecording.selectedRecording.scope} · {props.sessionRecording.selectedRecording.stepCount} commands</span>
+                          </p>
+                          <div className="recording-actions">
+                            {props.sessionRecording.selectedRecording.scope === "Scratch" && props.sessionRecording.capabilities.canPromote ? (
+                              <>
+                                <label className="recording-name-field">
+                                Saved Recording Name
+                                <input
+                                  aria-label="Saved recording name"
+                                  type="text"
+                                  required
+                                  maxLength={120}
+                                  value={promotionName}
+                                  onChange={(event) => setPromotionName(event.target.value)}
+                                />
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => void props.sessionRecording.promoteSelected(promotionName)}
+                                  disabled={props.sessionRecording.busy || promotionName.trim().length === 0}
+                                >Save / Promote</button>
+                              </>
+                            ) : null}
+                            {props.sessionRecording.selectedRecording.scope === "Scratch" && props.sessionRecording.capabilities.canDiscardScratch ? (
+                              <button
+                                type="button"
+                                className="recording-discard-action"
+                                onClick={() => {
+                                  if (window.confirm("Discard this scratch recording? This removes it from Host scratch storage.")) {
+                                    void props.sessionRecording.discardSelected();
+                                  }
+                                }}
+                                disabled={props.sessionRecording.busy}
+                              >Discard Scratch Recording</button>
+                            ) : null}
+                          </div>
+                          <details className="recording-metadata">
+                            <summary>Recording metadata</summary>
+                            <ul className="devtools-status-list" aria-label="Selected recording details">
+                              <li>Recording ID: {props.sessionRecording.selectedRecording.recordingId}</li>
+                              <li>Starting condition: {props.sessionRecording.selectedRecording.startKind}</li>
+                              <li>Compatibility: {props.sessionRecording.selectedRecording.compatibility}</li>
+                              <li>Artifact format: {props.sessionRecording.selectedRecording.artifactSchemaVersion}</li>
+                              <li>Created: {props.sessionRecording.selectedRecording.createdUtc}</li>
+                            </ul>
+                          </details>
+                        </section>
+                      ) : null}
+                    </>
+                  ) : props.sessionRecording.capabilities ? (
+                    <p role="status">This Host does not currently advertise recording library management.</p>
+                  ) : (
+                    <p role="status">Checking Host library capability…</p>
+                  )}
+                </div>
               ) : null}
             </>
           ) : null}

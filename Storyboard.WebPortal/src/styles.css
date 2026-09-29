@@ -576,6 +576,121 @@ input:disabled {
 
 .devtools-section {
   min-height: 10rem;
+  min-width: 0;
+  max-height: min(68vh, 48rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 0.3rem;
+}
+
+.devtools-panel,
+.devtools-layout {
+  min-width: 0;
+}
+
+.devtools-recording-library {
+  min-width: 0;
+  margin-top: 0.8rem;
+  border-top: 1px solid var(--theme-color-border-primary);
+  padding-top: 0.75rem;
+}
+
+.devtools-recording-library h4 {
+  margin: 0.65rem 0 0.4rem;
+  color: var(--theme-color-chrome-primary);
+}
+
+.recording-library-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.6rem;
+  margin: 0.55rem 0;
+}
+
+.recording-library-scope {
+  flex: 0 1 13rem;
+  min-width: 10rem;
+}
+
+.recording-library-select {
+  width: min(100%, 42rem);
+  margin: 0.55rem 0;
+}
+
+.recording-details {
+  min-width: 0;
+  margin-top: 0.7rem;
+  border: 1px solid var(--theme-color-border-primary);
+  border-radius: var(--theme-shape-radius-base);
+  padding: 0.65rem;
+  background: var(--theme-color-surface-muted);
+}
+
+.recording-details h4 {
+  margin-top: 0;
+}
+
+.recording-details-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+  margin: 0 0 0.6rem;
+  color: var(--theme-color-primary-text);
+  font-weight: 600;
+}
+
+.recording-details-summary span {
+  color: var(--theme-color-secondary-text);
+  font-size: 0.88rem;
+  font-weight: 400;
+}
+
+.recording-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.55rem;
+  margin: 0.5rem 0 0.65rem;
+}
+
+.recording-name-field {
+  flex: 0 1 18rem;
+  min-width: min(100%, 12rem);
+}
+
+.recording-name-field input {
+  width: 100%;
+}
+
+.recording-discard-action {
+  color: var(--theme-color-status-error-text);
+}
+
+.recording-metadata,
+.recording-metadata summary,
+.recording-metadata summary {
+  cursor: pointer;
+  color: var(--theme-color-chrome-primary);
+  font-weight: 600;
+}
+
+@media (max-width: 840px) {
+  .devtools-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .devtools-nav {
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    border-right: 0;
+    border-bottom: 1px solid var(--theme-color-border-primary);
+    padding: 0 0 0.6rem;
+  }
+
+  .devtools-section {
+    max-height: min(62vh, 42rem);
+  }
 }
 
 .devtools-status-list {
