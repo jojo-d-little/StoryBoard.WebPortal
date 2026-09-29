@@ -63,6 +63,7 @@ import type {
   HostSwitchToManualPlaybackResult,
   HostGetNextPlaybackStepResult,
   HostAdvancePlaybackResult,
+  HostContinueRecordingFromHereResult,
   HostNextPlaybackStep,
   HostPlaybackStepOutcome
 } from "./HostContracts";
@@ -645,6 +646,33 @@ export class HostApiClient {
       result: this.readResult(data),
       playbackStatus: Object.keys(status).length > 0 ? this.readHostPlaybackStatus(status) : undefined,
       stepOutcome: Object.keys(outcome).length > 0 ? this.readHostPlaybackStepOutcome(outcome) : undefined
+    };
+  }
+
+  async continueRecordingFromPlayback(
+    credentialHandle: string,
+    sessionId: string,
+    playbackId: string,
+    recordingId: string,
+    expectedPlaybackVersion: number,
+    expectedRecordingToken: string
+  ): Promise<HostContinueRecordingFromHereResult> {
+    const payload = {
+      context: this.buildContext("webportal-continue-recording-from-here", credentialHandle, sessionId),
+      playbackId,
+      recordingId,
+      expectedPlaybackVersion,
+      expectedRecordingToken
+    };
+    const data = await this.postJson<Record<string, unknown>>(
+      "/api/v1/session/record-playback/recordings/continue", payload
+    );
+    const status = this.readObject(data, ["recordingStatus", "RecordingStatus"]);
+    const recording = this.readObject(data, ["recording", "Recording"]);
+    return {
+      result: this.readResult(data),
+      recordingStatus: Object.keys(status).length > 0 ? this.readHostRecordingStatus(status) : undefined,
+      recording: Object.keys(recording).length > 0 ? this.readHostRecordingDescriptor(recording) : undefined
     };
   }
 

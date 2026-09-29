@@ -131,6 +131,18 @@ export interface HostAdvancePlaybackResult {
   playbackStatus?: HostPlaybackStatus;
   stepOutcome?: HostPlaybackStepOutcome;
 }
+export interface HostContinueRecordingFromHereRequest {
+  context: HostRequestContext;
+  playbackId: string;
+  recordingId: string;
+  expectedPlaybackVersion: number;
+  expectedRecordingToken: string;
+}
+export interface HostContinueRecordingFromHereResult {
+  result: HostResultEnvelope;
+  recordingStatus?: HostRecordingStatus;
+  recording?: HostRecordingDescriptor;
+}
 export interface HostNextPlaybackStep {
   stepIndex: number;
   stepToken: string;

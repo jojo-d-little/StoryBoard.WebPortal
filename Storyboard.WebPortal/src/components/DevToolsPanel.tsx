@@ -414,9 +414,9 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                     >Stop Recording</button>
                     <button
                       type="button"
-                      onClick={() => void props.sessionRecording.refresh()}
+                      onClick={() => void Promise.all([props.sessionRecording.refresh(), props.sessionRecording.refreshCapabilities()])}
                       disabled={props.sessionRecording.busy}
-                    >Refresh Status</button>
+                    >Refresh Status & Capabilities</button>
                   </div>
                 </>
               ) : null}
@@ -529,9 +529,16 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                       </div>
                       {props.sessionRecording.selectedRecording ? (
                         <section className="recording-playback" aria-label="Playback controls">
+                            {props.sessionRecording.status?.state === "Recording" ? (
+                              <div className="recording-actions recording-playback-actions" role="status">
+                                <h4>Recording continuation</h4>
+                                <span>{props.sessionRecording.status.stepCount} commands captured · Stop to commit</span>
+                                <button type="button" onClick={() => void props.sessionRecording.stop()} disabled={props.sessionRecording.busy}>Stop Recording</button>
+                              </div>
+                            ) : <>
                             {props.sessionRecording.selectedRecording.startKind !== "FreshSession" ? <p role="status">This recording does not declare a fresh-session start. The Host may report compatibility or start advisories when playback begins.</p> : null}
                             {!props.activeSessionId ? <p role="status">Join a session in this game before starting playback.</p> : null}
-                            {!props.sessionRecording.playbackStatus || ["Completed", "Cancelled", "Failed"].includes(props.sessionRecording.playbackStatus.state) ? (
+                            {!props.sessionRecording.playbackStatus || (["Completed", "Cancelled", "Failed"].includes(props.sessionRecording.playbackStatus.state) && !(props.sessionRecording.playbackStatus.state === "Completed" && props.sessionRecording.capabilities?.canContinue)) ? (
                               <div className="recording-actions recording-playback-actions">
                                 <h4>Playback</h4>
                                 <label>Timed speed
@@ -554,6 +561,12 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                                   </> : null}
                                   {props.sessionRecording.playbackStatus.mode === "Timed" && props.sessionRecording.playbackStatus.state === "Paused" ? <button type="button" onClick={() => void props.sessionRecording.switchPlaybackToManual()} disabled={props.sessionRecording.busy}>Switch to Manual</button> : null}
                                   {!(["Completed", "Cancelled", "Failed"].includes(props.sessionRecording.playbackStatus.state)) ? <button type="button" onClick={() => void props.sessionRecording.stopPlayback()} disabled={props.sessionRecording.busy}>Stop Playback</button> : null}
+                                  {((props.sessionRecording.playbackStatus.mode === "Manual" && props.sessionRecording.playbackStatus.state === "Ready") || props.sessionRecording.playbackStatus.state === "Completed") && props.sessionRecording.playbackStatus.recordingId === props.sessionRecording.selectedRecording.recordingId ? <>
+                                    <button type="button" onClick={() => void props.sessionRecording.continueRecordingFromPlayback()} disabled={props.sessionRecording.busy || !props.sessionRecording.capabilities?.canContinue || props.sessionRecording.selectedRecording.state !== "Stopped"}>Continue Recording From Here</button>
+                                    {!props.sessionRecording.capabilities?.canContinue ? <span className="recording-capability-note">Host has not advertised continuation support.</span> : null}
+                                  </> : null}
+                                  {props.sessionRecording.capabilities?.canContinue && !((props.sessionRecording.playbackStatus.mode === "Manual" && props.sessionRecording.playbackStatus.state === "Ready") || props.sessionRecording.playbackStatus.state === "Completed") ? <span className="recording-capability-note">Continuation is available at a Ready manual cursor or after playback completes.</span> : null}
+                                  {props.sessionRecording.capabilities?.canContinue && props.sessionRecording.playbackStatus.recordingId !== props.sessionRecording.selectedRecording.recordingId ? <span className="recording-capability-note">Select the recording used by this playback to continue it.</span> : null}
                                   <details className="playback-status-details">
                                     <summary>Playback status</summary>
                                     <ul className="devtools-status-list" aria-label="Playback status">
@@ -579,6 +592,7 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                               </>
                             )}
                             {props.sessionRecording.lastPlaybackOutcome ? <p role="status">Command {props.sessionRecording.lastPlaybackOutcome.stepIndex + 1}: {props.sessionRecording.lastPlaybackOutcome.success ? "succeeded" : "failed"} ({props.sessionRecording.lastPlaybackOutcome.resultCode}){props.sessionRecording.lastPlaybackOutcome.diagnostics.length ? ` — ${props.sessionRecording.lastPlaybackOutcome.diagnostics.join("; ")}` : ""}</p> : null}
+                            </>}
                           </section>
                       ) : null}
                     </>

@@ -37,6 +37,8 @@ export type {
   HostGetNextPlaybackStepResult,
   HostAdvancePlaybackRequest,
   HostAdvancePlaybackResult,
+  HostContinueRecordingFromHereRequest,
+  HostContinueRecordingFromHereResult,
   HostNextPlaybackStep,
   HostPlaybackStepOutcome
 } from "./HostRecordPlaybackContracts";

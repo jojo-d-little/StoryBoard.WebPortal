@@ -27,6 +27,7 @@ export interface SessionRecordingWorkflow {
   busy: boolean;
   error: string;
   refresh: () => Promise<void>;
+  refreshCapabilities: () => Promise<void>;
   refreshLibrary: (append?: boolean) => Promise<void>;
   selectRecording: (recordingId: string) => Promise<void>;
   loadMoreRecordings: () => Promise<void>;
@@ -42,6 +43,7 @@ export interface SessionRecordingWorkflow {
   switchPlaybackToManual: () => Promise<void>;
   refreshNextPlaybackStep: () => Promise<void>;
   advancePlayback: () => Promise<void>;
+  continueRecordingFromPlayback: () => Promise<void>;
 }
 
 interface Options {
@@ -99,6 +101,19 @@ export function useSessionRecordingWorkflow(options: Options): SessionRecordingW
     }
   }, [options.addDiagnostic, options.credentialHandle, options.hostApiClient, options.sessionId]);
 
+  const refreshCapabilities = useCallback(async (): Promise<void> => {
+    if (!options.credentialHandle || !options.gameId) return;
+    try {
+      const result = await options.hostApiClient.getRecordPlaybackCapabilities(
+        options.credentialHandle, options.gameId, options.sessionId
+      );
+      setCapabilities(result.capabilities ?? null);
+      if (!result.result.success) setError(errorMessage(result.result));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }, [options.credentialHandle, options.gameId, options.hostApiClient, options.sessionId]);
+
   const refreshNextPlaybackStep = useCallback(async (): Promise<void> => {
     if (!options.credentialHandle || !options.sessionId || !playbackStatus || playbackStatus.mode !== "Manual" || playbackStatus.state !== "Ready") {
       setNextPlaybackStep(null); return;
@@ -153,6 +168,48 @@ export function useSessionRecordingWorkflow(options: Options): SessionRecordingW
     finally { setBusy(false); }
   }, [busy, nextPlaybackStep, options.credentialHandle, options.hostApiClient, options.sessionId, playbackStatus, refresh]);
 
+  const continueRecordingFromPlayback = useCallback(async (): Promise<void> => {
+    const validManualBoundary = playbackStatus?.mode === "Manual" && playbackStatus.state === "Ready";
+    const completedBoundary = playbackStatus?.state === "Completed";
+    if (!playbackStatus || !selectedRecording || !capabilities?.canContinue || busy
+      || (!validManualBoundary && !completedBoundary)
+      || playbackStatus.recordingId !== selectedRecording.recordingId) return;
+    setBusy(true); setError("");
+    try {
+      const result = await options.hostApiClient.continueRecordingFromPlayback(
+        options.credentialHandle, options.sessionId, playbackStatus.playbackId,
+        selectedRecording.recordingId, playbackStatus.version, selectedRecording.stateToken
+      );
+      if (result.result.success) {
+        if (result.recordingStatus) setStatus(result.recordingStatus);
+        if (result.recording) setSelectedRecording(result.recording);
+        setPlaybackStatus(null);
+        setNextPlaybackStep(null);
+        options.addDiagnostic("info", "recording", "Recording continued from the manual playback cursor.", {
+          event: "recording-continued-from-playback", playbackId: playbackStatus.playbackId,
+          recordingId: selectedRecording.recordingId, correlationId: result.result.correlationId
+        });
+      } else {
+        const message = errorMessage(result.result);
+        setError(message);
+        options.addDiagnostic("warn", "recording", "Continue Recording From Here was rejected.", {
+          event: "recording-continue-from-playback-failed", code: result.result.code,
+          playbackId: playbackStatus.playbackId, recordingId: selectedRecording.recordingId,
+          correlationId: result.result.correlationId, message
+        });
+        await refresh();
+      }
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      setError(message);
+      options.addDiagnostic("error", "recording", "Continuation from playback failed in transport.", {
+        event: "recording-continue-from-playback-transport-failed", playbackId: playbackStatus.playbackId,
+        recordingId: selectedRecording.recordingId, message
+      });
+      await refresh();
+    } finally { setBusy(false); }
+  }, [busy, capabilities?.canContinue, options.addDiagnostic, options.credentialHandle, options.hostApiClient, options.sessionId, playbackStatus, refresh, selectedRecording]);
+
   useEffect(() => { void refreshNextPlaybackStep(); }, [refreshNextPlaybackStep]);
 
   const refreshLibrary = useCallback(async (append = false): Promise<void> => {
@@ -171,6 +228,10 @@ export function useSessionRecordingWorkflow(options: Options): SessionRecordingW
       );
       if (result.result.success) {
         setRecordings((current) => append ? [...current, ...result.recordings] : result.recordings);
+        if (!append) {
+          const refreshedSelection = result.recordings.find((item) => item.recordingId === selectedRecordingId);
+          if (refreshedSelection) setSelectedRecording(refreshedSelection);
+        }
         recordingListContinuationRef.current = result.nextContinuationToken ?? null;
         setRecordingListContinuation(result.nextContinuationToken ?? null);
         setError("");
@@ -193,7 +254,7 @@ export function useSessionRecordingWorkflow(options: Options): SessionRecordingW
         event: "recording-library-transport-failed", gameId: options.gameId, scope: libraryScope, message
       });
     }
-  }, [capabilities, libraryScope, options.addDiagnostic, options.credentialHandle, options.gameId, options.hostApiClient, options.sessionId]);
+  }, [capabilities, libraryScope, options.addDiagnostic, options.credentialHandle, options.gameId, options.hostApiClient, options.sessionId, selectedRecordingId]);
 
   const selectRecording = useCallback(async (recordingId: string): Promise<void> => {
     setSelectedRecordingId(recordingId);
@@ -390,6 +451,7 @@ export function useSessionRecordingWorkflow(options: Options): SessionRecordingW
       );
       if (result.result.success && result.recordingStatus) {
         setStatus(result.recordingStatus);
+        if (result.recording) setSelectedRecording(result.recording);
         options.addDiagnostic("info", "recording", "Recording stopped and finalized.", {
           event: "recording-stopped", recordingId: result.recordingStatus.recordingId,
           stepCount: result.recordingStatus.stepCount, sessionId: options.sessionId,
@@ -414,15 +476,17 @@ export function useSessionRecordingWorkflow(options: Options): SessionRecordingW
     } finally {
       setBusy(false);
       await refresh();
+      await refreshLibrary(false);
     }
-  }, [busy, options.addDiagnostic, options.credentialHandle, options.hostApiClient, options.sessionId, refresh, status]);
+  }, [busy, options.addDiagnostic, options.credentialHandle, options.hostApiClient, options.sessionId, refresh, refreshLibrary, status]);
 
   return {
     capabilities, status, playbackStatus, nextPlaybackStep, lastPlaybackOutcome, recordings, libraryScope, setLibraryScope, selectedRecordingId,
     selectedRecording, hasMoreRecordings: recordingListContinuation !== null,
-    busy, error, refresh, refreshLibrary,
+    busy, error, refresh, refreshCapabilities, refreshLibrary,
     selectRecording, loadMoreRecordings, promoteSelected, discardSelected,
     start, stop, startPlayback, pausePlayback, resumePlayback, stopPlayback,
-    setPlaybackSpeed, switchPlaybackToManual, refreshNextPlaybackStep, advancePlayback
+    setPlaybackSpeed, switchPlaybackToManual, refreshNextPlaybackStep, advancePlayback,
+    continueRecordingFromPlayback
   };
 }
