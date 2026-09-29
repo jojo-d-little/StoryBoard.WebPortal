@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { SlotMode, ThemeContract } from "../orchestration/types";
 import type { WebPortalAssetCacheStats } from "../cache/webPortalAssetCache";
 import type {
@@ -220,6 +220,12 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
   const [activeSection, setActiveSection] = useState<"host" | "diagnostics" | "polling" | "layout" | "theme" | "cache" | "presentationEffects" | "audio" | "roomTransitions" | "recording">("polling");
   const [clearingPersistentCache, setClearingPersistentCache] = useState<boolean>(false);
   const [promotionName, setPromotionName] = useState<string>("");
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  useEffect(() => {
+    if (props.sessionRecording.playbackStatus?.mode === "Timed") {
+      setPlaybackSpeed(props.sessionRecording.playbackStatus.speedMultiplier);
+    }
+  }, [props.sessionRecording.playbackStatus?.mode, props.sessionRecording.playbackStatus?.speedMultiplier]);
   const slotKeys = Object.keys(props.effectiveSlotModes).sort();
   const themeColorKeys = Object.keys(THEME_COLOR_DESCRIPTIONS) as ThemeColorTokenKey[];
   const hudThemeTypographyKeys = Object.keys(HUD_THEME_TYPOGRAPHY_DESCRIPTIONS) as HudThemeTypographyTokenKey[];
@@ -374,8 +380,10 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
 
           {activeSection === "recording" ? (
             <>
-              <h3>Session Recording</h3>
-              <p className="subtitle">Host-managed development recording. Start manually in a fresh session before the first gameplay command or state change.</p>
+              <h3>Recording and Playback</h3>
+              <div className="recording-workspace">
+              <section className="recording-session-panel" aria-label="Session recording">
+              <h4>Session Recording</h4>
               {!props.activeSessionId || !props.selectedGameId ? (
                 <p role="status">Select or attach a development game session to use recording.</p>
               ) : null}
@@ -384,15 +392,12 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
               ) : null}
               {props.activeSessionId && props.selectedGameId ? (
                 <>
-                  <ul className="devtools-status-list" aria-label="Recording capability and status">
-                    <li>Capability: {props.sessionRecording.capabilities ? (props.sessionRecording.capabilities.available && props.sessionRecording.capabilities.canRecord ? "available" : "unavailable") : "checking Host"}</li>
-                    <li>Session: {props.activeSessionId}</li>
-                    <li>Game: {props.selectedGameId}</li>
-                    <li>Recording: {props.sessionRecording.status?.state ?? "none"}</li>
-                    {props.sessionRecording.status ? <li>Captured commands: {props.sessionRecording.status.stepCount}</li> : null}
-                    {props.sessionRecording.status ? <li>Recording ID: {props.sessionRecording.status.recordingId}</li> : null}
-                    {props.sessionRecording.status?.failureCode ? <li>Failure: {props.sessionRecording.status.failureCode}</li> : null}
-                  </ul>
+                  <p className="recording-inline-status" aria-label="Recording capability and status">
+                    <span>Capability: {props.sessionRecording.capabilities ? (props.sessionRecording.capabilities.available && props.sessionRecording.capabilities.canRecord ? "available" : "unavailable") : "checking Host"}</span>
+                    <span>Recording: {props.sessionRecording.status?.state ?? "none"}</span>
+                    {props.sessionRecording.status ? <span>{props.sessionRecording.status.stepCount} commands</span> : null}
+                    {props.sessionRecording.status?.failureCode ? <span>Failure: {props.sessionRecording.status.failureCode}</span> : null}
+                  </p>
                   {props.sessionRecording.capabilities && !props.sessionRecording.capabilities.available ? (
                     <p role="status">This Host does not currently advertise recording capability.</p>
                   ) : null}
@@ -416,6 +421,7 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                 </>
               ) : null}
 
+              </section>
               {props.selectedGameId ? (
                 <div className="devtools-recording-library">
                   <h4>Recording Library</h4>
@@ -442,6 +448,8 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                           Refresh Recordings
                         </button>
                       </div>
+                      <div className="recording-selection-row">
+                      <div className="recording-selection-control">
                       <label className="recording-library-select">
                         Select Recording
                         <select
@@ -463,13 +471,25 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                           Load More Recordings
                         </button>
                       ) : null}
+                      </div>
                       {props.sessionRecording.selectedRecording ? (
                         <section className="recording-details">
-                          <h4>Recording Details</h4>
-                          <p className="recording-details-summary">
-                            {props.sessionRecording.selectedRecording.displayName || "Untitled scratch recording"}
-                            <span>{props.sessionRecording.selectedRecording.scope} · {props.sessionRecording.selectedRecording.stepCount} commands</span>
-                          </p>
+                          <div className="recording-details-heading">
+                            <p className="recording-details-summary">
+                              {props.sessionRecording.selectedRecording.displayName || "Untitled scratch recording"}
+                              <span>{props.sessionRecording.selectedRecording.scope} · {props.sessionRecording.selectedRecording.stepCount} commands</span>
+                            </p>
+                            <details className="recording-metadata">
+                              <summary>Recording metadata</summary>
+                              <ul className="devtools-status-list" aria-label="Selected recording details">
+                                <li>Recording ID: {props.sessionRecording.selectedRecording.recordingId}</li>
+                                <li>Starting condition: {props.sessionRecording.selectedRecording.startKind}</li>
+                                <li>Compatibility: {props.sessionRecording.selectedRecording.compatibility}</li>
+                                <li>Artifact format: {props.sessionRecording.selectedRecording.artifactSchemaVersion}</li>
+                                <li>Created: {props.sessionRecording.selectedRecording.createdUtc}</li>
+                              </ul>
+                            </details>
+                          </div>
                           <div className="recording-actions">
                             {props.sessionRecording.selectedRecording.scope === "Scratch" && props.sessionRecording.capabilities.canPromote ? (
                               <>
@@ -504,17 +524,62 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                               >Discard Scratch Recording</button>
                             ) : null}
                           </div>
-                          <details className="recording-metadata">
-                            <summary>Recording metadata</summary>
-                            <ul className="devtools-status-list" aria-label="Selected recording details">
-                              <li>Recording ID: {props.sessionRecording.selectedRecording.recordingId}</li>
-                              <li>Starting condition: {props.sessionRecording.selectedRecording.startKind}</li>
-                              <li>Compatibility: {props.sessionRecording.selectedRecording.compatibility}</li>
-                              <li>Artifact format: {props.sessionRecording.selectedRecording.artifactSchemaVersion}</li>
-                              <li>Created: {props.sessionRecording.selectedRecording.createdUtc}</li>
-                            </ul>
-                          </details>
                         </section>
+                      ) : null}
+                      </div>
+                      {props.sessionRecording.selectedRecording ? (
+                        <section className="recording-playback" aria-label="Playback controls">
+                            {props.sessionRecording.selectedRecording.startKind !== "FreshSession" ? <p role="status">This recording does not declare a fresh-session start. The Host may report compatibility or start advisories when playback begins.</p> : null}
+                            {!props.activeSessionId ? <p role="status">Join a session in this game before starting playback.</p> : null}
+                            {!props.sessionRecording.playbackStatus || ["Completed", "Cancelled", "Failed"].includes(props.sessionRecording.playbackStatus.state) ? (
+                              <div className="recording-actions recording-playback-actions">
+                                <h4>Playback</h4>
+                                <label>Timed speed
+                                  <input aria-label="Timed playback speed" type="number" min={props.sessionRecording.capabilities.minSpeedMultiplier || 0.25} max={props.sessionRecording.capabilities.maxSpeedMultiplier || 4} step="0.25" value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))} />
+                                </label>
+                                <button type="button" onClick={() => void props.sessionRecording.startPlayback("Timed", playbackSpeed)} disabled={props.sessionRecording.busy || !props.activeSessionId || props.sessionRecording.selectedRecording.state !== "Stopped" || !props.sessionRecording.capabilities.canPlayTimed || props.sessionRecording.selectedRecording.compatibility !== "Compatible" || !Number.isFinite(playbackSpeed) || playbackSpeed < (props.sessionRecording.capabilities.minSpeedMultiplier || 0.25) || playbackSpeed > (props.sessionRecording.capabilities.maxSpeedMultiplier || 4)}>Start Timed</button>
+                                <button type="button" onClick={() => void props.sessionRecording.startPlayback("Manual", 1)} disabled={props.sessionRecording.busy || !props.activeSessionId || props.sessionRecording.selectedRecording.state !== "Stopped" || !props.sessionRecording.capabilities.canPlayManual || props.sessionRecording.selectedRecording.compatibility !== "Compatible"}>Start Manual</button>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="recording-actions">
+                                  <h4>Playback</h4>
+                                  {props.sessionRecording.playbackStatus.mode === "Timed" && props.sessionRecording.playbackStatus.state === "Running" ? <button type="button" onClick={() => void props.sessionRecording.pausePlayback()} disabled={props.sessionRecording.busy}>Pause</button> : null}
+                                  {props.sessionRecording.playbackStatus.mode === "Timed" && props.sessionRecording.playbackStatus.state === "Paused" ? <button type="button" onClick={() => void props.sessionRecording.resumePlayback()} disabled={props.sessionRecording.busy}>Resume</button> : null}
+                                  {props.sessionRecording.playbackStatus.mode === "Timed" && ["Running", "Paused"].includes(props.sessionRecording.playbackStatus.state) ? <>
+                                    <label>Speed
+                                      <input aria-label="Playback speed" type="number" min={props.sessionRecording.capabilities.minSpeedMultiplier || 0.25} max={props.sessionRecording.capabilities.maxSpeedMultiplier || 4} step="0.25" value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))} />
+                                    </label>
+                                    <button type="button" onClick={() => void props.sessionRecording.setPlaybackSpeed(playbackSpeed)} disabled={props.sessionRecording.busy}>Set Speed</button>
+                                  </> : null}
+                                  {props.sessionRecording.playbackStatus.mode === "Timed" && props.sessionRecording.playbackStatus.state === "Paused" ? <button type="button" onClick={() => void props.sessionRecording.switchPlaybackToManual()} disabled={props.sessionRecording.busy}>Switch to Manual</button> : null}
+                                  {!(["Completed", "Cancelled", "Failed"].includes(props.sessionRecording.playbackStatus.state)) ? <button type="button" onClick={() => void props.sessionRecording.stopPlayback()} disabled={props.sessionRecording.busy}>Stop Playback</button> : null}
+                                  <details className="playback-status-details">
+                                    <summary>Playback status</summary>
+                                    <ul className="devtools-status-list" aria-label="Playback status">
+                                      <li>{props.sessionRecording.playbackStatus.mode} · {props.sessionRecording.playbackStatus.state}</li>
+                                      <li>Progress: {Math.min(props.sessionRecording.playbackStatus.nextStepIndex, props.sessionRecording.playbackStatus.totalSteps)} / {props.sessionRecording.playbackStatus.totalSteps}</li>
+                                      {props.sessionRecording.playbackStatus.mode === "Timed" ? <li>Speed: {props.sessionRecording.playbackStatus.speedMultiplier}×</li> : null}
+                                      {props.sessionRecording.playbackStatus.failureCode ? <li>Failure: {props.sessionRecording.playbackStatus.failureCode}</li> : null}
+                                      {props.sessionRecording.playbackStatus.startAdvisoryCodes.map((code) => <li key={code}>Advisory: {code}</li>)}
+                                    </ul>
+                                  </details>
+                                </div>
+                                {props.sessionRecording.playbackStatus.mode === "Manual" && props.sessionRecording.playbackStatus.state === "Ready" ? (
+                                  <div className="recording-step-preview">
+                                    <h5>Next command</h5>
+                                    {props.sessionRecording.nextPlaybackStep ? <>
+                                      <p>Command {props.sessionRecording.nextPlaybackStep.stepIndex + 1}: <code>{props.sessionRecording.nextPlaybackStep.rawCommandText}</code></p>
+                                      {props.sessionRecording.nextPlaybackStep.recordedDelayMs > 0 ? <p>Recorded delay: {props.sessionRecording.nextPlaybackStep.recordedDelayMs} ms</p> : null}
+                                      {props.sessionRecording.nextPlaybackStep.clarificationAnswers.length > 0 ? <details><summary>Clarification answers</summary><pre>{JSON.stringify(props.sessionRecording.nextPlaybackStep.clarificationAnswers, null, 2)}</pre></details> : null}
+                                      <button type="button" onClick={() => void props.sessionRecording.advancePlayback()} disabled={props.sessionRecording.busy}>Advance One Command</button>
+                                    </> : <p>Loading next command…</p>}
+                                  </div>
+                                ) : null}
+                              </>
+                            )}
+                            {props.sessionRecording.lastPlaybackOutcome ? <p role="status">Command {props.sessionRecording.lastPlaybackOutcome.stepIndex + 1}: {props.sessionRecording.lastPlaybackOutcome.success ? "succeeded" : "failed"} ({props.sessionRecording.lastPlaybackOutcome.resultCode}){props.sessionRecording.lastPlaybackOutcome.diagnostics.length ? ` — ${props.sessionRecording.lastPlaybackOutcome.diagnostics.join("; ")}` : ""}</p> : null}
+                          </section>
                       ) : null}
                     </>
                   ) : props.sessionRecording.capabilities ? (
@@ -524,6 +589,7 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                   )}
                 </div>
               ) : null}
+              </div>
             </>
           ) : null}
 

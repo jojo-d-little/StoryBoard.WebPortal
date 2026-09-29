@@ -54,7 +54,17 @@ import type {
   HostGetRecordingResult,
   HostPromoteRecordingResult,
   HostDiscardScratchRecordingResult,
-  HostRecordedStep
+  HostRecordedStep,
+  HostStartPlaybackResult,
+  HostPausePlaybackResult,
+  HostResumePlaybackResult,
+  HostStopPlaybackResult,
+  HostSetPlaybackSpeedResult,
+  HostSwitchToManualPlaybackResult,
+  HostGetNextPlaybackStepResult,
+  HostAdvancePlaybackResult,
+  HostNextPlaybackStep,
+  HostPlaybackStepOutcome
 } from "./HostContracts";
 
 export interface HostApiClientOptions {
@@ -557,6 +567,112 @@ export class HostApiClient {
     };
   }
 
+  async startSessionPlayback(
+    credentialHandle: string,
+    sessionId: string,
+    recordingId: string,
+    expectedRecordingToken: string,
+    mode: "Timed" | "Manual",
+    speedMultiplier: number
+  ): Promise<HostStartPlaybackResult> {
+    const payload = {
+      context: this.buildContext("webportal-start-playback", credentialHandle, sessionId),
+      recordingId,
+      expectedRecordingToken,
+      mode,
+      speedMultiplier
+    };
+    const data = await this.postJson<Record<string, unknown>>(
+      "/api/v1/session/record-playback/playback/start", payload
+    );
+    const status = this.readObject(data, ["playbackStatus", "PlaybackStatus"]);
+    return {
+      result: this.readResult(data),
+      playbackStatus: Object.keys(status).length > 0 ? this.readHostPlaybackStatus(status) : undefined
+    };
+  }
+
+  async pauseSessionPlayback(credentialHandle: string, sessionId: string, playbackId: string, expectedPlaybackVersion: number): Promise<HostPausePlaybackResult> {
+    return this.postPlaybackStatusAction("pause", "PausePlayback", credentialHandle, sessionId, playbackId, expectedPlaybackVersion);
+  }
+
+  async resumeSessionPlayback(credentialHandle: string, sessionId: string, playbackId: string, expectedPlaybackVersion: number): Promise<HostResumePlaybackResult> {
+    return this.postPlaybackStatusAction("resume", "ResumePlayback", credentialHandle, sessionId, playbackId, expectedPlaybackVersion);
+  }
+
+  async stopSessionPlayback(credentialHandle: string, sessionId: string, playbackId: string, expectedPlaybackVersion: number): Promise<HostStopPlaybackResult> {
+    return this.postPlaybackStatusAction("stop", "StopPlayback", credentialHandle, sessionId, playbackId, expectedPlaybackVersion);
+  }
+
+  async setSessionPlaybackSpeed(credentialHandle: string, sessionId: string, playbackId: string, expectedPlaybackVersion: number, speedMultiplier: number): Promise<HostSetPlaybackSpeedResult> {
+    return this.postPlaybackStatusAction("speed", "SetPlaybackSpeed", credentialHandle, sessionId, playbackId, expectedPlaybackVersion, { speedMultiplier });
+  }
+
+  async switchSessionPlaybackToManual(credentialHandle: string, sessionId: string, playbackId: string, expectedPlaybackVersion: number): Promise<HostSwitchToManualPlaybackResult> {
+    return this.postPlaybackStatusAction("switch-to-manual", "SwitchToManualPlayback", credentialHandle, sessionId, playbackId, expectedPlaybackVersion);
+  }
+
+  async getNextSessionPlaybackStep(credentialHandle: string, sessionId: string, playbackId: string): Promise<HostGetNextPlaybackStepResult> {
+    const payload = {
+      context: this.buildContext("webportal-get-next-playback-step", credentialHandle, sessionId),
+      playbackId
+    };
+    const data = await this.postJson<Record<string, unknown>>(
+      "/api/v1/session/record-playback/playback/next", payload
+    );
+    const status = this.readObject(data, ["playbackStatus", "PlaybackStatus"]);
+    const nextStep = this.readObject(data, ["nextStep", "NextStep"]);
+    return {
+      result: this.readResult(data),
+      playbackStatus: Object.keys(status).length > 0 ? this.readHostPlaybackStatus(status) : undefined,
+      nextStep: Object.keys(nextStep).length > 0 ? this.readHostNextPlaybackStep(nextStep) : undefined
+    };
+  }
+
+  async advanceSessionPlayback(credentialHandle: string, sessionId: string, playbackId: string, expectedPlaybackVersion: number, expectedStepToken: string): Promise<HostAdvancePlaybackResult> {
+    const payload = {
+      context: this.buildContext("webportal-advance-playback", credentialHandle, sessionId),
+      playbackId,
+      expectedPlaybackVersion,
+      expectedStepToken
+    };
+    const data = await this.postJson<Record<string, unknown>>(
+      "/api/v1/session/record-playback/playback/advance", payload
+    );
+    const status = this.readObject(data, ["playbackStatus", "PlaybackStatus"]);
+    const outcome = this.readObject(data, ["stepOutcome", "StepOutcome"]);
+    return {
+      result: this.readResult(data),
+      playbackStatus: Object.keys(status).length > 0 ? this.readHostPlaybackStatus(status) : undefined,
+      stepOutcome: Object.keys(outcome).length > 0 ? this.readHostPlaybackStepOutcome(outcome) : undefined
+    };
+  }
+
+  private async postPlaybackStatusAction(
+    routeSuffix: "pause" | "resume" | "stop" | "speed" | "switch-to-manual",
+    operationName: string,
+    credentialHandle: string,
+    sessionId: string,
+    playbackId: string,
+    expectedPlaybackVersion: number,
+    extra: Record<string, number> = {}
+  ): Promise<HostPausePlaybackResult> {
+    const payload = {
+      context: this.buildContext(`webportal-${operationName.toLowerCase()}`, credentialHandle, sessionId),
+      playbackId,
+      expectedPlaybackVersion,
+      ...extra
+    };
+    const data = await this.postJson<Record<string, unknown>>(
+      `/api/v1/session/record-playback/playback/${routeSuffix}`, payload
+    );
+    const status = this.readObject(data, ["playbackStatus", "PlaybackStatus"]);
+    return {
+      result: this.readResult(data),
+      playbackStatus: Object.keys(status).length > 0 ? this.readHostPlaybackStatus(status) : undefined
+    };
+  }
+
   async getSessionDeltas(
     credentialHandle: string,
     sessionId: string,
@@ -814,6 +930,28 @@ export class HostApiClient {
       updatedUtc: this.readString(source, ["updatedUtc", "UpdatedUtc"]),
       endedUtc: this.readString(source, ["endedUtc", "EndedUtc"]) || null,
       failureCode: this.readString(source, ["failureCode", "FailureCode"]) || null
+    };
+  }
+
+  private readHostNextPlaybackStep(source: Record<string, unknown>): HostNextPlaybackStep {
+    return {
+      stepIndex: this.readNumber(source, ["stepIndex", "StepIndex"]),
+      stepToken: this.readString(source, ["stepToken", "StepToken"]),
+      rawCommandText: this.readString(source, ["rawCommandText", "RawCommandText"]),
+      clarificationAnswers: this.readArray(source, ["clarificationAnswers", "ClarificationAnswers"]) as HostClarificationAnswer[],
+      recordedDelayMs: this.readNumber(source, ["recordedDelayMs", "RecordedDelayMs"]),
+      commandCorrelationId: this.readString(source, ["commandCorrelationId", "CommandCorrelationId"])
+    };
+  }
+
+  private readHostPlaybackStepOutcome(source: Record<string, unknown>): HostPlaybackStepOutcome {
+    return {
+      stepIndex: this.readNumber(source, ["stepIndex", "StepIndex"]),
+      commandCorrelationId: this.readString(source, ["commandCorrelationId", "CommandCorrelationId"]),
+      success: this.readBoolean(source, ["success", "Success"]),
+      resultCode: this.readString(source, ["resultCode", "ResultCode"]),
+      diagnostics: this.readArray(source, ["diagnostics", "Diagnostics"]).map(String),
+      completedUtc: this.readString(source, ["completedUtc", "CompletedUtc"])
     };
   }
 

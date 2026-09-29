@@ -20,7 +20,25 @@ export type {
   HostPromoteRecordingResult,
   HostDiscardScratchRecordingRequest,
   HostDiscardScratchRecordingResult,
-  HostRecordedStep
+  HostRecordedStep,
+  HostStartPlaybackRequest,
+  HostStartPlaybackResult,
+  HostPausePlaybackRequest,
+  HostPausePlaybackResult,
+  HostResumePlaybackRequest,
+  HostResumePlaybackResult,
+  HostStopPlaybackRequest,
+  HostStopPlaybackResult,
+  HostSetPlaybackSpeedRequest,
+  HostSetPlaybackSpeedResult,
+  HostSwitchToManualPlaybackRequest,
+  HostSwitchToManualPlaybackResult,
+  HostGetNextPlaybackStepRequest,
+  HostGetNextPlaybackStepResult,
+  HostAdvancePlaybackRequest,
+  HostAdvancePlaybackResult,
+  HostNextPlaybackStep,
+  HostPlaybackStepOutcome
 } from "./HostRecordPlaybackContracts";
 export type { HostRequestContext } from "./HostRequestContext";
 export type { HostClarificationAnswer } from "./HostClarificationAnswer";

@@ -100,6 +100,54 @@ export interface HostRecordedStep {
   moveLegTelemetry: HostCommandMoveLegTelemetry[];
 }
 
+export interface HostStartPlaybackRequest {
+  context: HostRequestContext;
+  recordingId: string;
+  expectedRecordingToken: string;
+  mode: "Timed" | "Manual";
+  speedMultiplier: number;
+}
+export interface HostStartPlaybackResult { result: HostResultEnvelope; playbackStatus?: HostPlaybackStatus; }
+export interface HostPausePlaybackRequest { context: HostRequestContext; playbackId: string; expectedPlaybackVersion: number; }
+export interface HostPausePlaybackResult { result: HostResultEnvelope; playbackStatus?: HostPlaybackStatus; }
+export interface HostResumePlaybackRequest { context: HostRequestContext; playbackId: string; expectedPlaybackVersion: number; }
+export interface HostResumePlaybackResult { result: HostResultEnvelope; playbackStatus?: HostPlaybackStatus; }
+export interface HostStopPlaybackRequest { context: HostRequestContext; playbackId: string; expectedPlaybackVersion: number; }
+export interface HostStopPlaybackResult { result: HostResultEnvelope; playbackStatus?: HostPlaybackStatus; }
+export interface HostSetPlaybackSpeedRequest { context: HostRequestContext; playbackId: string; expectedPlaybackVersion: number; speedMultiplier: number; }
+export interface HostSetPlaybackSpeedResult { result: HostResultEnvelope; playbackStatus?: HostPlaybackStatus; }
+export interface HostSwitchToManualPlaybackRequest { context: HostRequestContext; playbackId: string; expectedPlaybackVersion: number; }
+export interface HostSwitchToManualPlaybackResult { result: HostResultEnvelope; playbackStatus?: HostPlaybackStatus; }
+export interface HostGetNextPlaybackStepRequest { context: HostRequestContext; playbackId: string; }
+export interface HostGetNextPlaybackStepResult { result: HostResultEnvelope; playbackStatus?: HostPlaybackStatus; nextStep?: HostNextPlaybackStep; }
+export interface HostAdvancePlaybackRequest {
+  context: HostRequestContext;
+  playbackId: string;
+  expectedPlaybackVersion: number;
+  expectedStepToken: string;
+}
+export interface HostAdvancePlaybackResult {
+  result: HostResultEnvelope;
+  playbackStatus?: HostPlaybackStatus;
+  stepOutcome?: HostPlaybackStepOutcome;
+}
+export interface HostNextPlaybackStep {
+  stepIndex: number;
+  stepToken: string;
+  rawCommandText: string;
+  clarificationAnswers: HostClarificationAnswer[];
+  recordedDelayMs: number;
+  commandCorrelationId: string;
+}
+export interface HostPlaybackStepOutcome {
+  stepIndex: number;
+  commandCorrelationId: string;
+  success: boolean;
+  resultCode: string;
+  diagnostics: string[];
+  completedUtc: string;
+}
+
 export interface HostRecordPlaybackCapabilities {
   available: boolean;
   canRecord: boolean;

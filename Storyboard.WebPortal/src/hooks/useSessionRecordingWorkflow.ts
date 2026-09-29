@@ -3,7 +3,10 @@ import type { HostApiClient } from "../hostApi/client";
 import type {
   HostRecordPlaybackCapabilities,
   HostRecordingStatus,
-  HostRecordingDescriptor
+  HostRecordingDescriptor,
+  HostPlaybackStatus,
+  HostNextPlaybackStep,
+  HostPlaybackStepOutcome
 } from "../hostApi/HostContracts";
 import type { DiagnosticsLevel } from "../components/DiagnosticsConsole";
 
@@ -12,6 +15,9 @@ type AddDiagnostic = (level: DiagnosticsLevel, category: string, message: string
 export interface SessionRecordingWorkflow {
   capabilities: HostRecordPlaybackCapabilities | null;
   status: HostRecordingStatus | null;
+  playbackStatus: HostPlaybackStatus | null;
+  nextPlaybackStep: HostNextPlaybackStep | null;
+  lastPlaybackOutcome: HostPlaybackStepOutcome | null;
   recordings: HostRecordingDescriptor[];
   libraryScope: "All" | "Scratch" | "Saved";
   setLibraryScope: (scope: "All" | "Scratch" | "Saved") => void;
@@ -28,6 +34,14 @@ export interface SessionRecordingWorkflow {
   discardSelected: () => Promise<void>;
   start: () => Promise<void>;
   stop: () => Promise<void>;
+  startPlayback: (mode: "Timed" | "Manual", speed: number) => Promise<void>;
+  pausePlayback: () => Promise<void>;
+  resumePlayback: () => Promise<void>;
+  stopPlayback: () => Promise<void>;
+  setPlaybackSpeed: (speed: number) => Promise<void>;
+  switchPlaybackToManual: () => Promise<void>;
+  refreshNextPlaybackStep: () => Promise<void>;
+  advancePlayback: () => Promise<void>;
 }
 
 interface Options {
@@ -45,6 +59,9 @@ function errorMessage(result: { message?: string; code?: string }): string {
 export function useSessionRecordingWorkflow(options: Options): SessionRecordingWorkflow {
   const [capabilities, setCapabilities] = useState<HostRecordPlaybackCapabilities | null>(null);
   const [status, setStatus] = useState<HostRecordingStatus | null>(null);
+  const [playbackStatus, setPlaybackStatus] = useState<HostPlaybackStatus | null>(null);
+  const [nextPlaybackStep, setNextPlaybackStep] = useState<HostNextPlaybackStep | null>(null);
+  const [lastPlaybackOutcome, setLastPlaybackOutcome] = useState<HostPlaybackStepOutcome | null>(null);
   const [recordings, setRecordings] = useState<HostRecordingDescriptor[]>([]);
   const [libraryScope, setLibraryScope] = useState<"All" | "Scratch" | "Saved">("All");
   const [selectedRecordingId, setSelectedRecordingId] = useState("");
@@ -63,6 +80,7 @@ export function useSessionRecordingWorkflow(options: Options): SessionRecordingW
       if (epoch !== requestEpoch.current) return;
       if (result.result.success) {
         setStatus(result.recordingStatus ?? null);
+        setPlaybackStatus(result.playbackStatus ?? null);
       } else {
         const message = errorMessage(result.result);
         setError(message);
@@ -80,6 +98,62 @@ export function useSessionRecordingWorkflow(options: Options): SessionRecordingW
       });
     }
   }, [options.addDiagnostic, options.credentialHandle, options.hostApiClient, options.sessionId]);
+
+  const refreshNextPlaybackStep = useCallback(async (): Promise<void> => {
+    if (!options.credentialHandle || !options.sessionId || !playbackStatus || playbackStatus.mode !== "Manual" || playbackStatus.state !== "Ready") {
+      setNextPlaybackStep(null); return;
+    }
+    if (nextPlaybackStep?.stepIndex === playbackStatus.nextStepIndex) return;
+    try {
+      const result = await options.hostApiClient.getNextSessionPlaybackStep(options.credentialHandle, options.sessionId, playbackStatus.playbackId);
+      if (result.result.success) {
+        setPlaybackStatus(result.playbackStatus ?? playbackStatus);
+        setNextPlaybackStep(result.nextStep ?? null);
+        setError("");
+      } else { setError(errorMessage(result.result)); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+  }, [nextPlaybackStep?.stepIndex, options.credentialHandle, options.hostApiClient, options.sessionId, playbackStatus]);
+
+  const runPlaybackAction = useCallback(async (action: (id: string, version: number) => Promise<{ result: { success: boolean; message?: string; code?: string }; playbackStatus?: HostPlaybackStatus }>): Promise<void> => {
+    if (!playbackStatus || busy || !options.credentialHandle || !options.sessionId) return;
+    setBusy(true); setError("");
+    try {
+      const result = await action(playbackStatus.playbackId, playbackStatus.version);
+      if (result.result.success) { setPlaybackStatus(result.playbackStatus ?? null); setNextPlaybackStep(null); }
+      else { setError(errorMessage(result.result)); await refresh(); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); await refresh(); }
+    finally { setBusy(false); }
+  }, [busy, options.credentialHandle, options.hostApiClient, options.sessionId, playbackStatus, refresh]);
+
+  const startPlayback = useCallback(async (mode: "Timed" | "Manual", speed: number): Promise<void> => {
+    if (!selectedRecording || !options.credentialHandle || !options.sessionId || busy) return;
+    setBusy(true); setError(""); setLastPlaybackOutcome(null); setNextPlaybackStep(null);
+    try {
+      const result = await options.hostApiClient.startSessionPlayback(options.credentialHandle, options.sessionId, selectedRecording.recordingId, selectedRecording.stateToken, mode, speed);
+      if (result.result.success) setPlaybackStatus(result.playbackStatus ?? null);
+      else setError(errorMessage(result.result));
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setBusy(false); await refresh(); }
+  }, [busy, options.credentialHandle, options.hostApiClient, options.sessionId, refresh, selectedRecording]);
+
+  const pausePlayback = useCallback(() => runPlaybackAction((id, version) => options.hostApiClient.pauseSessionPlayback(options.credentialHandle, options.sessionId, id, version)), [options.credentialHandle, options.hostApiClient, options.sessionId, runPlaybackAction]);
+  const resumePlayback = useCallback(() => runPlaybackAction((id, version) => options.hostApiClient.resumeSessionPlayback(options.credentialHandle, options.sessionId, id, version)), [options.credentialHandle, options.hostApiClient, options.sessionId, runPlaybackAction]);
+  const stopPlayback = useCallback(() => runPlaybackAction((id, version) => options.hostApiClient.stopSessionPlayback(options.credentialHandle, options.sessionId, id, version)), [options.credentialHandle, options.hostApiClient, options.sessionId, runPlaybackAction]);
+  const setPlaybackSpeed = useCallback((speed: number) => runPlaybackAction((id, version) => options.hostApiClient.setSessionPlaybackSpeed(options.credentialHandle, options.sessionId, id, version, speed)), [options.credentialHandle, options.hostApiClient, options.sessionId, runPlaybackAction]);
+  const switchPlaybackToManual = useCallback(() => runPlaybackAction((id, version) => options.hostApiClient.switchSessionPlaybackToManual(options.credentialHandle, options.sessionId, id, version)), [options.credentialHandle, options.hostApiClient, options.sessionId, runPlaybackAction]);
+
+  const advancePlayback = useCallback(async (): Promise<void> => {
+    if (!playbackStatus || !nextPlaybackStep || busy) return;
+    setBusy(true); setError("");
+    try {
+      const result = await options.hostApiClient.advanceSessionPlayback(options.credentialHandle, options.sessionId, playbackStatus.playbackId, playbackStatus.version, nextPlaybackStep.stepToken);
+      if (result.result.success) { setPlaybackStatus(result.playbackStatus ?? null); setLastPlaybackOutcome(result.stepOutcome ?? null); setNextPlaybackStep(null); }
+      else { setError(errorMessage(result.result)); await refresh(); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); await refresh(); }
+    finally { setBusy(false); }
+  }, [busy, nextPlaybackStep, options.credentialHandle, options.hostApiClient, options.sessionId, playbackStatus, refresh]);
+
+  useEffect(() => { void refreshNextPlaybackStep(); }, [refreshNextPlaybackStep]);
 
   const refreshLibrary = useCallback(async (append = false): Promise<void> => {
     if (!options.credentialHandle || !options.gameId || !capabilities?.canList) return;
@@ -214,6 +288,7 @@ export function useSessionRecordingWorkflow(options: Options): SessionRecordingW
     const epoch = requestEpoch.current;
     setCapabilities(null);
     setStatus(null);
+    setPlaybackStatus(null); setNextPlaybackStep(null); setLastPlaybackOutcome(null);
     setRecordings([]);
     recordingListContinuationRef.current = null;
     setRecordingListContinuation(null);
@@ -343,10 +418,11 @@ export function useSessionRecordingWorkflow(options: Options): SessionRecordingW
   }, [busy, options.addDiagnostic, options.credentialHandle, options.hostApiClient, options.sessionId, refresh, status]);
 
   return {
-    capabilities, status, recordings, libraryScope, setLibraryScope, selectedRecordingId,
+    capabilities, status, playbackStatus, nextPlaybackStep, lastPlaybackOutcome, recordings, libraryScope, setLibraryScope, selectedRecordingId,
     selectedRecording, hasMoreRecordings: recordingListContinuation !== null,
     busy, error, refresh, refreshLibrary,
     selectRecording, loadMoreRecordings, promoteSelected, discardSelected,
-    start, stop
+    start, stop, startPlayback, pausePlayback, resumePlayback, stopPlayback,
+    setPlaybackSpeed, switchPlaybackToManual, refreshNextPlaybackStep, advancePlayback
   };
 }

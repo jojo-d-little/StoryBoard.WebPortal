@@ -590,9 +590,45 @@ input:disabled {
 
 .devtools-recording-library {
   min-width: 0;
-  margin-top: 0.8rem;
-  border-top: 1px solid var(--theme-color-border-primary);
-  padding-top: 0.75rem;
+  margin: 0;
+  border: 1px solid var(--theme-color-border-primary);
+  border-radius: var(--theme-shape-radius-base);
+  padding: 0.75rem;
+  background: var(--theme-color-surface-muted);
+}
+
+.recording-workspace {
+  display: grid;
+  grid-template-columns: minmax(15rem, 0.8fr) minmax(0, 1.7fr);
+  align-items: start;
+  gap: 1rem;
+}
+
+.recording-session-panel {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--theme-color-border-primary);
+  border-radius: var(--theme-shape-radius-base);
+  background: var(--theme-color-surface-muted);
+}
+
+.recording-session-panel h4 {
+  margin: 0.1rem 0 0.5rem;
+}
+
+.recording-inline-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.8rem;
+  margin: 0.2rem 0 0.65rem;
+  color: var(--theme-color-secondary-text);
+  font-size: 0.9rem;
+}
+
+.recording-inline-status span + span::before {
+  content: "·";
+  margin-right: 0.8rem;
+  color: var(--theme-color-border-primary);
 }
 
 .devtools-recording-library h4 {
@@ -614,21 +650,37 @@ input:disabled {
 }
 
 .recording-library-select {
-  width: min(100%, 42rem);
+  width: 100%;
+  min-width: 0;
   margin: 0.55rem 0;
+}
+
+.recording-selection-row {
+  display: grid;
+  grid-template-columns: minmax(12rem, 0.55fr) minmax(0, 1.45fr);
+  align-items: start;
+  gap: 0.8rem;
+}
+
+.recording-selection-control {
+  min-width: 0;
 }
 
 .recording-details {
   min-width: 0;
-  margin-top: 0.7rem;
-  border: 1px solid var(--theme-color-border-primary);
-  border-radius: var(--theme-shape-radius-base);
-  padding: 0.65rem;
-  background: var(--theme-color-surface-muted);
+  margin: 0.55rem 0 0;
+  padding: 0;
 }
 
 .recording-details h4 {
   margin-top: 0;
+}
+
+.recording-details-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.9rem;
 }
 
 .recording-details-summary {
@@ -636,7 +688,7 @@ input:disabled {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 0.35rem 0.75rem;
-  margin: 0 0 0.6rem;
+  margin: 0;
   color: var(--theme-color-primary-text);
   font-weight: 600;
 }
@@ -676,6 +728,87 @@ input:disabled {
   font-weight: 600;
 }
 
+.recording-details-heading .recording-metadata {
+  position: relative;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.recording-details-heading .recording-metadata summary {
+  white-space: nowrap;
+}
+
+.recording-playback {
+  min-width: 0;
+  margin-top: 0.8rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--theme-color-border-primary);
+}
+
+.recording-playback .recording-actions h4 {
+  margin: 0 0.35rem 0 0;
+  white-space: nowrap;
+}
+
+.recording-playback-actions {
+  align-items: end;
+}
+
+.recording-playback > p,
+.recording-step-preview > p {
+  overflow-wrap: anywhere;
+}
+
+.recording-playback label {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 8rem;
+}
+
+.recording-playback .recording-actions label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.recording-playback input[type="number"] {
+  width: 8rem;
+}
+
+.playback-status-details {
+  margin-left: auto;
+  align-self: center;
+  flex: 0 0 auto;
+}
+
+.playback-status-details summary {
+  cursor: pointer;
+  color: var(--theme-color-chrome-primary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.recording-step-preview {
+  min-width: 0;
+  margin-top: 0.65rem;
+  padding: 0.65rem;
+  border-radius: var(--theme-shape-radius-base);
+  background: var(--theme-color-panel-background);
+}
+
+.recording-step-preview h5 {
+  margin: 0 0 0.45rem;
+}
+
+.recording-step-preview code,
+.recording-step-preview pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 840px) {
   .devtools-layout {
     grid-template-columns: minmax(0, 1fr);
@@ -690,6 +823,16 @@ input:disabled {
 
   .devtools-section {
     max-height: min(62vh, 42rem);
+  }
+}
+
+@media (max-width: 900px) {
+  .recording-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .recording-selection-row {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
