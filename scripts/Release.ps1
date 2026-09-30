@@ -14,7 +14,11 @@ Set-Location $root
 function Invoke-Step([string]$Name, [scriptblock]$Action) {
     Write-Host "`n==> $Name" -ForegroundColor Cyan
     & $Action
-    if (-not $?) { throw "Step failed: $Name" }
+    $stepSucceeded = $?
+    $stepExitCode = $LASTEXITCODE
+    if (-not $stepSucceeded -or $stepExitCode -ne 0) {
+        throw "Step failed: $Name (exit code $stepExitCode)"
+    }
 }
 
 if ((git branch --show-current) -ne 'main') { throw 'Release must start from main.' }

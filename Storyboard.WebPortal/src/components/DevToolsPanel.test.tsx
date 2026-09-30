@@ -31,6 +31,7 @@ describe("DevToolsPanel lighting control", () => {
       heartbeatEveryNPolls: 10,
       presentationIsolationSettings: DEFAULT_PRESENTATION_ISOLATION_SETTINGS,
       presentationIsolationCategoryOptions: [],
+      sessionRecording: { playbackStatus: null },
       onLightingEnabledChange
     } as unknown as ComponentProps<typeof DevToolsPanel>;
 
