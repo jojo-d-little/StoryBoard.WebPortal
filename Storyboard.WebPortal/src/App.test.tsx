@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import type { OrchestrationContracts } from "./orchestration/types";
 
-const { contracts, authenticateMock, currentPrincipalMock, discoverGamesMock, getGameDetailsMock, getAssetPreviewDataUrlMock, startSessionMock, listSessionsMock, joinSessionMock, leaveSessionMock } = vi.hoisted(() => ({
+const { contracts, authenticateMock, currentPrincipalMock, discoverGamesMock, getGameDetailsMock, getAssetPreviewDataUrlMock, getRecordPlaybackCapabilitiesMock, startSessionMock, listSessionsMock, joinSessionMock, leaveSessionMock } = vi.hoisted(() => ({
   contracts: {
   featureMap: {
     initialExperienceState: "Bootstrapping",
@@ -207,6 +207,7 @@ const { contracts, authenticateMock, currentPrincipalMock, discoverGamesMock, ge
   discoverGamesMock: vi.fn(),
   getGameDetailsMock: vi.fn(),
   getAssetPreviewDataUrlMock: vi.fn(),
+  getRecordPlaybackCapabilitiesMock: vi.fn(),
   startSessionMock: vi.fn(),
   listSessionsMock: vi.fn(),
   joinSessionMock: vi.fn(),
@@ -227,6 +228,7 @@ vi.mock("./hostApi/client", () => {
       discoverGames = discoverGamesMock;
       getGameDetails = getGameDetailsMock;
       getAssetPreviewDataUrl = getAssetPreviewDataUrlMock;
+      getRecordPlaybackCapabilities = getRecordPlaybackCapabilitiesMock;
       startSession = startSessionMock;
       listSessions = listSessionsMock;
       joinSession = joinSessionMock;
@@ -254,6 +256,7 @@ beforeEach(() => {
   discoverGamesMock.mockReset();
   getGameDetailsMock.mockReset();
   getAssetPreviewDataUrlMock.mockReset();
+  getRecordPlaybackCapabilitiesMock.mockReset();
   startSessionMock.mockReset();
   listSessionsMock.mockReset();
   joinSessionMock.mockReset();
@@ -297,6 +300,23 @@ beforeEach(() => {
     }
   });
   getAssetPreviewDataUrlMock.mockResolvedValue(null);
+  getRecordPlaybackCapabilitiesMock.mockResolvedValue({
+    result: { success: true, code: "Recording.Capabilities.Success", diagnosticsMessages: [] },
+    capabilities: {
+      available: false,
+      canRecord: false,
+      canList: false,
+      canPromote: false,
+      canDiscardScratch: false,
+      canPlayTimed: false,
+      canPlayManual: false,
+      canContinue: false,
+      supportedArtifactVersions: [],
+      maxPageSize: 0,
+      minSpeedMultiplier: 0,
+      maxSpeedMultiplier: 0
+    }
+  });
   startSessionMock.mockResolvedValue({
     result: { success: true, code: "Session.Start.Success", diagnosticsMessages: [] },
     created: true,
