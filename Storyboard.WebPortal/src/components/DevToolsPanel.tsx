@@ -591,7 +591,7 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                                 ) : null}
                               </>
                             )}
-                            {props.sessionRecording.lastPlaybackOutcome ? <p role="status">Command {props.sessionRecording.lastPlaybackOutcome.stepIndex + 1}: {props.sessionRecording.lastPlaybackOutcome.success ? "succeeded" : "failed"} ({props.sessionRecording.lastPlaybackOutcome.resultCode}){props.sessionRecording.lastPlaybackOutcome.diagnostics.length ? ` — ${props.sessionRecording.lastPlaybackOutcome.diagnostics.join("; ")}` : ""}</p> : null}
+                            {props.sessionRecording.lastPlaybackOutcome ? <p role="status">Playback step {props.sessionRecording.lastPlaybackOutcome.stepIndex + 1} processed. Command outcome: {props.sessionRecording.lastPlaybackOutcome.success ? "successful" : "unsuccessful"} ({props.sessionRecording.lastPlaybackOutcome.resultCode}). Playback: {props.sessionRecording.playbackStatus?.state ?? "status unavailable"}.{props.sessionRecording.lastPlaybackOutcome.diagnostics.length ? ` ${props.sessionRecording.lastPlaybackOutcome.diagnostics.join("; ")}` : ""}</p> : null}
                             </>}
                           </section>
                       ) : null}

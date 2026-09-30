@@ -19,6 +19,7 @@ interface UseSessionDeltaPollingOptions {
   isPaused?: () => boolean;
   allowInTest?: boolean;
   onSessionData?: (sessionData: HostSessionDataEnvelope) => void;
+  onGameplayChange?: () => void;
   onResyncBaseline?: (baseline: HostRuntimePresentationResult) => void | Promise<void>;
   addDiagnostic: (level: DiagnosticsLevel, category: string, message: string, details?: unknown) => void;
 }
@@ -155,6 +156,7 @@ export function useSessionDeltaPolling(options: UseSessionDeltaPollingOptions): 
     pauseStartedAtMs: 0
   });
   const onSessionDataRef = useRef(options.onSessionData);
+  const onGameplayChangeRef = useRef(options.onGameplayChange);
   const onResyncBaselineRef = useRef(options.onResyncBaseline);
   const addDiagnosticRef = useRef(options.addDiagnostic);
   const isPausedRef = useRef(options.isPaused);
@@ -162,6 +164,10 @@ export function useSessionDeltaPolling(options: UseSessionDeltaPollingOptions): 
   useEffect(() => {
     onSessionDataRef.current = options.onSessionData;
   }, [options.onSessionData]);
+
+  useEffect(() => {
+    onGameplayChangeRef.current = options.onGameplayChange;
+  }, [options.onGameplayChange]);
 
   useEffect(() => {
     onResyncBaselineRef.current = options.onResyncBaseline;
@@ -298,6 +304,9 @@ export function useSessionDeltaPolling(options: UseSessionDeltaPollingOptions): 
         if (analysis.hasData) {
           runtimeState.noopCount = 0;
           runtimeState.failureCount = 0;
+          if (analysis.hasHighSignalData || analysis.counts.outputLines > 0) {
+            onGameplayChangeRef.current?.();
+          }
 
           addDiagnosticRef.current("info", "session-delta", "Session delta poll returned data.", {
             fromWatermark: fromWatermark || "(none)",

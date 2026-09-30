@@ -27,6 +27,7 @@ export interface SessionRecordingWorkflow {
   busy: boolean;
   error: string;
   refresh: () => Promise<void>;
+  refreshOnGameplayChange: () => void;
   refreshCapabilities: () => Promise<void>;
   refreshLibrary: (append?: boolean) => Promise<void>;
   selectRecording: (recordingId: string) => Promise<void>;
@@ -73,33 +74,54 @@ export function useSessionRecordingWorkflow(options: Options): SessionRecordingW
   const [error, setError] = useState("");
   const requestEpoch = useRef(0);
   const recordingListContinuationRef = useRef<string | null>(null);
+  const statusRefreshInFlightRef = useRef<Promise<void> | null>(null);
+  const statusRefreshPendingRef = useRef(false);
+  const refreshStatusRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   const refresh = useCallback(async (): Promise<void> => {
     if (!options.credentialHandle || !options.sessionId) return;
+    if (statusRefreshInFlightRef.current) {
+      statusRefreshPendingRef.current = true;
+      return statusRefreshInFlightRef.current;
+    }
     const epoch = requestEpoch.current;
-    try {
-      const result = await options.hostApiClient.getRecordPlaybackStatus(options.credentialHandle, options.sessionId);
-      if (epoch !== requestEpoch.current) return;
-      if (result.result.success) {
-        setStatus(result.recordingStatus ?? null);
-        setPlaybackStatus(result.playbackStatus ?? null);
-      } else {
-        const message = errorMessage(result.result);
+    const request = (async (): Promise<void> => {
+      try {
+        const result = await options.hostApiClient.getRecordPlaybackStatus(options.credentialHandle, options.sessionId);
+        if (epoch !== requestEpoch.current) return;
+        if (result.result.success) {
+          setStatus(result.recordingStatus ?? null);
+          setPlaybackStatus(result.playbackStatus ?? null);
+        } else {
+          const message = errorMessage(result.result);
+          setError(message);
+          options.addDiagnostic("warn", "recording", "Recording status request was rejected.", {
+            event: "recording-status-failed", code: result.result.code, sessionId: options.sessionId,
+            correlationId: result.result.correlationId, message
+          });
+        }
+      } catch (cause) {
+        if (epoch !== requestEpoch.current) return;
+        const message = cause instanceof Error ? cause.message : String(cause);
         setError(message);
-        options.addDiagnostic("warn", "recording", "Recording status request was rejected.", {
-          event: "recording-status-failed", code: result.result.code, sessionId: options.sessionId,
-          correlationId: result.result.correlationId, message
+        options.addDiagnostic("error", "recording", "Recording status request failed in transport.", {
+          event: "recording-status-transport-failed", sessionId: options.sessionId, message
         });
       }
-    } catch (cause) {
-      if (epoch !== requestEpoch.current) return;
-      const message = cause instanceof Error ? cause.message : String(cause);
-      setError(message);
-      options.addDiagnostic("error", "recording", "Recording status request failed in transport.", {
-        event: "recording-status-transport-failed", sessionId: options.sessionId, message
-      });
+    })();
+    statusRefreshInFlightRef.current = request;
+    try { await request; }
+    finally {
+      if (statusRefreshInFlightRef.current === request) {
+        statusRefreshInFlightRef.current = null;
+        if (statusRefreshPendingRef.current) {
+          statusRefreshPendingRef.current = false;
+          void refreshStatusRef.current();
+        }
+      }
     }
   }, [options.addDiagnostic, options.credentialHandle, options.hostApiClient, options.sessionId]);
+  refreshStatusRef.current = refresh;
 
   const refreshCapabilities = useCallback(async (): Promise<void> => {
     if (!options.credentialHandle || !options.gameId) return;
@@ -389,12 +411,25 @@ export function useSessionRecordingWorkflow(options: Options): SessionRecordingW
   useEffect(() => {
     if (!options.credentialHandle || !options.sessionId) {
       setStatus(null);
+      setPlaybackStatus(null);
       return;
     }
     void refresh();
-    const timer = window.setInterval(() => void refresh(), 2500);
-    return () => window.clearInterval(timer);
   }, [options.credentialHandle, options.sessionId, refresh]);
+
+  const playbackStatusIsActive = playbackStatus?.state === "Running"
+    || playbackStatus?.state === "Paused"
+    || (playbackStatus?.mode === "Manual" && playbackStatus.state === "Ready");
+
+  const refreshOnGameplayChange = useCallback((): void => {
+    if (playbackStatusIsActive) void refresh();
+  }, [playbackStatusIsActive, refresh]);
+
+  useEffect(() => {
+    if (!playbackStatusIsActive) return;
+    const timer = window.setInterval(() => void refresh(), 30000);
+    return () => window.clearInterval(timer);
+  }, [playbackStatusIsActive, refresh]);
 
   useEffect(() => {
     if (!capabilities?.canList) {
@@ -483,7 +518,7 @@ export function useSessionRecordingWorkflow(options: Options): SessionRecordingW
   return {
     capabilities, status, playbackStatus, nextPlaybackStep, lastPlaybackOutcome, recordings, libraryScope, setLibraryScope, selectedRecordingId,
     selectedRecording, hasMoreRecordings: recordingListContinuation !== null,
-    busy, error, refresh, refreshCapabilities, refreshLibrary,
+    busy, error, refresh, refreshOnGameplayChange, refreshCapabilities, refreshLibrary,
     selectRecording, loadMoreRecordings, promoteSelected, discardSelected,
     start, stop, startPlayback, pausePlayback, resumePlayback, stopPlayback,
     setPlaybackSpeed, switchPlaybackToManual, refreshNextPlaybackStep, advancePlayback,

@@ -78,6 +78,7 @@ interface UseHostRendererSessionWorkflowOptions {
   pollIntervalMs: number;
   heartbeatEveryNPolls: number;
   sessionDeltaResetEpoch: number;
+  onGameplayChange?: () => void;
   consumeSessionDeltaPhasePresentation: (sessionData: HostSessionDataEnvelope) => void;
   consumeSessionDeltaEcho: (sessionData: HostSessionDataEnvelope) => void;
   consumeSessionDeltaSoundCues: (sessionData: HostSessionDataEnvelope) => void;
@@ -888,6 +889,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     enabled: baselineSyncReady,
     isPaused: () => pollingPausedForRoomTransitionRef.current,
     onSessionData: handleSessionDataUpdate,
+    onGameplayChange: options.onGameplayChange,
     onResyncBaseline: async (baseline) => {
       await applySessionBaseline(baseline, "resync");
     },

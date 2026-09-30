@@ -694,6 +694,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     pollIntervalMs: options.pollIntervalMs,
     heartbeatEveryNPolls: options.heartbeatEveryNPolls,
     sessionDeltaResetEpoch,
+    onGameplayChange: sessionRecording.refreshOnGameplayChange,
     consumeSessionDeltaPhasePresentation,
     consumeSessionDeltaEcho,
     consumeSessionDeltaSoundCues,
