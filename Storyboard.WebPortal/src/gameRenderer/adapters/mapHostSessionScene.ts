@@ -145,10 +145,52 @@ function mapHostObject(
   };
 }
 
+function mapActivePresentationCues(roomObject: HostCommandRenderableRoomObject): GameRenderSceneObject["presentationCues"] {
+  const cuesByEffectKey = new Map<string, GameRenderSceneObject["presentationCues"][number]>();
+  for (const cue of roomObject.activePresentationCues ?? []) {
+    const effectKey = cue.effectKey.trim();
+    const activationId = cue.activationId.trim();
+    if (!effectKey || !activationId) {
+      continue;
+    }
+
+    const normalizedEffectKey = effectKey.toLocaleLowerCase();
+    if (!cuesByEffectKey.has(normalizedEffectKey)) {
+      cuesByEffectKey.set(normalizedEffectKey, {
+        category: "",
+        effectKey,
+        activationId
+      });
+    }
+  }
+
+  return [...cuesByEffectKey.values()];
+}
+
+function mergeObjectPresentationCues(
+  activeCues: GameRenderSceneObject["presentationCues"],
+  changeCues: GameRenderSceneObject["presentationCues"]
+): GameRenderSceneObject["presentationCues"] {
+  const cuesByEffectKey = new Map<string, GameRenderSceneObject["presentationCues"][number]>();
+  for (const cue of activeCues) {
+    cuesByEffectKey.set(cue.effectKey.trim().toLocaleLowerCase(), cue);
+  }
+
+  for (const cue of changeCues) {
+    const key = cue.effectKey.trim().toLocaleLowerCase();
+    const activeCue = cuesByEffectKey.get(key);
+    cuesByEffectKey.set(key, activeCue
+      ? { ...activeCue, ...cue, ...(activeCue.activationId ? { activationId: activeCue.activationId } : {}) }
+      : cue);
+  }
+
+  return [...cuesByEffectKey.values()];
+}
+
 function mapRoomObjectsFromNewRoom(source: HostPresentationSceneSource): Record<string, GameRenderSceneObject> {
   const roomObjects = source.roomChange?.newRoom?.renderableRoomObjects ?? [];
   return Object.fromEntries(roomObjects.map((roomObject) => {
-    const mapped = mapHostObject(roomObject);
+    const mapped = mapHostObject(roomObject, mapActivePresentationCues(roomObject));
     return [mapped.objectId, mapped];
   }));
 }
@@ -174,7 +216,12 @@ function applyObjectChanges(
       movementFrames: cue.movementFrames
     }));
     const mapped = renderableRoomObject
-      ? mapHostObject(renderableRoomObject, presentationCues)
+      ? mapHostObject(
+          renderableRoomObject,
+          renderableRoomObject.activePresentationCues === undefined
+            ? presentationCues
+            : mergeObjectPresentationCues(mapActivePresentationCues(renderableRoomObject), presentationCues)
+        )
       : {
           objectId: change.objectId,
           objectName: change.objectName,

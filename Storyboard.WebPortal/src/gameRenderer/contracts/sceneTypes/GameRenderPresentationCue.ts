@@ -4,6 +4,7 @@ export interface GameRenderPresentationCue {
   cueType?: string;
   category: string;
   effectKey: string;
+  activationId?: string;
   moveDirection?: GameRenderTravelDirection;
   movementDurationMs?: number;
   movementFrames?: number;

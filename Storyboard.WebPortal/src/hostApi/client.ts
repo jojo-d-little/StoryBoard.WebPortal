@@ -1313,6 +1313,7 @@ export class HostApiClient {
     const pointLight = this.readNullableRecord(source, ["pointLight", "PointLight"]);
     const spatialFootprint = this.readNullableRecord(source, ["spatialFootprint", "SpatialFootprint"]);
     const lightOcclusion = this.readNullableRecord(source, ["lightOcclusion", "LightOcclusion"]);
+    const activePresentationCues = source.activePresentationCues ?? source.ActivePresentationCues;
     return {
       objectId: this.readString(source, ["objectId", "ObjectId"]),
       name: this.readString(source, ["name", "Name"]),
@@ -1320,7 +1321,16 @@ export class HostApiClient {
       renderZOrder: this.readNumber(source, ["renderZOrder", "RenderZOrder"]),
       pointLight: pointLight === null ? null : pointLight ? this.readPointLight(pointLight) : undefined,
       spatialFootprint: spatialFootprint === null ? null : spatialFootprint ? this.readSpatialFootprint(spatialFootprint) : undefined,
-      lightOcclusion: lightOcclusion === null ? null : lightOcclusion ? this.readLightOcclusion(lightOcclusion) : undefined
+      lightOcclusion: lightOcclusion === null ? null : lightOcclusion ? this.readLightOcclusion(lightOcclusion) : undefined,
+      activePresentationCues: Array.isArray(activePresentationCues)
+        ? activePresentationCues.map((entry) => {
+            const cue = this.asRecord(entry);
+            return {
+              effectKey: this.readString(cue, ["effectKey", "EffectKey"]),
+              activationId: this.readString(cue, ["activationId", "ActivationId"])
+            };
+          })
+        : undefined
     };
   }
 

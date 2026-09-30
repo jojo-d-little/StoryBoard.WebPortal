@@ -549,7 +549,8 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                               </div>
                             ) : (
                               <>
-                                <div className="recording-actions">
+                                <div className="recording-playback-active">
+                                <div className="recording-actions recording-playback-controls">
                                   <h4>Playback</h4>
                                   {props.sessionRecording.playbackStatus.mode === "Timed" && props.sessionRecording.playbackStatus.state === "Running" ? <button type="button" onClick={() => void props.sessionRecording.pausePlayback()} disabled={props.sessionRecording.busy}>Pause</button> : null}
                                   {props.sessionRecording.playbackStatus.mode === "Timed" && props.sessionRecording.playbackStatus.state === "Paused" ? <button type="button" onClick={() => void props.sessionRecording.resumePlayback()} disabled={props.sessionRecording.busy}>Resume</button> : null}
@@ -567,6 +568,8 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                                   </> : null}
                                   {props.sessionRecording.capabilities?.canContinue && !((props.sessionRecording.playbackStatus.mode === "Manual" && props.sessionRecording.playbackStatus.state === "Ready") || props.sessionRecording.playbackStatus.state === "Completed") ? <span className="recording-capability-note">Continuation is available at a Ready manual cursor or after playback completes.</span> : null}
                                   {props.sessionRecording.capabilities?.canContinue && props.sessionRecording.playbackStatus.recordingId !== props.sessionRecording.selectedRecording.recordingId ? <span className="recording-capability-note">Select the recording used by this playback to continue it.</span> : null}
+                                </div>
+                                <div className="recording-playback-info">
                                   <details className="playback-status-details">
                                     <summary>Playback status</summary>
                                     <ul className="devtools-status-list" aria-label="Playback status">
@@ -577,21 +580,33 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                                       {props.sessionRecording.playbackStatus.startAdvisoryCodes.map((code) => <li key={code}>Advisory: {code}</li>)}
                                     </ul>
                                   </details>
+                                  {props.sessionRecording.lastPlaybackOutcome || (props.sessionRecording.playbackStatus?.mode === "Manual" && props.sessionRecording.nextPlaybackStep && (props.sessionRecording.nextPlaybackStep.recordedDelayMs > 0 || props.sessionRecording.nextPlaybackStep.clarificationAnswers.length > 0)) ? (
+                                    <details
+                                      className="playback-step-details"
+                                      key={`${props.sessionRecording.nextPlaybackStep?.stepIndex ?? "loading"}-${props.sessionRecording.lastPlaybackOutcome?.stepIndex ?? "none"}`}
+                                    >
+                                      <summary>Step details</summary>
+                                      {props.sessionRecording.nextPlaybackStep?.recordedDelayMs ? <p>Recorded delay: {props.sessionRecording.nextPlaybackStep.recordedDelayMs} ms</p> : null}
+                                      {props.sessionRecording.nextPlaybackStep?.clarificationAnswers.length ? <>
+                                        <h5>Clarification answers</h5>
+                                        <pre>{JSON.stringify(props.sessionRecording.nextPlaybackStep.clarificationAnswers, null, 2)}</pre>
+                                      </> : null}
+                                      {props.sessionRecording.lastPlaybackOutcome ? <p role="status">Playback step {props.sessionRecording.lastPlaybackOutcome.stepIndex + 1} processed. Command outcome: {props.sessionRecording.lastPlaybackOutcome.success ? "successful" : "unsuccessful"} ({props.sessionRecording.lastPlaybackOutcome.resultCode}). Playback: {props.sessionRecording.playbackStatus?.state ?? "status unavailable"}.{props.sessionRecording.lastPlaybackOutcome.diagnostics.length ? ` ${props.sessionRecording.lastPlaybackOutcome.diagnostics.join("; ")}` : ""}</p> : null}
+                                    </details>
+                                  ) : null}
                                 </div>
                                 {props.sessionRecording.playbackStatus.mode === "Manual" && props.sessionRecording.playbackStatus.state === "Ready" ? (
                                   <div className="recording-step-preview">
                                     <h5>Next command</h5>
                                     {props.sessionRecording.nextPlaybackStep ? <>
                                       <p>Command {props.sessionRecording.nextPlaybackStep.stepIndex + 1}: <code>{props.sessionRecording.nextPlaybackStep.rawCommandText}</code></p>
-                                      {props.sessionRecording.nextPlaybackStep.recordedDelayMs > 0 ? <p>Recorded delay: {props.sessionRecording.nextPlaybackStep.recordedDelayMs} ms</p> : null}
-                                      {props.sessionRecording.nextPlaybackStep.clarificationAnswers.length > 0 ? <details><summary>Clarification answers</summary><pre>{JSON.stringify(props.sessionRecording.nextPlaybackStep.clarificationAnswers, null, 2)}</pre></details> : null}
                                       <button type="button" onClick={() => void props.sessionRecording.advancePlayback()} disabled={props.sessionRecording.busy}>Advance One Command</button>
                                     </> : <p>Loading next command…</p>}
                                   </div>
                                 ) : null}
+                                </div>
                               </>
                             )}
-                            {props.sessionRecording.lastPlaybackOutcome ? <p role="status">Playback step {props.sessionRecording.lastPlaybackOutcome.stepIndex + 1} processed. Command outcome: {props.sessionRecording.lastPlaybackOutcome.success ? "successful" : "unsuccessful"} ({props.sessionRecording.lastPlaybackOutcome.resultCode}). Playback: {props.sessionRecording.playbackStatus?.state ?? "status unavailable"}.{props.sessionRecording.lastPlaybackOutcome.diagnostics.length ? ` ${props.sessionRecording.lastPlaybackOutcome.diagnostics.join("; ")}` : ""}</p> : null}
                             </>}
                           </section>
                       ) : null}

@@ -92,6 +92,71 @@ function buildSessionData(overrides: Partial<HostSessionDataEnvelope> = {}): Hos
 }
 
 describe("mapHostSessionDataToSceneSnapshot", () => {
+  it("maps authoritative active cues from baselines and reconciles delta selection and movement cues", () => {
+    const baseline = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      roomChange: {
+        ...buildSessionData().roomChange!,
+        newRoom: {
+          ...buildSessionData().roomChange!.newRoom!,
+          renderableRoomObjects: [{
+            ...buildSessionData().roomChange!.newRoom!.renderableRoomObjects[0],
+            activePresentationCues: [
+              { effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" },
+              { effectKey: "appearance.selection.outline.amber", activationId: "activation-2" }
+            ]
+          }]
+        }
+      }
+    }));
+
+    const baselineObject = renderedRoomObjects(baseline).find((entry) => entry.objectId === "obj-1");
+    expect(baselineObject?.presentationCues).toEqual([
+      { category: "", effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" },
+      { category: "", effectKey: "appearance.selection.outline.amber", activationId: "activation-2" }
+    ]);
+
+    const moved = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      hasRoomChange: false,
+      roomChange: undefined,
+      roomObjectChanges: [{
+        changeKind: "Updated",
+        objectId: "obj-1",
+        objectName: "Lantern",
+        renderableRoomObject: {
+          ...buildSessionData().roomChange!.newRoom!.renderableRoomObjects[0],
+          renderableImage: { ...buildSessionData().roomChange!.newRoom!.renderableRoomObjects[0].renderableImage, x: 140 },
+          activePresentationCues: [{ effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" }]
+        },
+        presentationCues: [
+          { category: "Appearance", effectKey: "appearance.selection.outline.cyan" },
+          { category: "Movement", effectKey: "movement.walk", movementDurationMs: 640, movementFrames: 16 }
+        ]
+      }]
+    }), baseline);
+
+    const movedObject = renderedRoomObjects(moved).find((entry) => entry.objectId === "obj-1");
+    expect(movedObject?.presentationCues).toHaveLength(2);
+    expect(movedObject?.presentationCues.find((cue) => cue.effectKey === "appearance.selection.outline.cyan")?.activationId).toBe("activation-1");
+    expect(movedObject?.movementDurationMs).toBe(640);
+    expect(movedObject?.movementFrames).toBe(16);
+
+    const cleared = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      hasRoomChange: false,
+      roomChange: undefined,
+      roomObjectChanges: [{
+        changeKind: "Updated",
+        objectId: "obj-1",
+        objectName: "Lantern",
+        renderableRoomObject: {
+          ...buildSessionData().roomChange!.newRoom!.renderableRoomObjects[0],
+          activePresentationCues: []
+        },
+        presentationCues: []
+      }]
+    }), moved);
+    expect(renderedRoomObjects(cleared).find((entry) => entry.objectId === "obj-1")?.presentationCues).toEqual([]);
+  });
+
   it("preserves the Host before endpoint as transient lighting movement input", () => {
     const baseline = mapHostSessionDataToSceneSnapshot(buildSessionData());
     const updated = mapHostSessionDataToSceneSnapshot(buildSessionData({

@@ -294,13 +294,27 @@ export function useRoomTransitionCueWorkflow(
         ?? options.roomTransitionDefaults.fallbackDurationMs
       : undefined;
 
-    const resolvedScene = mapRenderableRoomObjects(scene, (roomObject) => ({
+    const resolvedScene = mapRenderableRoomObjects(scene, (roomObject) => {
+      const presentationCues = roomObject.presentationCues.map((cue) => {
+        if (!cue.activationId || cue.category.trim()) {
+          return cue;
+        }
+
+        const effect = catalog?.effects?.find((candidate) => {
+          return stringEqualsIgnoreCase(candidate.effectKey ?? "", cue.effectKey);
+        });
+        return effect?.category ? { ...cue, category: effect.category } : cue;
+      });
+
+      return {
         ...roomObject,
+        presentationCues,
         movementDurationMs: roomObject.movementDurationMs
-          ?? resolveMovementCueDurationMs(roomObject.presentationCues, catalog),
-        appearanceOutlineStyle: resolveAppearanceOutlineStyle(roomObject.presentationCues, catalog),
-        appearanceSilhouetteStyle: resolveAppearanceSilhouetteStyle(roomObject.presentationCues, catalog)
-      }));
+          ?? resolveMovementCueDurationMs(presentationCues, catalog),
+        appearanceOutlineStyle: resolveAppearanceOutlineStyle(presentationCues, catalog),
+        appearanceSilhouetteStyle: resolveAppearanceSilhouetteStyle(presentationCues, catalog)
+      };
+    });
 
     return {
       ...resolvedScene,
