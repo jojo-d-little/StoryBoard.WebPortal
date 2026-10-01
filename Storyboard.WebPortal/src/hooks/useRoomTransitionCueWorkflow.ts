@@ -5,6 +5,7 @@ import { mapRenderableRoomObjects } from "../gameRenderer/scene/sceneObjects";
 import {
   resolveAppearanceOutlineStyle,
   resolveAppearanceSilhouetteStyle,
+  resolveObjectCueVisualStyles,
   resolveCatalogCueDurationMs,
   resolveCatalogRoomTransitionMode,
   resolveMovementCueDurationMs,
@@ -308,10 +309,11 @@ export function useRoomTransitionCueWorkflow(
         });
         return effect?.category ? { ...cue, category: effect.category } : cue;
       });
+      const resolvedPresentationCues = resolveObjectCueVisualStyles(presentationCues, catalog);
 
       return {
         ...roomObject,
-        presentationCues,
+        presentationCues: resolvedPresentationCues,
         movementDurationMs: roomObject.movementDurationMs
           ?? resolveMovementCueDurationMs(presentationCues, catalog),
         appearanceOutlineStyle: resolveAppearanceOutlineStyle(presentationCues, catalog),

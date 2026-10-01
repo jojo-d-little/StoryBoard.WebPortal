@@ -81,13 +81,37 @@ interface MovementTween {
   toZOrder: number;
 }
 
+interface ShakeCueRuntimeState {
+  effectKey: string;
+  activationId?: string;
+  startedAtMs: number;
+  horizontalDisplacementPx: number;
+  verticalDisplacementPx: number;
+  speedHz: number;
+}
+
+interface ScaleCueRuntimeState {
+  effectKey: string;
+  activationId?: string;
+  startedAtMs: number;
+  fromMultiplier: number;
+  targetScaleMultiplier: number;
+  transitionDurationMs: number;
+}
+
 interface RoomObjectSpriteState {
   root: Container;
+  shakeOffsetContainer: Container;
+  cueScaleContainer: Container;
   baseScaleContainer: Container;
   situationalScaleContainer: Container | null;
   sprite: Sprite;
   effectTransformHost: Container;
   assetPath: string;
+  scaleCenterX: number;
+  scaleCenterY: number;
+  shakeCuesByActivationKey: Map<string, ShakeCueRuntimeState>;
+  scaleCuesByActivationKey: Map<string, ScaleCueRuntimeState>;
 }
 
 interface RoomSurfaceState {
@@ -206,7 +230,12 @@ function arePresentationCuesEquivalent(
       && cue.activationId === other.activationId
       && cue.moveDirection === other.moveDirection
       && cue.movementDurationMs === other.movementDurationMs
-      && cue.movementFrames === other.movementFrames;
+      && cue.movementFrames === other.movementFrames
+      && cue.shakeStyle?.horizontalDisplacementPx === other.shakeStyle?.horizontalDisplacementPx
+      && cue.shakeStyle?.verticalDisplacementPx === other.shakeStyle?.verticalDisplacementPx
+      && cue.shakeStyle?.speedHz === other.shakeStyle?.speedHz
+      && cue.scaleStyle?.targetScaleMultiplier === other.scaleStyle?.targetScaleMultiplier
+      && cue.scaleStyle?.transitionDurationMs === other.scaleStyle?.transitionDurationMs;
   });
 }
 
@@ -356,6 +385,10 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     const textureHeight = Math.max(1, state.sprite.texture.height);
 
     state.baseScaleContainer.scale.set(clampedBaseScale);
+    const pivotX = state.scaleCenterX * clampedBaseScale;
+    const pivotY = state.scaleCenterY * clampedBaseScale;
+    state.cueScaleContainer.pivot.set(pivotX, pivotY);
+    state.cueScaleContainer.position.set(pivotX, pivotY);
 
     if (situationalScale === 1) {
       if (state.situationalScaleContainer) {
@@ -398,6 +431,103 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     wrapper.position.set(textureWidth * 0.5, textureHeight * 0.5);
     wrapper.scale.set(situationalScale);
     state.effectTransformHost = wrapper;
+  }
+
+  function getCueActivationKey(activationId: string | undefined, effectKey: string): string {
+    return activationId?.trim() ? `activation:${activationId.trim()}` : `effect:${effectKey.trim().toLowerCase()}`;
+  }
+
+  function reconcileObjectCueTransforms(
+    state: RoomObjectSpriteState,
+    cues: GameRenderRoomObject["presentationCues"],
+    isBaseline: boolean,
+    previouslyActiveCues: GameRenderRoomObject["presentationCues"]
+  ): void {
+    const nowMs = performance.now();
+    const shakeCues = cues.filter((cue) => cue.shakeStyle && cue.effectKey.trim());
+    const scaleCues = cues.filter((cue) => cue.scaleStyle && cue.effectKey.trim());
+    const activeShakeKeys = new Set(shakeCues.map((cue) => getCueActivationKey(cue.activationId, cue.effectKey)));
+    const activeScaleKeys = new Set(scaleCues.map((cue) => getCueActivationKey(cue.activationId, cue.effectKey)));
+    const previouslyActiveCueKeys = new Set(previouslyActiveCues.map((cue) => getCueActivationKey(cue.activationId, cue.effectKey)));
+
+    for (const key of state.shakeCuesByActivationKey.keys()) {
+      if (!activeShakeKeys.has(key)) state.shakeCuesByActivationKey.delete(key);
+    }
+    for (const key of state.scaleCuesByActivationKey.keys()) {
+      if (!activeScaleKeys.has(key)) state.scaleCuesByActivationKey.delete(key);
+    }
+
+    for (const cue of shakeCues) {
+      const style = cue.shakeStyle;
+      if (!style) continue;
+      const key = getCueActivationKey(cue.activationId, cue.effectKey);
+      const existing = state.shakeCuesByActivationKey.get(key);
+      state.shakeCuesByActivationKey.set(key, {
+        effectKey: cue.effectKey,
+        activationId: cue.activationId,
+        startedAtMs: existing?.startedAtMs ?? nowMs,
+        horizontalDisplacementPx: style.horizontalDisplacementPx,
+        verticalDisplacementPx: style.verticalDisplacementPx,
+        speedHz: style.speedHz
+      });
+    }
+
+    for (const cue of scaleCues) {
+      const style = cue.scaleStyle;
+      if (!style) continue;
+      const key = getCueActivationKey(cue.activationId, cue.effectKey);
+      const existing = state.scaleCuesByActivationKey.get(key);
+      state.scaleCuesByActivationKey.set(key, {
+        effectKey: cue.effectKey,
+        activationId: cue.activationId,
+        startedAtMs: existing?.startedAtMs ?? (isBaseline || previouslyActiveCueKeys.has(key) ? nowMs - style.transitionDurationMs : nowMs),
+        fromMultiplier: existing?.fromMultiplier ?? 1,
+        targetScaleMultiplier: style.targetScaleMultiplier,
+        transitionDurationMs: style.transitionDurationMs
+      });
+    }
+
+    updateObjectCueTransformValues(state, nowMs);
+  }
+
+  function updateObjectCueTransformValues(state: RoomObjectSpriteState, nowMs: number): void {
+    let offsetX = 0;
+    let offsetY = 0;
+    for (const cue of state.shakeCuesByActivationKey.values()) {
+      const phase = ((nowMs - cue.startedAtMs) / 1000) * cue.speedHz * Math.PI * 2;
+      offsetX += Math.sin(phase) * cue.horizontalDisplacementPx;
+      offsetY += Math.cos(phase) * cue.verticalDisplacementPx;
+    }
+    state.shakeOffsetContainer.position.set(
+      Math.max(-256, Math.min(256, offsetX)),
+      Math.max(-256, Math.min(256, offsetY))
+    );
+
+    let scaleMultiplier = 1;
+    for (const cue of state.scaleCuesByActivationKey.values()) {
+      const progress = cue.transitionDurationMs <= 0
+        ? 1
+        : Math.max(0, Math.min(1, (nowMs - cue.startedAtMs) / cue.transitionDurationMs));
+      const easedProgress = progress * (2 - progress);
+      scaleMultiplier *= cue.fromMultiplier + ((cue.targetScaleMultiplier - cue.fromMultiplier) * easedProgress);
+    }
+    state.cueScaleContainer.scale.set(Math.max(0.1, Math.min(8, scaleMultiplier)));
+  }
+
+  function updateObjectCueAnimations(_ticker: Ticker): void {
+    if (isDisposed) return;
+    const nowMs = performance.now();
+    const appearanceEnabled = isPresentationCategoryEnabled(presentationIsolationSettings, "appearance");
+    for (const surface of [activeRoomSurface, stagingRoomSurface]) {
+      for (const state of surface.roomObjectSpritesById.values()) {
+        if (appearanceEnabled) {
+          updateObjectCueTransformValues(state, nowMs);
+        } else {
+          state.shakeOffsetContainer.position.set(0, 0);
+          state.cueScaleContainer.scale.set(1);
+        }
+      }
+    }
   }
 
   function emit(level: "debug" | "info" | "warning" | "error", message: string, details?: unknown): void {
@@ -1741,6 +1871,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   ): Promise<void> {
     const appearanceEffectsEnabled = isPresentationCategoryEnabled(presentationIsolationSettings, "appearance");
     const movementEffectsEnabled = isPresentationCategoryEnabled(presentationIsolationSettings, "movement");
+    const isBaseline = !previousScene || previousScene.roomId !== scene.roomId;
     const roomObjects = selectRenderableRoomObjects(scene);
     const previousRoomObjectsById = new Map(
       (previousScene ? selectRenderableRoomObjects(previousScene) : []).map((roomObject) => [roomObject.objectId, roomObject])
@@ -1846,9 +1977,13 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
 
           const root = new Container();
           root.sortableChildren = true;
+          const shakeOffsetContainer = new Container();
+          root.addChild(shakeOffsetContainer);
+          const cueScaleContainer = new Container();
+          shakeOffsetContainer.addChild(cueScaleContainer);
           const baseScaleContainer = new Container();
           baseScaleContainer.sortableChildren = true;
-          root.addChild(baseScaleContainer);
+          cueScaleContainer.addChild(baseScaleContainer);
 
           sprite = new Sprite(texture);
           sprite.anchor.set(0, 0);
@@ -1862,11 +1997,17 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
 
           roomObjectSpriteState = {
             root,
+            shakeOffsetContainer,
+            cueScaleContainer,
             baseScaleContainer,
             situationalScaleContainer: null,
             sprite,
             effectTransformHost: baseScaleContainer,
-            assetPath: assetUrl
+            assetPath: assetUrl,
+            scaleCenterX: texture.width * 0.5,
+            scaleCenterY: texture.height * 0.5,
+            shakeCuesByActivationKey: new Map(),
+            scaleCuesByActivationKey: new Map()
           };
           surface.roomObjectSpritesById.set(roomObject.objectId, roomObjectSpriteState);
 
@@ -1895,6 +2036,15 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         const currentSituationalScale = resolveCurrentSituationalScale(roomObjectSpriteState);
         const targetBaseScale = Number.isFinite(roomObject.scale) && roomObject.scale > 0 ? roomObject.scale : 1;
         const targetSituationalScale = normalizeSituationalScale(roomObject.additionalSituationalScale);
+        const spatialFootprint = scene.objectsById[roomObject.objectId]?.lighting?.spatialFootprint;
+        if (Number.isFinite(spatialFootprint?.footprintCenterXpx)
+          && Number.isFinite(spatialFootprint?.footprintCenterYpx)) {
+          roomObjectSpriteState.scaleCenterX = Number(spatialFootprint?.footprintCenterXpx) - roomObject.x;
+          roomObjectSpriteState.scaleCenterY = Number(spatialFootprint?.footprintCenterYpx) - roomObject.y;
+        } else {
+          roomObjectSpriteState.scaleCenterX = roomObjectSpriteState.sprite.texture.width * 0.5;
+          roomObjectSpriteState.scaleCenterY = roomObjectSpriteState.sprite.texture.height * 0.5;
+        }
         const targetZOrder = roomObject.zOrder;
         const currentZOrder = Number.isFinite(roomObjectSpriteState.root.zIndex)
           ? roomObjectSpriteState.root.zIndex
@@ -1904,6 +2054,12 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         roomObjectSpriteState.root.rotation = toRadians(roomObject.rotationDegrees);
         roomObjectSpriteState.root.zIndex = currentZOrder;
         applyScaleLayers(roomObjectSpriteState, currentBaseScale, currentSituationalScale);
+        reconcileObjectCueTransforms(
+          roomObjectSpriteState,
+          roomObject.presentationCues,
+          isBaseline,
+          previousRoomObject?.presentationCues ?? []
+        );
 
         if (appearanceEffectsEnabled) {
           surface.appearanceOutlineEffectController.applyForObject(
@@ -2254,6 +2410,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       });
     }
     app.ticker.add(updateMovementTweens);
+    app.ticker.add(updateObjectCueAnimations);
     app.ticker.add(updateRoomSwapTween);
     app.ticker.add(hudOverlayController.update);
     app.ticker.add(updateLightingPresentation);

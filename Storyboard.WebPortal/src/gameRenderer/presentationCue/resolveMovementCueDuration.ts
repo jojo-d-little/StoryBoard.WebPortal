@@ -113,6 +113,15 @@ export interface PresentationCueCatalogEffect {
       cooldownMs?: number;
     };
   };
+  shakeStyle?: {
+    horizontalDisplacementPx?: number;
+    verticalDisplacementPx?: number;
+    speedHz?: number;
+  };
+  scaleStyle?: {
+    targetScaleMultiplier?: number;
+    transitionDurationMs?: number;
+  };
 }
 
 export interface PresentationCueCatalogDocument {
@@ -168,6 +177,46 @@ function normalizeCategory(value: string | undefined): string {
 
 function normalizeEffectKey(value: string | undefined): string {
   return (value ?? "").trim().toLowerCase();
+}
+
+export function resolveObjectCueVisualStyles(
+  cues: GameRenderPresentationCue[],
+  catalog: PresentationCueCatalogDocument | null | undefined
+): GameRenderPresentationCue[] {
+  return cues.map((cue) => {
+    const { shakeStyle: _previousShakeStyle, scaleStyle: _previousScaleStyle, ...baseCue } = cue;
+    if (normalizeCategory(cue.category) !== "appearance") {
+      return baseCue;
+    }
+
+    const effectKey = normalizeEffectKey(cue.effectKey);
+    const effect = catalog?.effects?.find((candidate) => {
+      return normalizeCategory(candidate.category) === "appearance"
+        && normalizeEffectKey(candidate.effectKey) === effectKey;
+    });
+
+    const horizontal = effect?.shakeStyle?.horizontalDisplacementPx;
+    const vertical = effect?.shakeStyle?.verticalDisplacementPx;
+    const speedHz = effect?.shakeStyle?.speedHz;
+    const shakeStyle = Number.isFinite(horizontal) && horizontal! >= 0 && horizontal! <= 256
+      && Number.isFinite(vertical) && vertical! >= 0 && vertical! <= 256
+      && Number.isFinite(speedHz) && speedHz! > 0 && speedHz! <= 20
+      ? { horizontalDisplacementPx: horizontal!, verticalDisplacementPx: vertical!, speedHz: speedHz! }
+      : undefined;
+
+    const targetScaleMultiplier = effect?.scaleStyle?.targetScaleMultiplier;
+    const transitionDurationMs = effect?.scaleStyle?.transitionDurationMs;
+    const scaleStyle = Number.isFinite(targetScaleMultiplier) && targetScaleMultiplier! >= 0.1 && targetScaleMultiplier! <= 8
+      && Number.isInteger(transitionDurationMs) && transitionDurationMs! >= 1 && transitionDurationMs! <= 10000
+      ? { targetScaleMultiplier: targetScaleMultiplier!, transitionDurationMs: transitionDurationMs! }
+      : undefined;
+
+    return {
+      ...baseCue,
+      ...(shakeStyle ? { shakeStyle } : {}),
+      ...(scaleStyle ? { scaleStyle } : {})
+    };
+  });
 }
 
 function toFiniteNonNegative(value: number | undefined): number | null {
