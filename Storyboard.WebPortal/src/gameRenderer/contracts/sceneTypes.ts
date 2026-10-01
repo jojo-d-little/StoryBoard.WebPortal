@@ -6,6 +6,13 @@ export type { GameRenderRoomBounds } from "./sceneTypes/GameRenderRoomBounds";
 export type { GameRenderAssetReference } from "./sceneTypes/GameRenderAssetReference";
 export type { GameRenderDirectionalOverlay } from "./sceneTypes/GameRenderDirectionalOverlay";
 export type { GameRenderPresentationCue } from "./sceneTypes/GameRenderPresentationCue";
+export type {
+  GameRenderObjectStyledPointEffect,
+  ResolvedStyledPointBlendMode,
+  ResolvedStyledPointCoreLayer,
+  ResolvedStyledPointEffect,
+  ResolvedStyledPointOrbitLayer
+} from "./sceneTypes/GameRenderStyledPointEffect";
 
 export type { GameRenderAppearanceOutlineStyle } from "./sceneTypes/GameRenderAppearanceOutlineStyle";
 export type { GameRenderAppearanceSilhouettePass } from "./sceneTypes/GameRenderAppearanceSilhouettePass";

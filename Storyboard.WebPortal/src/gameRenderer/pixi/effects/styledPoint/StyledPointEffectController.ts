@@ -10,6 +10,17 @@ interface StyledPointEffectInstance {
   roomY: number;
   createdAtMs: number;
   style: ResolvedStyledPointEffect;
+  positionProvider?: () => { x: number; y: number };
+  loggedFirstDraw?: boolean;
+  loggedFirstVisibleDraw?: boolean;
+}
+
+export interface StyledPointObjectCueEffect {
+  handleKey: string;
+  roomX: number;
+  roomY: number;
+  style: ResolvedStyledPointEffect;
+  positionProvider: () => { x: number; y: number };
 }
 
 export type StyledPointEffectIntent =
@@ -28,6 +39,7 @@ export type StyledPointEffectIntent =
 export interface StyledPointEffectController {
   applyIntent: (input: StyledPointEffectIntent) => void;
   tick: (nowMs: number) => void;
+  syncObjectCueEffects: (effects: StyledPointObjectCueEffect[]) => void;
   clear: () => void;
   dispose: () => void;
 }
@@ -136,9 +148,11 @@ export function createStyledPointEffectController(
   options: CreateStyledPointEffectControllerOptions
 ): StyledPointEffectController {
   const activeByHandle = new Map<string, StyledPointEffectInstance>();
+  const objectCueHandles = new Set<string>();
 
   function removeInstance(instance: StyledPointEffectInstance): void {
     activeByHandle.delete(instance.handleKey);
+    objectCueHandles.delete(instance.handleKey);
     for (const graphics of instance.coreGraphics) {
       removeGraphics(graphics);
     }
@@ -149,6 +163,49 @@ export function createStyledPointEffectController(
     for (const instance of [...activeByHandle.values()]) {
       removeInstance(instance);
     }
+  }
+
+  function createInstance(
+    handleKey: string,
+    roomX: number,
+    roomY: number,
+    style: ResolvedStyledPointEffect,
+    positionProvider?: () => { x: number; y: number }
+  ): StyledPointEffectInstance {
+    const coreGraphics: Graphics[] = [];
+    for (let index = 0; index < style.coreLayers.length; index += 1) {
+      const layer = style.coreLayers[index];
+      if (!layer) {
+        continue;
+      }
+
+      const layerGraphics = new Graphics();
+      layerGraphics.zIndex = 100_000 + index;
+      layerGraphics.blendMode = layer.blendMode;
+      options.layer.addChild(layerGraphics);
+      coreGraphics[index] = layerGraphics;
+    }
+
+    let orbitGraphics: Graphics | null = null;
+    if (style.orbitLayer) {
+      orbitGraphics = new Graphics();
+      orbitGraphics.zIndex = 100_500;
+      orbitGraphics.blendMode = style.orbitLayer.blendMode;
+      options.layer.addChild(orbitGraphics);
+    }
+
+    const instance: StyledPointEffectInstance = {
+      handleKey,
+      coreGraphics,
+      orbitGraphics,
+      roomX,
+      roomY,
+      createdAtMs: performance.now(),
+      style,
+      positionProvider
+    };
+    activeByHandle.set(handleKey, instance);
+    return instance;
   }
 
   return {
@@ -173,37 +230,7 @@ export function createStyledPointEffectController(
         return;
       }
 
-      const coreGraphics: Graphics[] = [];
-      for (let index = 0; index < input.style.coreLayers.length; index += 1) {
-        const layer = input.style.coreLayers[index];
-        if (!layer) {
-          continue;
-        }
-
-        const layerGraphics = new Graphics();
-        layerGraphics.zIndex = 100_000 + index;
-        layerGraphics.blendMode = layer.blendMode;
-        options.layer.addChild(layerGraphics);
-        coreGraphics[index] = layerGraphics;
-      }
-
-      let orbitGraphics: Graphics | null = null;
-      if (input.style.orbitLayer) {
-        orbitGraphics = new Graphics();
-        orbitGraphics.zIndex = 100_500;
-        orbitGraphics.blendMode = input.style.orbitLayer.blendMode;
-        options.layer.addChild(orbitGraphics);
-      }
-
-      activeByHandle.set(handleKey, {
-        handleKey,
-        coreGraphics,
-        orbitGraphics,
-        roomX: input.roomX,
-        roomY: input.roomY,
-        createdAtMs: performance.now(),
-        style: input.style
-      });
+      createInstance(handleKey, input.roomX, input.roomY, input.style);
 
       options.diagnostics?.({
         category: "scene",
@@ -221,6 +248,64 @@ export function createStyledPointEffectController(
           cooldownMs: input.style.cooldownMs
         }
       });
+    },
+    syncObjectCueEffects: (effects) => {
+      const desiredHandles = new Set(effects.map((effect) => effect.handleKey.trim()).filter(Boolean));
+      for (const handleKey of [...objectCueHandles]) {
+        if (desiredHandles.has(handleKey)) {
+          continue;
+        }
+
+        const existing = activeByHandle.get(handleKey);
+        if (existing) {
+          options.diagnostics?.({
+            category: "scene",
+            level: "info",
+            message: "Removed object point effect because its activation is no longer active.",
+            details: { handleKey }
+          });
+          removeInstance(existing);
+        } else {
+          objectCueHandles.delete(handleKey);
+        }
+      }
+
+      for (const effect of effects) {
+        const handleKey = effect.handleKey.trim();
+        if (!handleKey) {
+          continue;
+        }
+
+        const existing = activeByHandle.get(handleKey);
+        if (existing) {
+          existing.roomX = effect.roomX;
+          existing.roomY = effect.roomY;
+          existing.style = effect.style;
+          existing.positionProvider = effect.positionProvider;
+          objectCueHandles.add(handleKey);
+          continue;
+        }
+
+        createInstance(handleKey, effect.roomX, effect.roomY, effect.style, effect.positionProvider);
+        objectCueHandles.add(handleKey);
+        options.diagnostics?.({
+          category: "scene",
+          level: "info",
+          message: "Created active object point effect graphics.",
+          details: {
+            handleKey,
+            roomX: effect.roomX,
+            roomY: effect.roomY,
+            pulseMs: effect.style.pulseMs,
+            coreLayerCount: effect.style.coreLayers.length,
+            orbitStyle: effect.style.orbitLayer?.style,
+            clearPolicy: effect.style.clearPolicy,
+            graphicsParentAvailable: options.layer.parent !== null,
+            layerVisible: options.layer.visible,
+            layerRenderable: options.layer.renderable
+          }
+        });
+      }
     },
     tick: (nowMs) => {
       for (const instance of [...activeByHandle.values()]) {
@@ -250,6 +335,11 @@ export function createStyledPointEffectController(
         }
 
         const phase = normalizePulsePhase(nowMs, instance.createdAtMs, instance.style.pulseMs);
+        const currentPosition = instance.positionProvider?.();
+        if (currentPosition && Number.isFinite(currentPosition.x) && Number.isFinite(currentPosition.y)) {
+          instance.roomX = currentPosition.x;
+          instance.roomY = currentPosition.y;
+        }
         const coreLayerCount = instance.style.coreLayers.length;
         const coreLayersHiddenFromFront = isCoolingDown
           ? Math.floor(cooldownProgress * coreLayerCount)
@@ -278,8 +368,60 @@ export function createStyledPointEffectController(
             .fill({ color: sampledColor, alpha: sampledAlpha });
         }
 
+        if (!instance.loggedFirstDraw) {
+          instance.loggedFirstDraw = true;
+          options.diagnostics?.({
+            category: "scene",
+            level: "info",
+            message: "Drew first frame for active object point effect.",
+            details: {
+              handleKey: instance.handleKey,
+              roomX: instance.roomX,
+              roomY: instance.roomY,
+              phase,
+              coreLayerCount: instance.style.coreLayers.length,
+              coreSamples: instance.style.coreLayers.map((layer) => ({
+                name: layer.name,
+                radiusPx: Math.max(0.5, sampleStops(layer.radiusStops, phase) * layer.radiusScale),
+                alpha: clamp(sampleStops(layer.alphaStops, phase), 0, 1)
+              })),
+              sampledCoreLayerCount: sampledCoreRadii.length,
+              orbitLayerPresent: Boolean(instance.style.orbitLayer),
+              graphicsLayerVisible: options.layer.visible,
+              graphicsLayerRenderable: options.layer.renderable,
+              graphicsLayerChildCount: options.layer.children.length
+            }
+          });
+        }
+
         const orbitLayer = instance.style.orbitLayer;
         const orbitGraphics = instance.orbitGraphics;
+        const hasVisibleCoreLayer = instance.style.coreLayers.some((layer) => {
+          return sampleStops(layer.radiusStops, phase) * layer.radiusScale > 0
+            && sampleStops(layer.alphaStops, phase) > 0.001;
+        });
+        const hasVisibleOrbitLayer = orbitLayer !== undefined && (orbitLayer.style === "spinner"
+          ? sampleStops(orbitLayer.spinner.alphaStops, phase) * orbitLayer.spinner.alphaScale > 0.001
+          : orbitLayer.ringPulse.alphaStops.some((_, index) => {
+              const ringPhase = (phase + (index * orbitLayer.ringPulse.phaseOffsetStep)) % 1;
+              return sampleStops(orbitLayer.ringPulse.alphaStops, ringPhase) * orbitLayer.ringPulse.alphaScale > 0.001;
+            }));
+        if (!instance.loggedFirstVisibleDraw && (hasVisibleCoreLayer || hasVisibleOrbitLayer)) {
+          instance.loggedFirstVisibleDraw = true;
+          options.diagnostics?.({
+            category: "scene",
+            level: "info",
+            message: "Object point effect reached a nonzero visual phase.",
+            details: {
+              handleKey: instance.handleKey,
+              roomX: instance.roomX,
+              roomY: instance.roomY,
+              phase,
+              hasVisibleCoreLayer,
+              hasVisibleOrbitLayer
+            }
+          });
+        }
         if (!orbitLayer || !orbitGraphics) {
           continue;
         }

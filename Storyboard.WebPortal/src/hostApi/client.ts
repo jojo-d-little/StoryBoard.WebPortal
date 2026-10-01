@@ -1285,6 +1285,8 @@ export class HostApiClient {
       cellY: this.readNumber(source, ["cellY", "CellY"]),
       sizeXCells: this.readOptionalFiniteNumber(source, ["sizeXCells", "SizeXCells"]),
       sizeYCells: this.readOptionalFiniteNumber(source, ["sizeYCells", "SizeYCells"]),
+      footprintCenterXpx: this.readOptionalFiniteNumber(source, ["footprintCenterXpx", "FootprintCenterXpx"]),
+      footprintCenterYpx: this.readOptionalFiniteNumber(source, ["footprintCenterYpx", "FootprintCenterYpx"]),
       cornerStyle: cornerStyle === "rounded" ? "rounded" : "sharp",
       elevationCells: this.readOptionalFiniteNumber(source, ["elevationCells", "ElevationCells"])
     };

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { GameRenderSceneSnapshot } from "../gameRenderer";
 import type { GameRenderTravelDirection } from "../gameRenderer/contracts/sceneTypes";
 import { mapRenderableRoomObjects } from "../gameRenderer/scene/sceneObjects";
@@ -8,6 +8,7 @@ import {
   resolveCatalogCueDurationMs,
   resolveCatalogRoomTransitionMode,
   resolveMovementCueDurationMs,
+  resolveCatalogStyledPointEffect,
   type PresentationCueCatalogDocument
 } from "../gameRenderer/presentationCue/resolveMovementCueDuration";
 
@@ -49,6 +50,7 @@ interface UseRoomTransitionCueWorkflowOptions {
   presentationCueCatalogError: string;
   rendererSceneSnapshot: GameRenderSceneSnapshot | null;
   getCurrentPresentationCueCatalog: () => PresentationCueCatalogDocument | null;
+  addDiagnostic?: (level: "info" | "warn" | "error", category: string, message: string, details?: unknown) => void;
 }
 
 interface UseRoomTransitionCueWorkflowResult {
@@ -122,6 +124,7 @@ function tryResolveCatalogEffectKey(
 export function useRoomTransitionCueWorkflow(
   options: UseRoomTransitionCueWorkflowOptions
 ): UseRoomTransitionCueWorkflowResult {
+  const pointCueDiagnosticSignaturesRef = useRef(new Map<string, string>());
   const [selectedRoomTransitionCueEffectKey, setSelectedRoomTransitionCueEffectKey] = useState<string>("");
 
   function resolveConfiguredRoomTransitionCueEffectKey(
@@ -294,7 +297,7 @@ export function useRoomTransitionCueWorkflow(
         ?? options.roomTransitionDefaults.fallbackDurationMs
       : undefined;
 
-    const resolvedScene = mapRenderableRoomObjects(scene, (roomObject) => {
+    const appearanceResolvedScene = mapRenderableRoomObjects(scene, (roomObject) => {
       const presentationCues = roomObject.presentationCues.map((cue) => {
         if (!cue.activationId || cue.category.trim()) {
           return cue;
@@ -315,6 +318,89 @@ export function useRoomTransitionCueWorkflow(
         appearanceSilhouetteStyle: resolveAppearanceSilhouetteStyle(presentationCues, catalog)
       };
     });
+
+    const resolvedScene: GameRenderSceneSnapshot = {
+      ...appearanceResolvedScene,
+      objectsById: Object.fromEntries(Object.entries(appearanceResolvedScene.objectsById).map(([objectId, object]) => {
+        const footprint = object.lighting?.spatialFootprint;
+        const objectX = object.sprite?.x;
+        const objectY = object.sprite?.y;
+        const hasCenter = Number.isFinite(footprint?.footprintCenterXpx)
+          && Number.isFinite(footprint?.footprintCenterYpx)
+          && Number.isFinite(objectX)
+          && Number.isFinite(objectY);
+        const styledPointEffects = object.presentationCues.flatMap((cue) => {
+          const category = cue.category.trim().replace(/[\s_-]/g, "").toLowerCase();
+          if (category !== "styledpointeffect") {
+            return [];
+          }
+
+          const catalogEffect = catalog?.effects?.find((candidate) => {
+            return stringEqualsIgnoreCase(candidate.effectKey ?? "", cue.effectKey);
+          });
+          const style = cue.activationId
+            ? resolveCatalogStyledPointEffect(catalog, cue.effectKey)
+            : null;
+          const accepted = Boolean(style && cue.activationId && hasCenter);
+          const diagnosticDetails = {
+            roomId: scene.roomId,
+            objectId,
+            objectName: object.objectName,
+            effectKey: cue.effectKey,
+            activationId: cue.activationId,
+            cueCategory: cue.category,
+            catalogCategory: catalogEffect?.category,
+            catalogEffectFound: Boolean(catalogEffect),
+            styledPointDefinitionFound: Boolean(catalogEffect?.styledPointEffect),
+            styleResolved: Boolean(style),
+            hasActivationId: Boolean(cue.activationId),
+            hasFootprintCenter: hasCenter,
+            footprintCenterXpx: footprint?.footprintCenterXpx,
+            footprintCenterYpx: footprint?.footprintCenterYpx,
+            objectX,
+            objectY,
+            outcome: accepted ? "queued-for-renderer" : "not-queued",
+            rejectionReason: accepted
+              ? undefined
+              : !cue.activationId
+                ? "missing-activation-id"
+                : !catalogEffect
+                  ? "catalog-entry-not-found"
+                  : !catalogEffect.styledPointEffect
+                    ? "styled-point-definition-missing"
+                    : !style
+                      ? "styled-point-style-invalid"
+                      : "footprint-center-missing"
+          };
+          const diagnosticKey = `${objectId}:${cue.activationId || cue.effectKey}`;
+          const diagnosticSignature = JSON.stringify(diagnosticDetails);
+          if (pointCueDiagnosticSignaturesRef.current.get(diagnosticKey) !== diagnosticSignature) {
+            pointCueDiagnosticSignaturesRef.current.set(diagnosticKey, diagnosticSignature);
+            options.addDiagnostic?.("info", "presentation-cues", "Resolved active object point cue in Portal scene workflow.", diagnosticDetails);
+          }
+          if (!accepted || !style || !cue.activationId) {
+            return [];
+          }
+
+          return [{
+            activationId: cue.activationId,
+            effectKey: cue.effectKey,
+            footprintCenterXpx: footprint!.footprintCenterXpx!,
+            footprintCenterYpx: footprint!.footprintCenterYpx!,
+            objectX: objectX!,
+            objectY: objectY!,
+            style: {
+              ...style,
+              clearPolicy: "manual-removal" as const,
+              lifetimeMs: undefined,
+              cooldownMs: undefined
+            }
+          }];
+        });
+
+        return [objectId, { ...object, styledPointEffects }];
+      }))
+    };
 
     return {
       ...resolvedScene,

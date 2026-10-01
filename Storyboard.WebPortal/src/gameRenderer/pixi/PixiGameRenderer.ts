@@ -22,7 +22,8 @@ import {
 import {
   createStyledPointEffectController,
   type StyledPointEffectController,
-  type StyledPointEffectIntent
+  type StyledPointEffectIntent,
+  type StyledPointObjectCueEffect
 } from "./effects/styledPoint/StyledPointEffectController";
 import {
   DEFAULT_PRESENTATION_ISOLATION_SETTINGS,
@@ -186,6 +187,27 @@ function areSilhouettePassesEquivalent(
   }
 
   return true;
+}
+
+function arePresentationCuesEquivalent(
+  left: GameRenderRoomObject["presentationCues"],
+  right: GameRenderRoomObject["presentationCues"]
+): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((cue, index) => {
+    const other = right[index];
+    return Boolean(other)
+      && cue.cueType === other.cueType
+      && cue.category === other.category
+      && cue.effectKey === other.effectKey
+      && cue.activationId === other.activationId
+      && cue.moveDirection === other.moveDirection
+      && cue.movementDurationMs === other.movementDurationMs
+      && cue.movementFrames === other.movementFrames;
+  });
 }
 
 export function createGameRenderer(mountElement: HTMLElement, options: CreateGameRendererOptions = {}): GameRendererHandle {
@@ -588,6 +610,69 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       objectId,
       roomObjectSpriteState.effectTransformHost,
       roomObjectSpriteState.sprite);
+  }
+
+  function syncRoomObjectStyledPointEffects(scene: GameRenderSceneSnapshot, surface: RoomSurfaceState): void {
+    const renderableObjectIds = new Set(selectRenderableRoomObjects(scene).map((roomObject) => roomObject.objectId));
+    const effects: StyledPointObjectCueEffect[] = [];
+    const activePointEffects = Object.entries(scene.objectsById).flatMap(([objectId, object]) => {
+      const effects = object.styledPointEffects ?? [];
+      return effects.length > 0 ? [{
+        objectId,
+        effects: effects.map((effect) => ({ effectKey: effect.effectKey, activationId: effect.activationId }))
+      }] : [];
+    });
+    if (isPresentationCategoryEnabled(presentationIsolationSettings, "styledPointEffect")) {
+      for (const [objectId, object] of Object.entries(scene.objectsById)) {
+        if (!renderableObjectIds.has(objectId) || !surface.roomObjectSpritesById.has(objectId)) {
+          continue;
+        }
+
+        for (const effect of object.styledPointEffects ?? []) {
+          effects.push({
+            handleKey: `object-presentation:${objectId}:${effect.activationId}`,
+            roomX: effect.footprintCenterXpx,
+            roomY: effect.footprintCenterYpx,
+            style: effect.style,
+            positionProvider: () => {
+              const spriteState = surface.roomObjectSpritesById.get(objectId);
+              if (!spriteState) {
+                return { x: effect.footprintCenterXpx, y: effect.footprintCenterYpx };
+              }
+
+              return {
+                x: effect.footprintCenterXpx + spriteState.root.position.x - effect.objectX,
+                y: effect.footprintCenterYpx + spriteState.root.position.y - effect.objectY
+              };
+            }
+          });
+        }
+      }
+    }
+
+    if (activePointEffects.length > 0) {
+      diagnostics?.({
+        category: "scene",
+        level: "info",
+        message: "Reconciled active object point cues with the Pixi renderer.",
+        details: {
+          roomId: scene.roomId,
+          surface: surface.label,
+          categoryEnabled: isPresentationCategoryEnabled(presentationIsolationSettings, "styledPointEffect"),
+          activePointEffects: activePointEffects.map(({ objectId, effects: resolvedEffects }) => ({
+            objectId,
+            effects: resolvedEffects,
+            isRenderable: renderableObjectIds.has(objectId),
+            hasSprite: surface.roomObjectSpritesById.has(objectId),
+            resolvedEffectCount: scene.objectsById[objectId]?.styledPointEffects?.length ?? 0
+          })),
+          desiredEffectCount: effects.length,
+          desiredHandles: effects.map((effect) => effect.handleKey)
+        }
+      });
+    }
+
+    surface.styledPointEffectController.syncObjectCueEffects(effects);
   }
 
   function clearDirectionalOverlaySprites(surface: RoomSurfaceState): void {
@@ -1441,6 +1526,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     if (styledPointDisabled || !presentationIsolationSettings.enabled) {
       activeRoomSurface.styledPointEffectController.clear();
       stagingRoomSurface.styledPointEffectController.clear();
+    } else if (currentScene) {
+      syncRoomObjectStyledPointEffects(currentScene, activeRoomSurface);
     }
 
     emit("info", "Updated Portal presentation isolation settings.", {
@@ -1530,7 +1617,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         || leftObject.appearanceSilhouetteStyle?.maskAlphaMode !== rightObject.appearanceSilhouetteStyle?.maskAlphaMode
         || leftObject.appearanceSilhouetteStyle?.maskAlphaCutoff !== rightObject.appearanceSilhouetteStyle?.maskAlphaCutoff
         || !areSilhouettePassesEquivalent(leftObject.appearanceSilhouetteStyle, rightObject.appearanceSilhouetteStyle)
-        || leftObject.appearanceSilhouetteStyle?.pulseMs !== rightObject.appearanceSilhouetteStyle?.pulseMs) {
+        || leftObject.appearanceSilhouetteStyle?.pulseMs !== rightObject.appearanceSilhouetteStyle?.pulseMs
+        || !arePresentationCuesEquivalent(leftObject.presentationCues, rightObject.presentationCues)) {
         return false;
       }
     }
@@ -1664,6 +1752,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         removeRoomObjectSprite(surface, objectId);
       }
     }
+    syncRoomObjectStyledPointEffects(scene, surface);
 
     const silhouetteCueEffectKeys = new Set<string>();
     let objectsWithAppearanceCues = 0;
@@ -2058,6 +2147,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         });
       }
     }
+
+    syncRoomObjectStyledPointEffects(scene, surface);
   }
 
   async function renderScene(

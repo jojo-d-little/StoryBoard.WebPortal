@@ -548,7 +548,8 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     presentationCueCatalogSource,
     presentationCueCatalogError,
     rendererSceneSnapshot,
-    getCurrentPresentationCueCatalog
+    getCurrentPresentationCueCatalog,
+    addDiagnostic: options.addDiagnostic
   });
 
   const {

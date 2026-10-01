@@ -847,6 +847,35 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     consumeSessionDeltaSoundCuesRef.current(sessionData);
     const previousSnapshot = rendererSceneSnapshotRef.current;
     const nextSnapshot = mapHostSessionDataToSceneSnapshot(sessionData, previousSnapshot);
+    const pointCueChanges = sessionData.roomObjectChanges.flatMap((change) => {
+      const rawCues = change.renderableRoomObject?.activePresentationCues ?? [];
+      const pointCues = rawCues.filter((cue) => cue.effectKey.trim().toLowerCase().includes(".point."));
+      if (pointCues.length === 0) {
+        return [];
+      }
+
+      const mappedObject = nextSnapshot?.objectsById[change.objectId];
+      return [{
+        objectId: change.objectId,
+        objectName: change.objectName,
+        rawActiveCues: pointCues,
+        mappedCues: mappedObject?.presentationCues.filter((cue) => {
+          return cue.effectKey.trim().toLowerCase().includes(".point.");
+        }) ?? [],
+        footprintCenterXpx: change.renderableRoomObject?.spatialFootprint?.footprintCenterXpx,
+        footprintCenterYpx: change.renderableRoomObject?.spatialFootprint?.footprintCenterYpx,
+        mappedFootprintCenterXpx: mappedObject?.lighting?.spatialFootprint?.footprintCenterXpx,
+        mappedFootprintCenterYpx: mappedObject?.lighting?.spatialFootprint?.footprintCenterYpx,
+        mappedSpriteX: mappedObject?.sprite?.x,
+        mappedSpriteY: mappedObject?.sprite?.y
+      }];
+    });
+    if (pointCueChanges.length > 0) {
+      addDiagnosticRef.current("info", "session-render", "Mapped active object point cues from Host session delta into the renderer scene.", {
+        watermark: sessionData.sessionDeltaWatermark,
+        pointCueChanges
+      });
+    }
     if (nextSnapshot) {
       const resolvedSnapshot = applyMovementCueDurationsRef.current(nextSnapshot);
       emitMovementCueResolutionDiagnostics("delta", previousSnapshot, resolvedSnapshot, sessionData);

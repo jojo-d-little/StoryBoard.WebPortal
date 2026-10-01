@@ -50,6 +50,8 @@ export interface GameRenderSpatialFootprint {
   yPx?: number;
   sizeXCells?: number;
   sizeYCells?: number;
+  footprintCenterXpx?: number;
+  footprintCenterYpx?: number;
   cornerStyle?: "sharp" | "rounded";
   elevationCells?: number;
 }
