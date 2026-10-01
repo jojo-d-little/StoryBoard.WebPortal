@@ -14,6 +14,8 @@ interface DiagnosticsConsoleProps {
   enabled: boolean;
   entries: DiagnosticsEntry[];
   categoryFilters?: Record<string, boolean>;
+  logAllErrors?: boolean;
+  logAllWarnings?: boolean;
   exportMetadata: PortalTraceExportMetadata;
   onClear: () => void;
 }
@@ -31,7 +33,10 @@ export function DiagnosticsConsole(props: DiagnosticsConsoleProps): JSX.Element 
 
   const filteredEntries = useMemo(() => {
     return props.entries.filter((entry) => {
-      if (props.categoryFilters && props.categoryFilters[entry.category] === false) {
+      if (!(props.logAllErrors && entry.severity === "error")
+        && !(props.logAllWarnings && entry.severity === "warn")
+        && props.categoryFilters
+        && props.categoryFilters[entry.category] === false) {
         return false;
       }
 
@@ -45,7 +50,7 @@ export function DiagnosticsConsole(props: DiagnosticsConsoleProps): JSX.Element 
 
       return showError;
     });
-  }, [props.categoryFilters, props.entries, showInfo, showWarn, showError]);
+  }, [props.categoryFilters, props.entries, props.logAllErrors, props.logAllWarnings, showInfo, showWarn, showError]);
 
   const terminalText = useMemo(() => {
     if (filteredEntries.length === 0) {

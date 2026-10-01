@@ -45,6 +45,8 @@ interface ConfigSlotFeatureRendererProps {
     enabled: boolean;
   }>;
   diagnosticsCategoryFilters: Record<string, boolean>;
+  diagnosticsLogAllErrors?: boolean;
+  diagnosticsLogAllWarnings?: boolean;
   diagnosticsWorkspace: DiagnosticsWorkspaceProps;
   pollIntervalMs: number;
   heartbeatEveryNPolls: number;
@@ -92,6 +94,8 @@ export function ConfigSlotFeatureRenderer(props: ConfigSlotFeatureRendererProps)
     maxDiagnosticsEntries,
     diagnosticsCategoryOptions,
     diagnosticsCategoryFilters,
+    diagnosticsLogAllErrors,
+    diagnosticsLogAllWarnings,
     diagnosticsWorkspace,
     pollIntervalMs,
     heartbeatEveryNPolls,
@@ -219,6 +223,8 @@ export function ConfigSlotFeatureRenderer(props: ConfigSlotFeatureRendererProps)
         enabled={diagnosticsEnabled}
         entries={diagnosticsEntries}
         categoryFilters={diagnosticsCategoryFilters}
+        logAllErrors={diagnosticsLogAllErrors}
+        logAllWarnings={diagnosticsLogAllWarnings}
         exportMetadata={diagnosticsExportMetadata}
         onClear={onClearDiagnostics}
       />

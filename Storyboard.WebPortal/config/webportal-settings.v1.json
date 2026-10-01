@@ -11,26 +11,41 @@
   "diagnosticsProfiles": {
     "defaultProfile": "Normal",
     "profiles": {
-      "Focused": {
-        "label": "Focused",
-        "description": "Commands, transport, session, polling, and failures.",
-        "captureSources": ["authentication", "discovery", "session", "transport", "commands", "polling", "failure"],
-        "displayCategories": ["auth", "command", "discovery", "transport", "session", "session-delta", "host-operation", "state"],
-        "heartbeatEveryNPolls": 200
+      "Asset Acquisition": {
+        "label": "Asset Acquisition",
+        "description": "Trace renderer asset lookup, cache hits and misses, Host fetches, and hydration results or failures.",
+        "captureSources": ["assets", "renderer", "transport"],
+        "displayCategories": ["asset-cache", "session-render", "transport"],
+        "heartbeatEveryNPolls": 100,
+        "logAllWarnings": false,
+        "logAllErrors": false
+      },
+      "Session Lifecycle": {
+        "label": "Session Lifecycle",
+        "description": "Trace authentication, game discovery, and session start, join, and leave operations with their Host requests and responses.",
+        "captureSources": ["authentication", "discovery", "session", "transport"],
+        "displayCategories": ["auth", "discovery", "session", "host-operation", "transport"],
+        "heartbeatEveryNPolls": 100,
+        "logAllWarnings": false,
+        "logAllErrors": false
       },
       "Normal": {
         "label": "Normal",
-        "description": "Normal operational Portal troubleshooting coverage.",
-        "captureSources": ["authentication", "discovery", "session", "transport", "commands", "polling", "renderer", "presentation", "orchestration", "failure"],
-        "displayCategories": ["auth", "command", "contracts", "discovery", "host-operation", "transport", "session", "session-delta", "session-echo", "session-render", "presentation-cues", "movement-cues", "timing-sync", "state", "renderer-scene", "renderer-asset", "renderer-frame", "renderer-lifecycle"],
-        "heartbeatEveryNPolls": 100
+        "description": "Routine gameplay trace: submitted commands, command responses, session output, and data-bearing delta polls, plus all warnings and errors.",
+        "captureSources": ["session", "commands", "polling"],
+        "displayCategories": ["command", "session-echo", "session-delta"],
+        "heartbeatEveryNPolls": 100,
+        "logAllWarnings": true,
+        "logAllErrors": true
       },
       "Verbose": {
         "label": "Verbose",
-        "description": "All approved Portal trace sources with a faster heartbeat for active investigation.",
+        "description": "All current Portal trace sources and categories, including warnings and errors, with a faster heartbeat for active investigation.",
         "captureSources": ["authentication", "discovery", "session", "transport", "commands", "polling", "renderer", "presentation", "audio", "assets", "orchestration", "failure"],
         "displayCategories": ["auth", "command", "contracts", "discovery", "host-operation", "transport", "session", "session-delta", "session-echo", "session-render", "session-audio", "asset-cache", "presentation-cues", "movement-cues", "timing-sync", "state", "renderer-scene", "renderer-asset", "renderer-frame", "renderer-lifecycle"],
-        "heartbeatEveryNPolls": 100
+        "heartbeatEveryNPolls": 100,
+        "logAllWarnings": true,
+        "logAllErrors": true
       }
     }
   },

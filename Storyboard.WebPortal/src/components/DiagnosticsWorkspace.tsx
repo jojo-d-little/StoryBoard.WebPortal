@@ -25,6 +25,9 @@ export interface DiagnosticsWorkspaceCategoryOption {
 export interface DiagnosticsWorkspaceProps {
   capturing: boolean;
   profile: DiagnosticsProfile;
+  profileOptions: Array<{ key: string; label: string }>;
+  logAllErrors?: boolean;
+  logAllWarnings?: boolean;
   scopeOptions: DiagnosticsWorkspaceScopeOption[];
   categoryOptions: DiagnosticsWorkspaceCategoryOption[];
   entryCount: number;
@@ -177,9 +180,9 @@ export function DiagnosticsWorkspace(props: DiagnosticsWorkspaceProps): JSX.Elem
           onChange={(event) => props.onProfileChange(event.target.value as DiagnosticsProfile)}
         >
           <option value="Off">Off</option>
-          <option value="Focused">Focused</option>
-          <option value="Normal">Normal</option>
-          <option value="Verbose">Verbose</option>
+          {props.profileOptions.map((option) => (
+            <option key={option.key} value={option.key}>{option.label}</option>
+          ))}
           <option value="Custom">Custom</option>
         </select>
       </label>

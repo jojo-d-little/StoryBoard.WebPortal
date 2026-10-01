@@ -248,9 +248,9 @@ function buildProfileDisplayFilters(categories: string[], displayCategories: str
     .map((category) => [category, false]));
 }
 
-function readDiagnosticsProfileSetting(storageKey: string, fallback: DiagnosticsProfile): DiagnosticsProfile {
+function readDiagnosticsProfileSetting(storageKey: string, fallback: DiagnosticsProfile, profiles: Record<string, unknown>): DiagnosticsProfile {
   const persisted = readPersistedOverride(storageKey);
-  return persisted === "Off" || persisted === "Focused" || persisted === "Normal" || persisted === "Verbose" || persisted === "Custom"
+  return persisted === "Off" || persisted === "Custom" || Object.prototype.hasOwnProperty.call(profiles, persisted)
     ? persisted
     : fallback;
 }
@@ -312,25 +312,39 @@ export default function App(props: AppProps): JSX.Element {
   const [diagnosticsVerbose, setDiagnosticsVerbose] = useState<boolean>(() => readBooleanSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsVerbose, false));
   const [diagnosticsCategoryFilters, setDiagnosticsCategoryFilters] = useState<Record<string, boolean>>(() => {
     const persisted = readDiagnosticsCategoryFilterSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsCategoryFilters);
-    const initialProfile = readDiagnosticsProfileSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsProfile, settings.diagnosticsProfiles.defaultProfile);
+    const initialProfile = readDiagnosticsProfileSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsProfile, settings.diagnosticsProfiles.defaultProfile, settings.diagnosticsProfiles.profiles);
     return Object.keys(persisted).length > 0
       ? persisted
       : buildProfileDisplayFilters(
         DEFAULT_DIAGNOSTIC_CATEGORY_OPTIONS.map((option) => option.category),
         initialProfile === "Off" || initialProfile === "Custom"
           ? DEFAULT_DIAGNOSTIC_CATEGORY_OPTIONS.map((option) => option.category)
-          : settings.diagnosticsProfiles.profiles[initialProfile].displayCategories
+          : settings.diagnosticsProfiles.profiles[initialProfile]?.displayCategories ?? []
       );
   });
   const [hostApiBaseUrlOverride, setHostApiBaseUrlOverride] = useState<string>(() => readPersistedOverride(DEV_TOOLS_STORAGE_KEYS.hostApiBaseUrlOverride));
   const [maxDiagnosticsEntries, setMaxDiagnosticsEntries] = useState<number>(() => readNumberSetting(DEV_TOOLS_STORAGE_KEYS.maxDiagnosticsEntries, 150));
   const [diagnosticsProfile, setDiagnosticsProfile] = useState<DiagnosticsProfile>(() => {
-    return readDiagnosticsProfileSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsProfile, settings.diagnosticsProfiles.defaultProfile);
+    return readDiagnosticsProfileSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsProfile, settings.diagnosticsProfiles.defaultProfile, settings.diagnosticsProfiles.profiles);
+  });
+  const [diagnosticsLogAllErrors, setDiagnosticsLogAllErrors] = useState<boolean>(() => {
+    const selectedProfile = readDiagnosticsProfileSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsProfile, settings.diagnosticsProfiles.defaultProfile, settings.diagnosticsProfiles.profiles);
+    if (selectedProfile === "Off") {
+      return false;
+    }
+    const profile = selectedProfile === "Custom" ? settings.diagnosticsProfiles.defaultProfile : selectedProfile;
+    return settings.diagnosticsProfiles.profiles[profile].logAllErrors;
+  });
+  const [diagnosticsLogAllWarnings, setDiagnosticsLogAllWarnings] = useState<boolean>(() => {
+    const selectedProfile = readDiagnosticsProfileSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsProfile, settings.diagnosticsProfiles.defaultProfile, settings.diagnosticsProfiles.profiles);
+    if (selectedProfile === "Off") return false;
+    const profile = selectedProfile === "Custom" ? settings.diagnosticsProfiles.defaultProfile : selectedProfile;
+    return settings.diagnosticsProfiles.profiles[profile].logAllWarnings;
   });
   const [diagnosticsScope, setDiagnosticsScope] = useState<Record<PortalTraceSource, boolean>>(() => ({
     ...getDiagnosticsProfileScope(
       (() => {
-        const initialProfile = readDiagnosticsProfileSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsProfile, settings.diagnosticsProfiles.defaultProfile);
+        const initialProfile = readDiagnosticsProfileSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsProfile, settings.diagnosticsProfiles.defaultProfile, settings.diagnosticsProfiles.profiles);
         return initialProfile === "Custom" ? settings.diagnosticsProfiles.defaultProfile : initialProfile;
       })(),
       settings.diagnosticsProfiles
@@ -398,7 +412,9 @@ export default function App(props: AppProps): JSX.Element {
       details
     }, diagnosticsSequenceRef.current + 1);
 
-    if (!diagnosticsScope[entry.source]) {
+    if (!diagnosticsScope[entry.source]
+      && !(diagnosticsLogAllWarnings && entry.severity === "warn")
+      && !(diagnosticsLogAllErrors && entry.severity === "error")) {
       return;
     }
 
@@ -416,7 +432,7 @@ export default function App(props: AppProps): JSX.Element {
       }
       return retention.entries;
     });
-  }, [diagnosticsEnabled, diagnosticsScope, maxDiagnosticsEntries]);
+  }, [diagnosticsEnabled, diagnosticsLogAllErrors, diagnosticsLogAllWarnings, diagnosticsScope, maxDiagnosticsEntries]);
 
   const startDiagnosticsTrace = useCallback((): void => {
     setDiagnosticsEnabled(true);
@@ -458,11 +474,13 @@ export default function App(props: AppProps): JSX.Element {
     setDiagnosticsProfile(profile);
     if (profile !== "Custom") {
       setPollingSettingsOverrideEnabled(false);
+      setDiagnosticsLogAllErrors(profile !== "Off" && settings.diagnosticsProfiles.profiles[profile].logAllErrors);
+      setDiagnosticsLogAllWarnings(profile !== "Off" && settings.diagnosticsProfiles.profiles[profile].logAllWarnings);
       setDiagnosticsScope(getDiagnosticsProfileScope(profile, settings.diagnosticsProfiles));
       if (profile !== "Off") {
         setDiagnosticsCategoryFilters(buildProfileDisplayFilters(
           DEFAULT_DIAGNOSTIC_CATEGORY_OPTIONS.map((option) => option.category),
-          settings.diagnosticsProfiles.profiles[profile].displayCategories
+          settings.diagnosticsProfiles.profiles[profile]?.displayCategories ?? []
         ));
       } else {
         setDiagnosticsCategoryFilters({});
@@ -512,6 +530,8 @@ export default function App(props: AppProps): JSX.Element {
       captureStartedUtc: diagnosticsCaptureStartedUtc,
       captureStoppedUtc: diagnosticsCaptureStoppedUtc,
       profile: diagnosticsProfile,
+      logAllErrors: diagnosticsLogAllErrors,
+      logAllWarnings: diagnosticsLogAllWarnings,
       scope: Object.entries(diagnosticsScope)
         .filter(([, enabled]) => enabled)
         .map(([source]) => source),
@@ -522,6 +542,8 @@ export default function App(props: AppProps): JSX.Element {
     diagnosticsCaptureStoppedUtc,
     diagnosticsDroppedCount,
     diagnosticsEntries,
+    diagnosticsLogAllErrors,
+    diagnosticsLogAllWarnings,
     diagnosticsProfile,
     diagnosticsScope
   ]);
@@ -529,6 +551,9 @@ export default function App(props: AppProps): JSX.Element {
   const diagnosticsWorkspace = useMemo<DiagnosticsWorkspaceProps>(() => ({
     capturing: diagnosticsEnabled,
     profile: diagnosticsProfile,
+    profileOptions: Object.entries(settings.diagnosticsProfiles.profiles).map(([key, profile]) => ({ key, label: profile.label })),
+    logAllErrors: diagnosticsLogAllErrors,
+    logAllWarnings: diagnosticsLogAllWarnings,
     scopeOptions: buildDiagnosticsScopeOptions(diagnosticsScope),
     categoryOptions: diagnosticsCategoryOptions,
     entryCount: diagnosticsEntries.length,
@@ -582,10 +607,13 @@ export default function App(props: AppProps): JSX.Element {
     diagnosticsConsoleVisible,
     diagnosticsDroppedCount,
     diagnosticsEnabled,
+    diagnosticsLogAllErrors,
+    diagnosticsLogAllWarnings,
     diagnosticsEntries,
     diagnosticsExportMetadata,
     diagnosticsProfile,
     diagnosticsScope,
+    settings.diagnosticsProfiles.profiles,
     hideDiagnosticsConsole,
     showDiagnosticsConsole,
     startDiagnosticsTrace,
@@ -1072,6 +1100,8 @@ export default function App(props: AppProps): JSX.Element {
         maxDiagnosticsEntries={maxDiagnosticsEntries}
         diagnosticsCategoryOptions={diagnosticsCategoryOptions}
         diagnosticsCategoryFilters={diagnosticsCategoryFilters}
+        diagnosticsLogAllErrors={diagnosticsLogAllErrors}
+        diagnosticsLogAllWarnings={diagnosticsLogAllWarnings}
         diagnosticsWorkspace={diagnosticsWorkspace}
         pollIntervalMs={pollIntervalMs}
         heartbeatEveryNPolls={heartbeatEveryNPolls}

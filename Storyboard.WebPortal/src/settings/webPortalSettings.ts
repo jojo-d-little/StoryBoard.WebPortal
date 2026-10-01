@@ -70,28 +70,16 @@ export const DEFAULT_WEB_PORTAL_SETTINGS: WebPortalSettings = {
     echoOutputRetentionLines: 400
   },
   diagnosticsProfiles: {
-    defaultProfile: "Normal",
+    defaultProfile: "Default",
     profiles: {
-      Focused: {
-        label: "Focused",
-        description: "Commands, transport, session, polling, and failures.",
-        captureSources: ["authentication", "discovery", "session", "transport", "commands", "polling", "failure"],
-        displayCategories: ["auth", "command", "discovery", "transport", "session", "session-delta", "host-operation", "state"],
-        heartbeatEveryNPolls: 200
-      },
-      Normal: {
-        label: "Normal",
-        description: "Normal operational Portal troubleshooting coverage.",
-        captureSources: ["authentication", "discovery", "session", "transport", "commands", "polling", "renderer", "presentation", "orchestration", "failure"],
-        displayCategories: ["auth", "command", "contracts", "discovery", "host-operation", "transport", "session", "session-delta", "session-echo", "session-render", "presentation-cues", "movement-cues", "timing-sync", "state", "renderer-scene", "renderer-asset", "renderer-frame", "renderer-lifecycle"],
-        heartbeatEveryNPolls: 100
-      },
-      Verbose: {
-        label: "Verbose",
-        description: "All approved Portal trace sources with a faster heartbeat for active investigation.",
-        captureSources: ["authentication", "discovery", "session", "transport", "commands", "polling", "renderer", "presentation", "audio", "assets", "orchestration", "failure"],
-        displayCategories: ["auth", "command", "contracts", "discovery", "host-operation", "transport", "session", "session-delta", "session-echo", "session-render", "session-audio", "asset-cache", "presentation-cues", "movement-cues", "timing-sync", "state", "renderer-scene", "renderer-asset", "renderer-frame", "renderer-lifecycle"],
-        heartbeatEveryNPolls: 100
+      Default: {
+        label: "Default (built-in fallback)",
+        description: "Built-in fallback trace profile.",
+        captureSources: ["session", "commands", "polling"],
+        displayCategories: ["command", "session-echo", "session-delta"],
+        heartbeatEveryNPolls: 100,
+        logAllWarnings: true,
+        logAllErrors: true
       }
     }
   },
@@ -230,31 +218,31 @@ function coercePercentage(value: unknown, fallback: number): number {
 function sanitizeSettings(document: WebPortalSettingsDocument): WebPortalSettings {
   const configuredProfiles = document.diagnosticsProfiles?.profiles;
   const knownTraceSources = new Set(PORTAL_TRACE_SOURCES);
-  const diagnosticsProfiles = {
-    defaultProfile: document.diagnosticsProfiles?.defaultProfile && document.diagnosticsProfiles.defaultProfile in DEFAULT_WEB_PORTAL_SETTINGS.diagnosticsProfiles.profiles
-      ? document.diagnosticsProfiles.defaultProfile
-      : DEFAULT_WEB_PORTAL_SETTINGS.diagnosticsProfiles.defaultProfile,
-    profiles: { ...DEFAULT_WEB_PORTAL_SETTINGS.diagnosticsProfiles.profiles }
-  } as DiagnosticsProfilesConfig;
-
-  for (const profileKey of Object.keys(diagnosticsProfiles.profiles) as Array<keyof DiagnosticsProfilesConfig["profiles"]>) {
-    const configured = configuredProfiles?.[profileKey];
-    if (!configured) {
-      continue;
+  const profiles: Record<string, DiagnosticsProfilesConfig["profiles"][string]> = {};
+    for (const [profileKey, configured] of Object.entries(configuredProfiles ?? {})) {
+      if (profileKey === "Off" || profileKey === "Custom" || !configured || typeof configured !== "object") continue;
+      profiles[profileKey] = {
+        label: typeof configured.label === "string" && configured.label.trim() ? configured.label.trim() : profileKey,
+        description: typeof configured.description === "string" ? configured.description.trim() : "",
+        captureSources: Array.isArray(configured.captureSources)
+          ? configured.captureSources.filter((source): source is DiagnosticsProfilesConfig["profiles"][string]["captureSources"][number] => typeof source === "string" && knownTraceSources.has(source as DiagnosticsProfilesConfig["profiles"][string]["captureSources"][number]))
+          : [],
+        displayCategories: Array.isArray(configured.displayCategories) ? configured.displayCategories.filter((category): category is string => typeof category === "string").map((category) => category.trim().toLowerCase()).filter(Boolean) : [],
+        heartbeatEveryNPolls: coercePositiveInteger(configured.heartbeatEveryNPolls, DEFAULT_WEB_PORTAL_SETTINGS.devToolsDefaults.heartbeatEveryNPolls),
+        logAllWarnings: typeof configured.logAllWarnings === "boolean" ? configured.logAllWarnings : false,
+        logAllErrors: typeof configured.logAllErrors === "boolean" ? configured.logAllErrors : false
+      };
     }
-
-    diagnosticsProfiles.profiles[profileKey] = {
-      ...diagnosticsProfiles.profiles[profileKey],
-      ...(typeof configured.label === "string" && configured.label.trim() ? { label: configured.label.trim() } : {}),
-      ...(typeof configured.description === "string" && configured.description.trim() ? { description: configured.description.trim() } : {}),
-      ...(Array.isArray(configured.captureSources) ? {
-        captureSources: configured.captureSources
-          .filter((source): source is DiagnosticsProfilesConfig["profiles"][typeof profileKey]["captureSources"][number] => typeof source === "string" && knownTraceSources.has(source as DiagnosticsProfilesConfig["profiles"][typeof profileKey]["captureSources"][number]))
-      } : {}),
-      ...(Array.isArray(configured.displayCategories) ? { displayCategories: configured.displayCategories.filter((category): category is string => typeof category === "string").map((category) => category.trim().toLowerCase()).filter(Boolean) } : {}),
-      ...(typeof configured.heartbeatEveryNPolls === "number" ? { heartbeatEveryNPolls: coercePositiveInteger(configured.heartbeatEveryNPolls, diagnosticsProfiles.profiles[profileKey].heartbeatEveryNPolls) } : {})
-    };
-  }
+    if (Object.keys(profiles).length === 0) {
+      Object.assign(profiles, DEFAULT_WEB_PORTAL_SETTINGS.diagnosticsProfiles.profiles);
+    }
+    const requestedDefault = document.diagnosticsProfiles?.defaultProfile;
+    const defaultProfile = requestedDefault && Object.prototype.hasOwnProperty.call(profiles, requestedDefault)
+      ? requestedDefault
+      : Object.prototype.hasOwnProperty.call(profiles, DEFAULT_WEB_PORTAL_SETTINGS.diagnosticsProfiles.defaultProfile)
+        ? DEFAULT_WEB_PORTAL_SETTINGS.diagnosticsProfiles.defaultProfile
+        : Object.keys(profiles)[0];
+    const diagnosticsProfiles: DiagnosticsProfilesConfig = { defaultProfile, profiles };
 
   return {
     devToolsDefaults: {

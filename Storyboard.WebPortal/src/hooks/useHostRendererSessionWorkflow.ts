@@ -847,10 +847,9 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     consumeSessionDeltaSoundCuesRef.current(sessionData);
     const previousSnapshot = rendererSceneSnapshotRef.current;
     const nextSnapshot = mapHostSessionDataToSceneSnapshot(sessionData, previousSnapshot);
-    const pointCueChanges = sessionData.roomObjectChanges.flatMap((change) => {
-      const rawCues = change.renderableRoomObject?.activePresentationCues ?? [];
-      const pointCues = rawCues.filter((cue) => cue.effectKey.trim().toLowerCase().includes(".point."));
-      if (pointCues.length === 0) {
+    const activeCueChanges = sessionData.roomObjectChanges.flatMap((change) => {
+      const rawActiveCues = change.renderableRoomObject?.activePresentationCues;
+      if (rawActiveCues === undefined) {
         return [];
       }
 
@@ -858,10 +857,8 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       return [{
         objectId: change.objectId,
         objectName: change.objectName,
-        rawActiveCues: pointCues,
-        mappedCues: mappedObject?.presentationCues.filter((cue) => {
-          return cue.effectKey.trim().toLowerCase().includes(".point.");
-        }) ?? [],
+        rawActiveCues,
+        mappedPresentationCues: mappedObject?.presentationCues ?? [],
         footprintCenterXpx: change.renderableRoomObject?.spatialFootprint?.footprintCenterXpx,
         footprintCenterYpx: change.renderableRoomObject?.spatialFootprint?.footprintCenterYpx,
         mappedFootprintCenterXpx: mappedObject?.lighting?.spatialFootprint?.footprintCenterXpx,
@@ -870,10 +867,10 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
         mappedSpriteY: mappedObject?.sprite?.y
       }];
     });
-    if (pointCueChanges.length > 0) {
-      addDiagnosticRef.current("info", "session-render", "Mapped active object point cues from Host session delta into the renderer scene.", {
+    if (activeCueChanges.length > 0) {
+      addDiagnosticRef.current("info", "session-render", "Mapped authoritative active presentation cues from Host session delta into the renderer scene.", {
         watermark: sessionData.sessionDeltaWatermark,
-        pointCueChanges
+        activeCueChanges
       });
     }
     if (nextSnapshot) {

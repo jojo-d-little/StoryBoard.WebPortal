@@ -15,8 +15,7 @@ export const PORTAL_TRACE_SOURCES: readonly PortalTraceSource[] = [
   "failure"
 ];
 
-export const DIAGNOSTICS_PROFILE_KEYS = ["Focused", "Normal", "Verbose"] as const;
-export type DiagnosticsProfileKey = typeof DIAGNOSTICS_PROFILE_KEYS[number];
+export type DiagnosticsProfileKey = string;
 
 export interface DiagnosticsTraceProfile {
   label: string;
@@ -24,9 +23,11 @@ export interface DiagnosticsTraceProfile {
   captureSources: PortalTraceSource[];
   displayCategories: string[];
   heartbeatEveryNPolls: number;
+  logAllWarnings: boolean;
+  logAllErrors: boolean;
 }
 
 export interface DiagnosticsProfilesConfig {
-  defaultProfile: DiagnosticsProfileKey;
-  profiles: Record<DiagnosticsProfileKey, DiagnosticsTraceProfile>;
+  defaultProfile: string;
+  profiles: Record<string, DiagnosticsTraceProfile>;
 }

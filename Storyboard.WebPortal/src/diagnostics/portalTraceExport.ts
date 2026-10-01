@@ -12,6 +12,8 @@ export interface PortalTraceExportMetadata {
   captureStartedUtc?: string;
   captureStoppedUtc?: string;
   profile: string;
+  logAllErrors?: boolean;
+  logAllWarnings?: boolean;
   scope: string[];
   bufferEntryCount: number;
   exportedEntryCount: number;
@@ -26,6 +28,8 @@ export interface PortalTraceExportMetadataInput {
   captureStartedUtc?: string;
   captureStoppedUtc?: string;
   profile: string;
+  logAllErrors?: boolean;
+  logAllWarnings?: boolean;
   scope: string[];
   droppedCount: number;
 }
@@ -58,6 +62,8 @@ export function buildPortalTraceExportMetadata(
     ...(input.captureStartedUtc ? { captureStartedUtc: input.captureStartedUtc } : {}),
     ...(input.captureStoppedUtc ? { captureStoppedUtc: input.captureStoppedUtc } : {}),
     profile: input.profile,
+    ...(input.logAllErrors === undefined ? {} : { logAllErrors: input.logAllErrors }),
+    ...(input.logAllWarnings === undefined ? {} : { logAllWarnings: input.logAllWarnings }),
     scope: [...input.scope].sort(),
     bufferEntryCount: entries.length,
     exportedEntryCount: entries.length,
@@ -114,6 +120,8 @@ function formatMetadataText(metadata: PortalTraceExportMetadata): string[] {
     `capture.start=${metadata.captureStartedUtc ?? "(none)"}`,
     `capture.stop=${metadata.captureStoppedUtc ?? "(none)"}`,
     `profile=${metadata.profile}`,
+    ...(metadata.logAllErrors === undefined ? [] : [`log.allErrors=${metadata.logAllErrors}`]),
+    ...(metadata.logAllWarnings === undefined ? [] : [`log.allWarnings=${metadata.logAllWarnings}`]),
     `scope=${metadata.scope.length > 0 ? metadata.scope.join(",") : "(none)"}`,
     `buffer.entries=${metadata.bufferEntryCount}`,
     `exported.entries=${metadata.exportedEntryCount}`,

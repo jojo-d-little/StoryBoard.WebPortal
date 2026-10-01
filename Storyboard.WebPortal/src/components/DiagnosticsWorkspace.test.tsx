@@ -24,6 +24,11 @@ function buildProps(overrides: Partial<DiagnosticsWorkspaceProps> = {}): Diagnos
   return {
     capturing: true,
     profile: "Normal",
+    profileOptions: [
+      { key: "Asset Acquisition", label: "Asset Acquisition" },
+      { key: "Normal", label: "Normal" },
+      { key: "Verbose", label: "Verbose" }
+    ],
     scopeOptions: [
       { source: "commands", label: "Commands and clarification", enabled: true },
       { source: "renderer", label: "Renderer", enabled: true }
@@ -93,7 +98,7 @@ describe("DiagnosticsWorkspace", () => {
     view.rerender(<DiagnosticsWorkspace {...props} capturing={true} consoleVisible={false} />);
     fireEvent.click(screen.getByRole("button", { name: "Stop Trace" }));
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Trace Profile" }), { target: { value: "Focused" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Trace Profile" }), { target: { value: "Asset Acquisition" } });
     fireEvent.click(screen.getByText("Advanced capture scope"));
     fireEvent.click(screen.getByRole("checkbox", { name: "Capture Renderer" }));
     fireEvent.click(screen.getByText("Category display filters"));
@@ -103,7 +108,7 @@ describe("DiagnosticsWorkspace", () => {
     expect(props.onStopTrace).toHaveBeenCalledTimes(1);
     expect(props.onHideConsole).toHaveBeenCalledTimes(1);
     expect(props.onClear).toHaveBeenCalledTimes(1);
-    expect(props.onProfileChange).toHaveBeenCalledWith("Focused");
+    expect(props.onProfileChange).toHaveBeenCalledWith("Asset Acquisition");
     expect(props.onScopeEnabledChange).toHaveBeenCalledWith("renderer", false);
     expect(props.onCategoryEnabledChange).toHaveBeenCalledWith("command", false);
   });
