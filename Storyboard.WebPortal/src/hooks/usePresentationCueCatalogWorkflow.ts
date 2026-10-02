@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { HostApiClient } from "../hostApi/client";
 import { buildAssetCacheKey, webPortalAssetCache } from "../cache/webPortalAssetCache";
 import type { DiagnosticsLevel } from "../components/DiagnosticsConsole";
-import type { PresentationCueCatalogDocument } from "../gameRenderer/presentationCue/resolveMovementCueDuration";
+import type { PresentationCueCatalogDocument } from "../gameRenderer/contracts/presentationEffects";
 
 type AddDiagnostic = (level: DiagnosticsLevel, category: string, message: string, details?: unknown) => void;
 

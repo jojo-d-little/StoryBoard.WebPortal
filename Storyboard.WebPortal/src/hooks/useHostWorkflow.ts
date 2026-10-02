@@ -26,13 +26,13 @@ import { useHostStateTransitionWorkflow } from "./useHostStateTransitionWorkflow
 import { useHostGameSelectionWorkflow } from "./useHostGameSelectionWorkflow";
 import { useHostCacheWorkflow } from "./useHostCacheWorkflow";
 import {
-  useRoomTransitionCueWorkflow,
+  usePresentationCueWorkflow,
   type RoomTransitionCatalogStatus,
   type RoomTransitionCueOption
-} from "./useRoomTransitionCueWorkflow";
+} from "./usePresentationCueWorkflow";
 import { usePresentationCueCatalogWorkflow } from "./usePresentationCueCatalogWorkflow";
 import { useSessionRecordingWorkflow } from "./useSessionRecordingWorkflow";
-import { resolveHostTextPresentationCue } from "../gameRenderer/presentationCue/resolveMovementCueDuration";
+import { resolveHostTextPresentationCue } from "../gameRenderer/presentationCue/presentationCueCatalog";
 import {
   useSessionPhasePresentationWorkflow,
   type HudOverlayEntry
@@ -41,9 +41,9 @@ import {
   type WebPortalAssetCacheStats
 } from "../cache/webPortalAssetCache";
 import {
-  resolveCatalogStyledPointEffect,
-  type ResolvedStyledPointEffect
-} from "../gameRenderer/presentationCue/resolveMovementCueDuration";
+  resolveCatalogStyledPointEffect
+} from "../gameRenderer/presentationCue/presentationCueCatalog";
+import type { ResolvedStyledPointEffect } from "../gameRenderer/contracts/presentationEffects";
 import type { PortalStartupAudioStatus } from "./usePortalStartupAudioGate";
 import {
   DEFAULT_PRESENTATION_ISOLATION_SETTINGS,
@@ -538,8 +538,8 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     selectedRoomTransitionCueEffectKey,
     setSelectedRoomTransitionCueEffectKey,
     roomTransitionCatalogStatus,
-    applyMovementCueDurations
-  } = useRoomTransitionCueWorkflow({
+    applyPresentationCues
+  } = usePresentationCueWorkflow({
     roomTransitionDefaults: options.roomTransitionDefaults,
     presentationCueCatalogRelativeLocator: options.presentationCueCatalogRelativeLocator,
     selectedGameId,
@@ -669,7 +669,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     presentationCueCatalogRevision,
     rendererSceneSnapshot,
     setRendererSceneSnapshot,
-    applyMovementCueDurations,
+    applyPresentationCues,
     getCurrentPresentationCueCatalog,
     presentationCueCatalogSource,
     getHudOverlayEntries: () => hudOverlayEntries.map((entry) => ({

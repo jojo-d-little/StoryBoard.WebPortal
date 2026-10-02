@@ -1,6 +1,6 @@
 import { Container, Graphics } from "pixi.js";
 import type { GameRendererDiagnosticsSink } from "../../../diagnostics/RendererDiagnostics";
-import type { ResolvedStyledPointEffect } from "../../../presentationCue/resolveMovementCueDuration";
+import type { ResolvedStyledPointEffect } from "../../../contracts/presentationEffects";
 
 interface StyledPointEffectInstance {
   handleKey: string;

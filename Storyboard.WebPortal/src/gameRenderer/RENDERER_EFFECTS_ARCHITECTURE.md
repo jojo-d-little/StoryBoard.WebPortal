@@ -19,6 +19,33 @@ Default approach:
 
 ## Layering Model
 
+Object cue data follows two stages. `presentationCues` carries Host activation identity
+and change-associated movement timing. Catalog resolution produces
+`resolvedObjectEffects`, a typed list of visual effects with validated styles. Point,
+outline, silhouette, Shake, and Scale use this list. Movement timing remains on the
+movement path because it describes a room-coordinate transition rather than an
+object visual effect. Effect keys are opaque identifiers; category and catalog style
+fields decide the rendering behavior. The older direct outline, silhouette, and point
+style fields remain only for callers that construct renderer scenes directly.
+
+The Portal names visual families after the catalog property that defines them:
+
+| Catalog property | Catalog input type | Resolved effect kind | Pixi controller folder |
+| --- | --- | --- | --- |
+| `appearanceOutlineStyle` | `CatalogAppearanceOutlineStyle` | `appearanceOutlineStyle` | `appearanceOutlineStyle` |
+| `appearanceSilhouetteStyle` | `CatalogAppearanceSilhouetteStyle` | `appearanceSilhouetteStyle` | `appearanceSilhouetteStyle` |
+| `shakeStyle` | `CatalogShakeStyle` | `shakeStyle` | `shakeStyle` |
+| `scaleStyle` | `CatalogScaleStyle` | `scaleStyle` | `scaleStyle` |
+| `styledPointEffect` | `CatalogStyledPointEffect` | `styledPointEffect` | `styledPointEffect` |
+
+Catalog input interfaces and validated render DTOs live together in
+`contracts/presentationEffects/`, with `contracts/presentationEffects.ts` as their
+entry point. Scene snapshots and object composition stay in `contracts/sceneTypes/`. Shake and Scale
+have separate controllers; the Pixi object composition supplies their independent
+position and scale containers. `GameRenderPresentationCue` is the adapter's merged cue
+reference. Its movement fields are defined by `GameRenderMovementCueMetadata` because
+change-associated movement cues carry timing alongside active cue identity.
+
 1. Cue Resolver Layer
 - Pure data normalization from scene cues/catalog into render-ready effect config.
 - No Pixi object creation and no renderer lifecycle state.
@@ -38,30 +65,24 @@ Default approach:
 
 ## Standard Controller Contract
 
-Controllers should expose a minimal predictable API. Example:
-
-Canonical location for shared contracts:
-
-1. src/gameRenderer/pixi/effects/contracts/ObjectEffectController.ts
+Controllers should expose a minimal predictable API. The outline and silhouette
+controllers use the shared contract in
+`src/gameRenderer/pixi/effects/contracts/ObjectEffectController.ts`:
 
 ```ts
-import type { Sprite } from "pixi.js";
-import type { GameRendererDiagnosticsSink } from "../diagnostics/RendererDiagnostics";
+import type { Container, Sprite } from "pixi.js";
 
 export interface ObjectEffectController<TStyle> {
-  applyForObject: (objectId: string, objectName: string, sprite: Sprite, style: TStyle | undefined) => void;
-  syncObjectTransform: (objectId: string, sprite: Sprite) => void;
-  tick: (nowMs: number, deltaMs: number) => void;
+  applyForObject: (objectId: string, objectName: string, transformHost: Container, sprite: Sprite, style: TStyle | undefined) => void;
+  syncObjectTransform: (objectId: string, transformHost: Container, sprite: Sprite) => void;
+  tick: (nowMs: number) => void;
   removeObject: (objectId: string) => void;
   clear: () => void;
-  dispose: () => void;
-}
-
-export interface CreateObjectEffectControllerOptions {
-  diagnostics?: GameRendererDiagnosticsSink;
-  isDisposed: () => boolean;
 }
 ```
+
+Shake and Scale use narrower controller methods that receive their own transform
+containers and resolved effect list. Point effects have a point-placement lifecycle.
 
 ## Coordinator Responsibilities
 
@@ -125,8 +146,8 @@ Do not mix extraction/refactor and visual behavior redesign in one change when a
 
 When adding a new effect controller, use a discoverable structure:
 
-1. src/gameRenderer/pixi/effects/<effectName>/<effectName>Controller.ts
-2. src/gameRenderer/pixi/effects/<effectName>/<effectName>Controller.test.ts
-3. src/gameRenderer/presentationCue/<effectName>Resolver.ts (if separate from existing resolver module)
+1. `src/gameRenderer/pixi/effects/<catalogStyleProperty>/<EffectFamily>EffectController.ts`
+2. `src/gameRenderer/pixi/effects/<catalogStyleProperty>/<EffectFamily>EffectController.test.ts`
+3. `src/gameRenderer/presentationCue/<EffectFamily>Resolver.ts` if separate from the shared resolver
 
 This convention is guidance, not a hard rule. Keep file naming and placement consistent across new effect modules.

@@ -3,15 +3,13 @@ import type { GameRenderSceneSnapshot } from "../gameRenderer";
 import type { GameRenderTravelDirection } from "../gameRenderer/contracts/sceneTypes";
 import { mapRenderableRoomObjects } from "../gameRenderer/scene/sceneObjects";
 import {
-  resolveAppearanceOutlineStyle,
-  resolveAppearanceSilhouetteStyle,
-  resolveObjectCueVisualStyles,
   resolveCatalogCueDurationMs,
   resolveCatalogRoomTransitionMode,
   resolveMovementCueDurationMs,
-  resolveCatalogStyledPointEffect,
-  type PresentationCueCatalogDocument
-} from "../gameRenderer/presentationCue/resolveMovementCueDuration";
+  resolveCatalogStyledPointEffect
+} from "../gameRenderer/presentationCue/presentationCueCatalog";
+import type { PresentationCueCatalogDocument } from "../gameRenderer/contracts/presentationEffects";
+import { resolveObjectVisualEffects } from "../gameRenderer/presentationCue/resolveObjectVisualEffects";
 
 export interface RoomTransitionCueOption {
   effectKey: string;
@@ -34,7 +32,7 @@ export interface RoomTransitionCatalogStatus {
   lastError?: string;
 }
 
-interface UseRoomTransitionCueWorkflowOptions {
+interface UsePresentationCueWorkflowOptions {
   roomTransitionDefaults: {
     enabled: boolean;
     cueCategory: string;
@@ -54,12 +52,12 @@ interface UseRoomTransitionCueWorkflowOptions {
   addDiagnostic?: (level: "info" | "warn" | "error", category: string, message: string, details?: unknown) => void;
 }
 
-interface UseRoomTransitionCueWorkflowResult {
+interface UsePresentationCueWorkflowResult {
   roomTransitionCueOptions: RoomTransitionCueOption[];
   selectedRoomTransitionCueEffectKey: string;
   setSelectedRoomTransitionCueEffectKey: (effectKey: string) => void;
   roomTransitionCatalogStatus: RoomTransitionCatalogStatus;
-  applyMovementCueDurations: (scene: GameRenderSceneSnapshot) => GameRenderSceneSnapshot;
+  applyPresentationCues: (scene: GameRenderSceneSnapshot) => GameRenderSceneSnapshot;
 }
 
 function stringEqualsIgnoreCase(left: string, right: string): boolean {
@@ -122,9 +120,9 @@ function tryResolveCatalogEffectKey(
   return undefined;
 }
 
-export function useRoomTransitionCueWorkflow(
-  options: UseRoomTransitionCueWorkflowOptions
-): UseRoomTransitionCueWorkflowResult {
+export function usePresentationCueWorkflow(
+  options: UsePresentationCueWorkflowOptions
+): UsePresentationCueWorkflowResult {
   const pointCueDiagnosticSignaturesRef = useRef(new Map<string, string>());
   const [selectedRoomTransitionCueEffectKey, setSelectedRoomTransitionCueEffectKey] = useState<string>("");
 
@@ -273,7 +271,7 @@ export function useRoomTransitionCueWorkflow(
     }
   }, [roomTransitionCueOptions, selectedRoomTransitionCueEffectKey]);
 
-  function applyMovementCueDurations(scene: GameRenderSceneSnapshot): GameRenderSceneSnapshot {
+  function applyPresentationCues(scene: GameRenderSceneSnapshot): GameRenderSceneSnapshot {
     const catalog = options.getCurrentPresentationCueCatalog();
     const transition = scene.roomTransition;
     const transitionTravelDirection = options.roomTransitionDefaults.respectTravelDirection
@@ -309,15 +307,14 @@ export function useRoomTransitionCueWorkflow(
         });
         return effect?.category ? { ...cue, category: effect.category } : cue;
       });
-      const resolvedPresentationCues = resolveObjectCueVisualStyles(presentationCues, catalog);
-
       return {
         ...roomObject,
-        presentationCues: resolvedPresentationCues,
+        presentationCues,
+        resolvedObjectEffects: resolveObjectVisualEffects(presentationCues, catalog),
         movementDurationMs: roomObject.movementDurationMs
           ?? resolveMovementCueDurationMs(presentationCues, catalog),
-        appearanceOutlineStyle: resolveAppearanceOutlineStyle(presentationCues, catalog),
-        appearanceSilhouetteStyle: resolveAppearanceSilhouetteStyle(presentationCues, catalog)
+        appearanceOutlineStyle: undefined,
+        appearanceSilhouetteStyle: undefined
       };
     });
 
@@ -400,7 +397,19 @@ export function useRoomTransitionCueWorkflow(
           }];
         });
 
-        return [objectId, { ...object, styledPointEffects }];
+        return [objectId, {
+          ...object,
+          styledPointEffects: undefined,
+          resolvedObjectEffects: [
+            ...(object.resolvedObjectEffects ?? []),
+            ...styledPointEffects.map((point) => ({
+              kind: "styledPointEffect" as const,
+              effectKey: point.effectKey,
+              activationId: point.activationId,
+              point
+            }))
+          ]
+        }];
       }))
     };
 
@@ -426,6 +435,6 @@ export function useRoomTransitionCueWorkflow(
     selectedRoomTransitionCueEffectKey,
     setSelectedRoomTransitionCueEffectKey,
     roomTransitionCatalogStatus,
-    applyMovementCueDurations
+    applyPresentationCues
   };
 }

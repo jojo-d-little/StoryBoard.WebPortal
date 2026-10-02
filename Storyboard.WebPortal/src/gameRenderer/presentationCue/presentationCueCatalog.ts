@@ -1,4 +1,6 @@
 import type {
+  PresentationCueCatalogEffect,
+  PresentationCueCatalogDocument,
   GameRenderAppearanceOutlineStyle,
   GameRenderAppearanceSilhouettePass,
   GameRenderAppearanceSilhouetteStyle,
@@ -7,7 +9,7 @@ import type {
   ResolvedStyledPointCoreLayer,
   ResolvedStyledPointEffect,
   ResolvedStyledPointOrbitLayer
-} from "../contracts/sceneTypes";
+} from "../contracts/presentationEffects";
 import type { HostCommandPresentationCueText } from "../../hostApi/HostContracts";
 
 export type {
@@ -17,118 +19,18 @@ export type {
   ResolvedStyledPointOrbitLayer
 };
 
-export interface PresentationCueCatalogEffect {
-  category?: string;
-  effectKey?: string;
-  displayName?: string;
-  textPresentation?: {
-    where?: string;
-    how?: string;
-    dismissMode?: string;
-    backdropMode?: string;
-    backdropOpacity?: number;
-    panelOpacity?: number;
-    panelBorderThicknessPx?: number;
-    titleFontSizePx?: number;
-    bodyFontSizePx?: number;
-    scrollSpeedPxPerSec?: number;
-    motionInMs?: number;
-    motionOutMs?: number;
-    displayDurationMs?: number;
-    durationMs?: number;
-  };
-  roomTransitionPresentation?: {
-    mode?: string;
-  };
-  movementInterpolation?: {
-    frameCount?: number;
-    secondsPerFrame?: number;
-  };
-  appearanceOutlineStyle?: {
-    outlineColorHex?: string;
-    outlineThickness?: number;
-    pulseMs?: number;
-  };
-  appearanceSilhouetteStyle?: {
-    sourceToSilhouette?: {
-      imageToSilhouetteMask?: {
-        policy?: string;
-        cutoff?: number;
-      };
-    };
-    animation?: {
-      pulseMs?: number;
-    };
-    passes?: Array<{
-      name?: string;
-      enabled?: boolean;
-      blendMode?: string;
-      colorStops?: string[];
-      scaleStops?: number[];
-      alphaStops?: number[];
-    }>;
-  };
-  styledPointEffect?: {
-    coreLayers?: Array<{
-      name?: string;
-      enabled?: boolean;
-      blendMode?: string;
-      colorStops?: string[];
-      alphaStops?: number[];
-      radiusStops?: number[];
-      radiusScale?: number;
-    }>;
-    orbitLayer?: {
-      enabled?: boolean;
-      style?: string;
-      blendMode?: string;
-      spinner?: {
-        colorStops?: string[];
-        alphaStops?: number[];
-        densityStops?: number[];
-        radiusScaleBase?: number;
-        radiusScaleStep?: number;
-        radiusScaleBands?: number;
-        sparkRadiusScale?: number;
-        angularSpeedScale?: number;
-        baseRadiusScale?: number;
-        alphaScale?: number;
-      };
-      ringPulse?: {
-        colorStops?: string[];
-        alphaStops?: number[];
-        ringCount?: number;
-        ringSpacingScale?: number;
-        radialGrowthStops?: number[];
-        ringThicknessPx?: number;
-        phaseOffsetStep?: number;
-        baseRadiusScale?: number;
-        alphaScale?: number;
-      };
-    };
-    pulseMs?: number;
-    lifecycle?: {
-      clearPolicy?: string;
-      lifetimeMs?: number;
-      cooldownMs?: number;
-    };
-  };
-  shakeStyle?: {
-    horizontalDisplacementPx?: number;
-    verticalDisplacementPx?: number;
-    speedHz?: number;
-  };
-  scaleStyle?: {
-    targetScaleMultiplier?: number;
-    transitionDurationMs?: number;
-  };
-}
-
-export interface PresentationCueCatalogDocument {
-  schemaVersion?: string;
-  effects?: PresentationCueCatalogEffect[];
-}
-
+export type {
+  PresentationCueCatalogEffect,
+  PresentationCueCatalogDocument,
+  CatalogTextPresentation,
+  CatalogRoomTransitionPresentation,
+  CatalogMovementInterpolation,
+  CatalogAppearanceOutlineStyle,
+  CatalogAppearanceSilhouetteStyle,
+  CatalogStyledPointEffect,
+  CatalogShakeStyle,
+  CatalogScaleStyle
+} from "../contracts/presentationEffects";
 export type ResolvedTextPresentationTarget = "echo" | "hud-overlay" | "narrative-dialog" | "unknown";
 
 export interface ResolvedTextPresentationCue {
@@ -177,46 +79,6 @@ function normalizeCategory(value: string | undefined): string {
 
 function normalizeEffectKey(value: string | undefined): string {
   return (value ?? "").trim().toLowerCase();
-}
-
-export function resolveObjectCueVisualStyles(
-  cues: GameRenderPresentationCue[],
-  catalog: PresentationCueCatalogDocument | null | undefined
-): GameRenderPresentationCue[] {
-  return cues.map((cue) => {
-    const { shakeStyle: _previousShakeStyle, scaleStyle: _previousScaleStyle, ...baseCue } = cue;
-    if (normalizeCategory(cue.category) !== "appearance") {
-      return baseCue;
-    }
-
-    const effectKey = normalizeEffectKey(cue.effectKey);
-    const effect = catalog?.effects?.find((candidate) => {
-      return normalizeCategory(candidate.category) === "appearance"
-        && normalizeEffectKey(candidate.effectKey) === effectKey;
-    });
-
-    const horizontal = effect?.shakeStyle?.horizontalDisplacementPx;
-    const vertical = effect?.shakeStyle?.verticalDisplacementPx;
-    const speedHz = effect?.shakeStyle?.speedHz;
-    const shakeStyle = Number.isFinite(horizontal) && horizontal! >= 0 && horizontal! <= 256
-      && Number.isFinite(vertical) && vertical! >= 0 && vertical! <= 256
-      && Number.isFinite(speedHz) && speedHz! > 0 && speedHz! <= 20
-      ? { horizontalDisplacementPx: horizontal!, verticalDisplacementPx: vertical!, speedHz: speedHz! }
-      : undefined;
-
-    const targetScaleMultiplier = effect?.scaleStyle?.targetScaleMultiplier;
-    const transitionDurationMs = effect?.scaleStyle?.transitionDurationMs;
-    const scaleStyle = Number.isFinite(targetScaleMultiplier) && targetScaleMultiplier! >= 0.1 && targetScaleMultiplier! <= 8
-      && Number.isInteger(transitionDurationMs) && transitionDurationMs! >= 1 && transitionDurationMs! <= 10000
-      ? { targetScaleMultiplier: targetScaleMultiplier!, transitionDurationMs: transitionDurationMs! }
-      : undefined;
-
-    return {
-      ...baseCue,
-      ...(shakeStyle ? { shakeStyle } : {}),
-      ...(scaleStyle ? { scaleStyle } : {})
-    };
-  });
 }
 
 function toFiniteNonNegative(value: number | undefined): number | null {

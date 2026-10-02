@@ -12,7 +12,7 @@ import type {
   RendererLastClickPoint,
   RendererScaleMetrics
 } from "../hooks/useHostWorkflow";
-import type { ResolvedStyledPointEffect } from "../gameRenderer/presentationCue/resolveMovementCueDuration";
+import type { ResolvedStyledPointEffect } from "../gameRenderer/contracts/presentationEffects";
 import type { PresentationIsolationSettings } from "../gameRenderer/presentationIsolation";
 
 interface WaypointInteractionRendererBridge {

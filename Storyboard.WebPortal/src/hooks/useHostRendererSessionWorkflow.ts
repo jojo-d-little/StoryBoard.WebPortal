@@ -7,7 +7,7 @@ import { HostApiClient } from "../hostApi/client";
 import type { HostCommandSoundCue, HostRuntimePresentationResult, HostSessionDataEnvelope } from "../hostApi/HostContracts";
 import { useSessionDeltaPolling } from "./useSessionDeltaPolling";
 import { buildAssetCacheKey, webPortalAssetCache } from "../cache/webPortalAssetCache";
-import type { PresentationCueCatalogDocument } from "../gameRenderer/presentationCue/resolveMovementCueDuration";
+import type { PresentationCueCatalogDocument } from "../gameRenderer/contracts/presentationEffects";
 
 type AddDiagnostic = (level: DiagnosticsLevel, category: string, message: string, details?: unknown) => void;
 const ROOM_TRANSITION_POLLING_PAUSE_WATCHDOG_MS = 30000;
@@ -71,7 +71,7 @@ interface UseHostRendererSessionWorkflowOptions {
   presentationCueCatalogRevision: number;
   rendererSceneSnapshot: GameRenderSceneSnapshot | null;
   setRendererSceneSnapshot: (snapshot: GameRenderSceneSnapshot | null) => void;
-  applyMovementCueDurations: (scene: GameRenderSceneSnapshot) => GameRenderSceneSnapshot;
+  applyPresentationCues: (scene: GameRenderSceneSnapshot) => GameRenderSceneSnapshot;
   getCurrentPresentationCueCatalog: () => PresentationCueCatalogDocument | null;
   presentationCueCatalogSource: "none" | "cache" | "network";
   getHudOverlayEntries: () => GameRenderSceneSnapshot["hudOverlayEntries"];
@@ -98,7 +98,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   const [roomTransitionActive, setRoomTransitionActive] = useState<boolean>(false);
   const sceneHydrationGenerationRef = useRef<number>(0);
   const rendererSceneSnapshotRef = useRef<GameRenderSceneSnapshot | null>(options.rendererSceneSnapshot);
-  const applyMovementCueDurationsRef = useRef(options.applyMovementCueDurations);
+  const applyPresentationCuesRef = useRef(options.applyPresentationCues);
   const getCurrentPresentationCueCatalogRef = useRef(options.getCurrentPresentationCueCatalog);
   const presentationCueCatalogSourceRef = useRef(options.presentationCueCatalogSource);
   const getHudOverlayEntriesRef = useRef(options.getHudOverlayEntries);
@@ -169,8 +169,8 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   }, [options.rendererSceneSnapshot]);
 
   useEffect(() => {
-    applyMovementCueDurationsRef.current = options.applyMovementCueDurations;
-  }, [options.applyMovementCueDurations]);
+    applyPresentationCuesRef.current = options.applyPresentationCues;
+  }, [options.applyPresentationCues]);
 
   useEffect(() => {
     getCurrentPresentationCueCatalogRef.current = options.getCurrentPresentationCueCatalog;
@@ -225,7 +225,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       return;
     }
 
-    const resolvedScene = applyMovementCueDurationsRef.current(currentScene);
+    const resolvedScene = applyPresentationCuesRef.current(currentScene);
     options.setRendererSceneSnapshot({
       ...resolvedScene,
       hudOverlayEntries: getHudOverlayEntriesRef.current()
@@ -770,7 +770,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       return;
     }
 
-    const resolvedSnapshot = applyMovementCueDurationsRef.current(baselineSnapshot);
+    const resolvedSnapshot = applyPresentationCuesRef.current(baselineSnapshot);
     emitMovementCueResolutionDiagnostics("baseline", null, resolvedSnapshot, null);
     emitAppearanceCueResolutionDiagnostics("baseline", resolvedSnapshot, null);
     emitRoomTransitionCueResolutionDiagnostics("baseline", resolvedSnapshot, baselineSessionData);
@@ -874,7 +874,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       });
     }
     if (nextSnapshot) {
-      const resolvedSnapshot = applyMovementCueDurationsRef.current(nextSnapshot);
+      const resolvedSnapshot = applyPresentationCuesRef.current(nextSnapshot);
       emitMovementCueResolutionDiagnostics("delta", previousSnapshot, resolvedSnapshot, sessionData);
       emitAppearanceCueResolutionDiagnostics("delta", resolvedSnapshot, sessionData);
       emitRoomTransitionCueResolutionDiagnostics("delta", resolvedSnapshot, sessionData);

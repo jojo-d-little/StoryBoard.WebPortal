@@ -1,7 +1,8 @@
-import type { GameRenderAppearanceOutlineStyle } from "./GameRenderAppearanceOutlineStyle";
-import type { GameRenderAppearanceSilhouetteStyle } from "./GameRenderAppearanceSilhouetteStyle";
+import type { GameRenderAppearanceOutlineStyle } from "../presentationEffects/GameRenderAppearanceOutlineStyle";
+import type { GameRenderAppearanceSilhouetteStyle } from "../presentationEffects/GameRenderAppearanceSilhouetteStyle";
 import type { GameRenderAssetReference } from "./GameRenderAssetReference";
-import type { GameRenderPresentationCue } from "./GameRenderPresentationCue";
+import type { GameRenderPresentationCue } from "../presentationEffects/GameRenderPresentationCue";
+import type { GameRenderResolvedObjectEffect } from "../presentationEffects/GameRenderResolvedObjectEffect";
 
 export interface GameRenderRoomObject {
   objectId: string;
@@ -14,8 +15,11 @@ export interface GameRenderRoomObject {
   additionalSituationalScale?: number;
   zOrder: number;
   presentationCues: GameRenderPresentationCue[];
+  resolvedObjectEffects?: GameRenderResolvedObjectEffect[];
   movementDurationMs?: number;
   movementFrames?: number;
+  /** @deprecated Direct scene callers only. Host cues resolve into resolvedObjectEffects. */
   appearanceOutlineStyle?: GameRenderAppearanceOutlineStyle;
+  /** @deprecated Direct scene callers only. Host cues resolve into resolvedObjectEffects. */
   appearanceSilhouetteStyle?: GameRenderAppearanceSilhouetteStyle;
 }

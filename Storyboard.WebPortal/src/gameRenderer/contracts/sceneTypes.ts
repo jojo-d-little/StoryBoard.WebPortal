@@ -5,18 +5,29 @@ export type { GameRenderMovementTravelVisualizationMode } from "./sceneTypes/Gam
 export type { GameRenderRoomBounds } from "./sceneTypes/GameRenderRoomBounds";
 export type { GameRenderAssetReference } from "./sceneTypes/GameRenderAssetReference";
 export type { GameRenderDirectionalOverlay } from "./sceneTypes/GameRenderDirectionalOverlay";
-export type { GameRenderPresentationCue } from "./sceneTypes/GameRenderPresentationCue";
+// Preserve existing scene-type imports while the presentation effect DTOs live together.
 export type {
+  GameRenderCueReference,
+  GameRenderPresentationCue,
+  GameRenderMovementCueMetadata,
+  GameRenderResolvedObjectEffect,
+  GameRenderResolvedObjectEffectIdentity,
+  GameRenderAppearanceOutlineEffect,
+  GameRenderAppearanceSilhouetteEffect,
+  GameRenderShakeEffect,
+  GameRenderScaleEffect,
+  GameRenderStyledPointEffect,
+  GameRenderAppearanceOutlineStyle,
+  GameRenderAppearanceSilhouettePass,
+  GameRenderAppearanceSilhouetteStyle,
+  GameRenderShakeStyle,
+  GameRenderScaleStyle,
   GameRenderObjectStyledPointEffect,
   ResolvedStyledPointBlendMode,
   ResolvedStyledPointCoreLayer,
   ResolvedStyledPointEffect,
   ResolvedStyledPointOrbitLayer
-} from "./sceneTypes/GameRenderStyledPointEffect";
-
-export type { GameRenderAppearanceOutlineStyle } from "./sceneTypes/GameRenderAppearanceOutlineStyle";
-export type { GameRenderAppearanceSilhouettePass } from "./sceneTypes/GameRenderAppearanceSilhouettePass";
-export type { GameRenderAppearanceSilhouetteStyle } from "./sceneTypes/GameRenderAppearanceSilhouetteStyle";
+} from "./presentationEffects";
 
 export type { GameRenderRoomObject } from "./sceneTypes/GameRenderRoomObject";
 export type { GameRenderSceneObject, GameRenderSpriteComponent } from "./sceneTypes/GameRenderSceneObject";

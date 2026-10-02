@@ -1,4 +1,4 @@
-import type { PresentationCueCatalogDocument } from "./presentationCue/resolveMovementCueDuration";
+import type { PresentationCueCatalogDocument } from "./contracts/presentationEffects";
 
 export type PresentationIsolationCategory =
   | "movement"

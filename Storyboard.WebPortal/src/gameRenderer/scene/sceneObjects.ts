@@ -6,6 +6,7 @@ function toSceneObject(roomObject: GameRenderRoomObject): GameRenderSceneObject 
     objectId,
     objectName,
     presentationCues,
+    resolvedObjectEffects,
     movementDurationMs,
     movementFrames,
     ...sprite
@@ -16,6 +17,7 @@ function toSceneObject(roomObject: GameRenderRoomObject): GameRenderSceneObject 
     objectName,
     sprite,
     presentationCues,
+    ...(resolvedObjectEffects === undefined ? {} : { resolvedObjectEffects }),
     ...(movementDurationMs === undefined ? {} : { movementDurationMs }),
     ...(movementFrames === undefined ? {} : { movementFrames })
   };
@@ -31,6 +33,7 @@ function toRenderableRoomObject(object: GameRenderSceneObject): GameRenderRoomOb
     objectName: object.objectName,
     ...object.sprite,
     presentationCues: object.presentationCues,
+    ...(object.resolvedObjectEffects === undefined ? {} : { resolvedObjectEffects: object.resolvedObjectEffects }),
     ...(object.movementDurationMs === undefined ? {} : { movementDurationMs: object.movementDurationMs }),
     ...(object.movementFrames === undefined ? {} : { movementFrames: object.movementFrames })
   };
@@ -64,7 +67,7 @@ export function replaceRenderableRoomObjects(
     }
 
     const { sprite: _sprite, ...withoutSprite } = object;
-    if (object.lighting || object.presentationCues.length > 0) {
+    if (object.lighting || object.presentationCues.length > 0 || (object.resolvedObjectEffects?.length ?? 0) > 0) {
       objectsById[objectId] = withoutSprite;
     }
   }
@@ -90,6 +93,6 @@ export function mapRenderableRoomObjects(
 }
 
 export function toSpriteComponent(roomObject: GameRenderRoomObject): GameRenderSpriteComponent {
-  const { objectId: _objectId, objectName: _objectName, presentationCues: _cues, movementDurationMs: _duration, movementFrames: _frames, ...sprite } = roomObject;
+  const { objectId: _objectId, objectName: _objectName, presentationCues: _cues, resolvedObjectEffects: _effects, movementDurationMs: _duration, movementFrames: _frames, ...sprite } = roomObject;
   return sprite;
 }

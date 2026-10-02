@@ -1,4 +1,4 @@
-import type { GameRenderAppearanceOutlineStyle } from "../../../contracts/sceneTypes";
+import type { GameRenderAppearanceOutlineStyle } from "../../../contracts/presentationEffects";
 import type { GameRendererDiagnosticsSink } from "../../../diagnostics/RendererDiagnostics";
 import type { ObjectEffectController } from "../contracts/ObjectEffectController";
 import { resolveRelativeAffine } from "../shared/relativeAffine";

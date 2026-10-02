@@ -9,7 +9,7 @@ import {
   resolveCatalogRoomTransitionMode,
   resolveMovementCueDurationMs,
   type PresentationCueCatalogDocument
-} from "./resolveMovementCueDuration";
+} from "./presentationCueCatalog";
 
 describe("resolveMovementCueDurationMs", () => {
   const catalog: PresentationCueCatalogDocument = {

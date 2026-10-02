@@ -4,7 +4,7 @@ import type {
   HostSessionDataEnvelope
 } from "../hostApi/HostContracts";
 import type { DiagnosticsLevel } from "../components/DiagnosticsConsole";
-import type { ResolvedTextPresentationCue } from "../gameRenderer/presentationCue/resolveMovementCueDuration";
+import type { ResolvedTextPresentationCue } from "../gameRenderer/presentationCue/presentationCueCatalog";
 import {
   DEFAULT_PRESENTATION_ISOLATION_SETTINGS,
   isPresentationCategoryEnabled,

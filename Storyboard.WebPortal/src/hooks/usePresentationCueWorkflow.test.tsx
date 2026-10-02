@@ -4,8 +4,8 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { GameRenderSceneSnapshot } from "../gameRenderer";
 import type { GameRenderTravelDirection } from "../gameRenderer/contracts/sceneTypes";
-import type { PresentationCueCatalogDocument } from "../gameRenderer/presentationCue/resolveMovementCueDuration";
-import { useRoomTransitionCueWorkflow } from "./useRoomTransitionCueWorkflow";
+import type { PresentationCueCatalogDocument } from "../gameRenderer/contracts/presentationEffects";
+import { usePresentationCueWorkflow } from "./usePresentationCueWorkflow";
 
 function buildSceneSnapshot(
   travelDirection: GameRenderTravelDirection,
@@ -64,7 +64,7 @@ function buildOptions(overrides: {
   };
 }
 
-describe("useRoomTransitionCueWorkflow", () => {
+describe("usePresentationCueWorkflow", () => {
   it("uses directional overrides for vertical travel and falls back to default for planar travel", () => {
     const catalog = buildCatalog([
       {
@@ -99,7 +99,7 @@ describe("useRoomTransitionCueWorkflow", () => {
       }
     ]);
 
-    const { result, rerender } = renderHook((props: ReturnType<typeof buildOptions>) => useRoomTransitionCueWorkflow(props), {
+    const { result, rerender } = renderHook((props: ReturnType<typeof buildOptions>) => usePresentationCueWorkflow(props), {
       initialProps: buildOptions({ catalog, scene: buildSceneSnapshot("Up") })
     });
 
@@ -141,14 +141,14 @@ describe("useRoomTransitionCueWorkflow", () => {
     ]);
 
     const { result } = renderHook(() =>
-      useRoomTransitionCueWorkflow(buildOptions({ catalog, scene: buildSceneSnapshot("Up") }))
+      usePresentationCueWorkflow(buildOptions({ catalog, scene: buildSceneSnapshot("Up") }))
     );
 
     act(() => {
       result.current.setSelectedRoomTransitionCueEffectKey("room.transition.manual");
     });
 
-    const withDurations = result.current.applyMovementCueDurations(buildSceneSnapshot("Up"));
+    const withDurations = result.current.applyPresentationCues(buildSceneSnapshot("Up"));
     expect(withDurations.roomTransition?.cueEffectKey).toBe("room.transition.manual");
     expect(withDurations.roomTransition?.durationMs).toBe(700);
     expect(withDurations.roomTransition?.mode).toBe("fade");
@@ -177,7 +177,7 @@ describe("useRoomTransitionCueWorkflow", () => {
     ]);
 
     const { result } = renderHook(() =>
-      useRoomTransitionCueWorkflow(
+      usePresentationCueWorkflow(
         buildOptions({
           catalog,
           scene: buildSceneSnapshot("East", "room.transition.authored.east")
@@ -185,7 +185,7 @@ describe("useRoomTransitionCueWorkflow", () => {
       )
     );
 
-    const applied = result.current.applyMovementCueDurations(buildSceneSnapshot("East", "room.transition.authored.east"));
+    const applied = result.current.applyPresentationCues(buildSceneSnapshot("East", "room.transition.authored.east"));
     expect(result.current.roomTransitionCatalogStatus.selectedCueEffectKey).toBe("room.transition.authored.east");
     expect(result.current.roomTransitionCatalogStatus.selectedCueDurationMs).toBe(1100);
     expect(applied.roomTransition?.cueEffectKey).toBe("room.transition.authored.east");
@@ -216,7 +216,7 @@ describe("useRoomTransitionCueWorkflow", () => {
     ]);
 
     const { result } = renderHook(() =>
-      useRoomTransitionCueWorkflow(
+      usePresentationCueWorkflow(
         buildOptions({
           catalog,
           scene: buildSceneSnapshot("East", "room.transition.fade.blackoutswap.medium")
@@ -224,7 +224,7 @@ describe("useRoomTransitionCueWorkflow", () => {
       )
     );
 
-    const applied = result.current.applyMovementCueDurations(
+    const applied = result.current.applyPresentationCues(
       buildSceneSnapshot("East", "room.transition.fade.blackoutswap.medium")
     );
     expect(result.current.roomTransitionCatalogStatus.selectedCueEffectKey).toBe("room.transition.fade.blackoutswap.medium");
@@ -246,7 +246,7 @@ describe("useRoomTransitionCueWorkflow", () => {
     ]);
 
     const { result } = renderHook(() =>
-      useRoomTransitionCueWorkflow(
+      usePresentationCueWorkflow(
         buildOptions({
           catalog,
           scene: buildSceneSnapshot("East", "room.transition.missing")
@@ -254,7 +254,7 @@ describe("useRoomTransitionCueWorkflow", () => {
       )
     );
 
-    const applied = result.current.applyMovementCueDurations(buildSceneSnapshot("East", "room.transition.missing"));
+    const applied = result.current.applyPresentationCues(buildSceneSnapshot("East", "room.transition.missing"));
     expect(result.current.roomTransitionCatalogStatus.selectedCueEffectKey).toBe("room.transition.default");
     expect(result.current.roomTransitionCatalogStatus.selectedCueDurationMs).toBe(1000);
     expect(applied.roomTransition?.cueEffectKey).toBe("room.transition.default");
@@ -272,10 +272,10 @@ describe("useRoomTransitionCueWorkflow", () => {
     ]);
 
     const { result } = renderHook(() =>
-      useRoomTransitionCueWorkflow(buildOptions({ catalog, scene: buildSceneSnapshot("East") }))
+      usePresentationCueWorkflow(buildOptions({ catalog, scene: buildSceneSnapshot("East") }))
     );
 
-    const applied = result.current.applyMovementCueDurations(buildSceneSnapshot("East"));
+    const applied = result.current.applyPresentationCues(buildSceneSnapshot("East"));
     expect(result.current.roomTransitionCatalogStatus.usingFallbackDuration).toBe(true);
     expect(result.current.roomTransitionCatalogStatus.selectedCueDurationMs).toBeUndefined();
     expect(applied.roomTransition?.durationMs).toBe(650);
@@ -296,14 +296,14 @@ describe("useRoomTransitionCueWorkflow", () => {
     ]);
 
     const { result } = renderHook(() =>
-      useRoomTransitionCueWorkflow(buildOptions({
+      usePresentationCueWorkflow(buildOptions({
         catalog,
         enabled: false,
         scene: buildSceneSnapshot("East")
       }))
     );
 
-    const applied = result.current.applyMovementCueDurations(buildSceneSnapshot("East"));
+    const applied = result.current.applyPresentationCues(buildSceneSnapshot("East"));
     expect(applied.roomTransition?.cueCategory).toBe("RoomTransition");
     expect(applied.roomTransition?.cueEffectKey).toBe("room.transition.default");
     expect(applied.roomTransition?.mode).toBe("fade");
@@ -332,7 +332,7 @@ describe("useRoomTransitionCueWorkflow", () => {
       }
     ]);
 
-    const { result, rerender } = renderHook((props: ReturnType<typeof buildOptions>) => useRoomTransitionCueWorkflow(props), {
+    const { result, rerender } = renderHook((props: ReturnType<typeof buildOptions>) => usePresentationCueWorkflow(props), {
       initialProps: buildOptions({
         catalog: firstCatalog,
         presentationCueCatalogRevision: 1
