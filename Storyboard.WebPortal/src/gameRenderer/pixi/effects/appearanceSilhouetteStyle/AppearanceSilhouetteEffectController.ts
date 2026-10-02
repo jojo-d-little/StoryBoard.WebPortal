@@ -291,10 +291,27 @@ function ensureSilhouetteParent(bundle: SilhouetteSpriteBundle, desiredParent: C
   desiredParent.addChild(bundle.renderContainer);
 }
 
+function resolveScaleMultiplier(
+  state: AppearanceSilhouetteState,
+  passStyle: RuntimeSilhouettePassStyle,
+  nowMs: number
+): number {
+  const pulseMs = state.style.pulseMs ?? 0;
+  if (!(pulseMs > 0)) {
+    return passStyle.scaleMultiplierStops[0] ?? 1.04;
+  }
+
+  const elapsed = Math.max(0, nowMs - state.pulseStartAtMs);
+  const phase = (elapsed % pulseMs) / pulseMs;
+  return sampleStops(passStyle.scaleMultiplierStops, foldPulsePhase(phase));
+}
+
 function syncSilhouetteTransform(
   fallbackLayer: Container,
   state: AppearanceSilhouetteState,
-  silhouetteBundle: SilhouetteSpriteBundle
+  silhouetteBundle: SilhouetteSpriteBundle,
+  passStyle: RuntimeSilhouettePassStyle,
+  nowMs: number
 ): void {
   silhouetteBundle.renderContainer.visible = false;
   const silhouette = silhouetteBundle.rootSprite;
@@ -306,12 +323,16 @@ function syncSilhouetteTransform(
   const centerX = (relative.a * (source.texture.width * 0.5)) + (relative.c * (source.texture.height * 0.5)) + relative.tx;
   const centerY = (relative.b * (source.texture.width * 0.5)) + (relative.d * (source.texture.height * 0.5)) + relative.ty;
   const hostRotation = Math.atan2(relative.b, relative.a);
+  const hostScaleX = Math.sqrt((relative.a * relative.a) + (relative.b * relative.b));
+  const hostScaleY = Math.sqrt((relative.c * relative.c) + (relative.d * relative.d));
+  const scaleMultiplier = resolveScaleMultiplier(state, passStyle, nowMs);
 
   // Keep silhouette immediately under its source object so stacked supports stay below it.
   silhouetteBundle.renderContainer.zIndex = state.transformHost.zIndex - (0.001 + (silhouetteBundle.passIndex * 0.0001));
   silhouette.anchor.set(0.5, 0.5);
   silhouette.position.set(centerX, centerY);
   silhouette.rotation = hostRotation;
+  silhouette.scale.set(hostScaleX * scaleMultiplier, hostScaleY * scaleMultiplier);
   silhouette.zIndex = 0;
 
   if (silhouetteMask) {
@@ -339,19 +360,8 @@ function applyStaticState(roomObjectLayer: Container, state: AppearanceSilhouett
 
     silhouette.rootSprite.blendMode = resolveBlendMode(passStyle.blendMode);
 
-    const baseScaleMultiplier = passStyle.scaleMultiplierStops[0] ?? 1.04;
-    const parentLayer = resolveEffectParent(state.transformHost, roomObjectLayer);
-    ensureSilhouetteParent(silhouette, parentLayer);
-    const relative = resolveHostRelativeAffine(parentLayer, state.transformHost);
-    const hostScaleX = Math.sqrt((relative.a * relative.a) + (relative.b * relative.b));
-    const hostScaleY = Math.sqrt((relative.c * relative.c) + (relative.d * relative.d));
-    silhouette.rootSprite.scale.set(
-      hostScaleX * baseScaleMultiplier,
-      hostScaleY * baseScaleMultiplier
-    );
-
     silhouette.rootSprite.alpha = 1;
-    syncSilhouetteTransform(roomObjectLayer, state, silhouette);
+    syncSilhouetteTransform(roomObjectLayer, state, silhouette, passStyle, performance.now());
   }
 }
 
@@ -568,8 +578,12 @@ export function createAppearanceSilhouetteEffectController(
 
       state.transformHost = transformHost;
       state.sourceSprite = sprite;
-      for (const silhouette of state.silhouettes) {
-        syncSilhouetteTransform(options.roomObjectLayer, state, silhouette);
+      const nowMs = performance.now();
+      for (let index = 0; index < state.silhouettes.length; index += 1) {
+        const passStyle = state.passStyles[index];
+        if (passStyle) {
+          syncSilhouetteTransform(options.roomObjectLayer, state, state.silhouettes[index], passStyle, nowMs);
+        }
       }
     },
     tick: (nowMs) => {
@@ -586,7 +600,6 @@ export function createAppearanceSilhouetteEffectController(
           const colorStops = passStyle.colorHexStops
             .map((stop) => tryParseHexColor(stop))
             .filter((stop): stop is number => stop !== null);
-          const scaleStops = passStyle.scaleMultiplierStops;
           const alphaStops = passStyle.alphaStops;
 
           if (pulseMs > 0) {
@@ -594,11 +607,6 @@ export function createAppearanceSilhouetteEffectController(
             const phase = (elapsed % pulseMs) / pulseMs;
             const pulsePhase = foldPulsePhase(phase);
             const nextColor = sampleColorPingPong(colorStops, phase);
-            const nextScaleMultiplier = sampleStops(scaleStops, pulsePhase);
-            const parentLayer = resolveEffectParent(state.transformHost, options.roomObjectLayer);
-            const relative = resolveHostRelativeAffine(parentLayer, state.transformHost);
-            const hostScaleX = Math.sqrt((relative.a * relative.a) + (relative.b * relative.b));
-            const hostScaleY = Math.sqrt((relative.c * relative.c) + (relative.d * relative.d));
             const fallbackPulseAlpha = 0.5 + (0.25 * (0.5 + 0.5 * Math.sin(phase * Math.PI * 2)));
             const nextAlpha = alphaStops.length === 1
               ? alphaStops[0]
@@ -606,17 +614,12 @@ export function createAppearanceSilhouetteEffectController(
 
             applySolidMaskFilterState(silhouette, nextColor, nextAlpha);
 
-            silhouette.rootSprite.scale.set(
-              hostScaleX * nextScaleMultiplier,
-              hostScaleY * nextScaleMultiplier
-            );
-
             silhouette.rootSprite.alpha = 1;
           } else {
             applyStaticState(options.roomObjectLayer, state);
           }
 
-          syncSilhouetteTransform(options.roomObjectLayer, state, silhouette);
+          syncSilhouetteTransform(options.roomObjectLayer, state, silhouette, passStyle, nowMs);
         }
       }
     },
