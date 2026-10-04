@@ -21,6 +21,7 @@ const pixiMocks = vi.hoisted(() => {
     visible = true;
     mask: unknown;
     position = new MockPoint();
+    pivot = new MockPoint();
     scale = new MockPoint();
     alpha = 1;
     zIndex = 0;
@@ -412,9 +413,9 @@ describe("PixiGameRenderer appearance outline cues", () => {
     const roomObjectLayer = activeSurfaceRoot.children[0].children[1];
     const root = roomObjectLayer.children[0] as {
       position: { x: number };
-      children: Array<{ scale: { x: number } }>;
+      children: any[];
     };
-    const baseScaleContainer = root.children[0] as { scale: { x: number } };
+    const baseScaleContainer = root.children[0].children[0].children[0] as { scale: { x: number } };
 
     expect(baseScaleContainer.scale.x).toBe(0.6);
 
