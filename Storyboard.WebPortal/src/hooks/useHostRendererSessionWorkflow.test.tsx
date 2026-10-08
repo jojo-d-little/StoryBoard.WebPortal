@@ -38,6 +38,15 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
     useSessionDeltaPollingMock.mockReset();
   });
 
+  async function waitForBaselineSyncReady(): Promise<void> {
+    await waitFor(() => {
+      const baselineReady = useSessionDeltaPollingMock.mock.calls
+        .map((call) => call[0] as { enabled?: boolean })
+        .some((call) => call.enabled === true);
+      expect(baselineReady).toBe(true);
+    });
+  }
+
   it("waits for baseline and starts delta polling from baseline watermark", async () => {
     const getSessionBaseline = vi.fn().mockResolvedValue({
       sessionDeltaWatermark: "42",
@@ -185,6 +194,7 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
       "Could not read renderer image asset cache; fetching from Host.",
       expect.objectContaining({ assetPath: "assets/wall.png" })
     );
+    await waitForBaselineSyncReady();
   });
 
   it("passes a resync baseline callback into polling workflow", async () => {
@@ -231,6 +241,7 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
         .find((call) => typeof call.onResyncBaseline === "function");
       expect(matchingCall).toBeDefined();
     });
+    await waitForBaselineSyncReady();
   });
 
   it("pauses polling for a room-change delta and defers phase presentation until renderer completion", async () => {
@@ -269,9 +280,7 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
       })
     );
 
-    await waitFor(() => {
-      expect(useSessionDeltaPollingMock).toHaveBeenCalled();
-    });
+    await waitForBaselineSyncReady();
 
     const pollingOptions = useSessionDeltaPollingMock.mock.calls[useSessionDeltaPollingMock.mock.calls.length - 1]?.[0] as {
       isPaused: () => boolean;

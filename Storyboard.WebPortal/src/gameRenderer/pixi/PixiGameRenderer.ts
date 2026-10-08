@@ -1949,8 +1949,14 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         const spatialFootprint = scene.objectsById[roomObject.objectId]?.lighting?.spatialFootprint;
         if (Number.isFinite(spatialFootprint?.footprintCenterXpx)
           && Number.isFinite(spatialFootprint?.footprintCenterYpx)) {
-          roomObjectSpriteState.scaleCenterX = Number(spatialFootprint?.footprintCenterXpx) - roomObject.x;
-          roomObjectSpriteState.scaleCenterY = Number(spatialFootprint?.footprintCenterYpx) - roomObject.y;
+          const roomOffsetX = Number(spatialFootprint?.footprintCenterXpx) - roomObject.x;
+          const roomOffsetY = Number(spatialFootprint?.footprintCenterYpx) - roomObject.y;
+          const angle = toRadians(roomObject.rotationDegrees);
+          const cos = Math.cos(angle);
+          const sin = Math.sin(angle);
+          // Convert the room-space center through the inverse root rotation and authored scale.
+          roomObjectSpriteState.scaleCenterX = ((roomOffsetX * cos) + (roomOffsetY * sin)) / targetBaseScale;
+          roomObjectSpriteState.scaleCenterY = ((roomOffsetY * cos) - (roomOffsetX * sin)) / targetBaseScale;
         } else {
           roomObjectSpriteState.scaleCenterX = roomObjectSpriteState.sprite.texture.width * 0.5;
           roomObjectSpriteState.scaleCenterY = roomObjectSpriteState.sprite.texture.height * 0.5;
