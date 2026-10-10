@@ -270,14 +270,14 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
 
     for (const roomObject of selectRenderableRoomObjects(resolvedScene)) {
       const change = changedById.get(roomObject.objectId);
-      if (!change) {
+      if (!change || (change.changeKind !== "Added" && change.changeKind !== "Updated")) {
         continue;
       }
 
       const previous = previousById.get(roomObject.objectId);
       const moved = previous
         ? previous.x !== roomObject.x || previous.y !== roomObject.y
-        : change.changeKind !== "Removed";
+        : true;
 
       if (!moved) {
         continue;
@@ -457,7 +457,8 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     }> = [];
 
     for (const roomObject of selectRenderableRoomObjects(resolvedScene)) {
-      if (!changedById.has(roomObject.objectId)) {
+      const change = changedById.get(roomObject.objectId);
+      if (!change || (change.changeKind !== "Added" && change.changeKind !== "Updated")) {
         continue;
       }
 
@@ -848,6 +849,9 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     const previousSnapshot = rendererSceneSnapshotRef.current;
     const nextSnapshot = mapHostSessionDataToSceneSnapshot(sessionData, previousSnapshot);
     const activeCueChanges = sessionData.roomObjectChanges.flatMap((change) => {
+      if (change.changeKind === "Hidden" || change.changeKind === "Removed") {
+        return [];
+      }
       const rawActiveCues = change.renderableRoomObject?.activePresentationCues;
       if (rawActiveCues === undefined) {
         return [];

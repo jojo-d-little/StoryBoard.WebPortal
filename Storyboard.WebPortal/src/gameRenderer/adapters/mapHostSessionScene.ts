@@ -201,12 +201,15 @@ function applyObjectChanges(
 ): Record<string, GameRenderSceneObject> {
   const objectsById = { ...initial };
   for (const change of changes) {
-    if (change.changeKind === "Removed") {
+    if (change.changeKind === "Removed" || change.changeKind === "Hidden") {
       delete objectsById[change.objectId];
       continue;
     }
 
     const renderableRoomObject = change.renderableRoomObject;
+    if (change.changeKind === "Shown" && !renderableRoomObject) {
+      continue;
+    }
     const presentationCues = change.presentationCues.map((cue) => ({
       cueType: cue.cueType,
       category: cue.category,
@@ -331,7 +334,9 @@ function collectMoveLegTelemetry(changes: HostSessionDataEnvelope["roomObjectCha
     return [];
   }
 
-  return changes.flatMap((change) => mapMoveLegTelemetry(change.moveLegTelemetry ?? []));
+  return changes.flatMap((change) => change.changeKind === "Added" || change.changeKind === "Updated"
+    ? mapMoveLegTelemetry(change.moveLegTelemetry ?? [])
+    : []);
 }
 
 export function mapHostPresentationToSceneSnapshot(source: HostPresentationSceneSource): GameRenderSceneSnapshot | null {

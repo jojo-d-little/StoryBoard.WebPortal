@@ -92,6 +92,114 @@ function buildSessionData(overrides: Partial<HostSessionDataEnvelope> = {}): Hos
 }
 
 describe("mapHostSessionDataToSceneSnapshot", () => {
+  it("removes Hidden objects and restores Shown objects with their full visual state", () => {
+    const visibleObject = buildSessionData().roomChange!.newRoom!.renderableRoomObjects[0];
+    const baseline = mapHostSessionDataToSceneSnapshot(buildSessionData());
+    expect(renderedRoomObjects(baseline)).toHaveLength(1);
+
+    const hidden = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      hasRoomChange: false,
+      roomChange: undefined,
+      roomObjectChanges: [{
+        changeKind: "Hidden",
+        objectId: "obj-1",
+        objectName: "Lantern",
+        renderableRoomObject: visibleObject,
+        presentationCues: [{ category: "Movement", effectKey: "movement.walk", movementDurationMs: 300 }],
+        moveLegTelemetry: [{
+          targetObjectId: "obj-1",
+          targetObjectName: "Lantern",
+          legIndex: 0,
+          requestedDirection: "East",
+          requestedDistanceInCells: 1,
+          appliedDistanceInCells: 1,
+          success: true,
+          resultCode: "MovedFullDistance",
+          fromX: 120,
+          fromY: 80,
+          toX: 160,
+          toY: 80,
+          travelVisualizationMode: "LegByLeg"
+        }]
+      }]
+    }), baseline);
+    expect(hidden?.objectsById["obj-1"]).toBeUndefined();
+    expect(renderedRoomObjects(hidden)).toHaveLength(0);
+    expect(hidden?.moveLegTelemetry).toEqual([]);
+
+    const shown = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      hasRoomChange: false,
+      roomChange: undefined,
+      roomObjectChanges: [{
+        changeKind: "Shown",
+        objectId: "obj-1",
+        objectName: "Lantern",
+        renderableRoomObject: {
+          ...visibleObject,
+          renderableImage: { ...visibleObject.renderableImage, x: 160 },
+          pointLight: { x: 170, y: 90, radiusPx: 80 },
+          spatialFootprint: { cellX: 4, cellY: 2, footprintCenterXpx: 176, footprintCenterYpx: 96 },
+          activePresentationCues: [{ effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
+        },
+        presentationCues: []
+      }]
+    }), hidden);
+    expect(renderedRoomObjects(shown)).toMatchObject([{
+      objectId: "obj-1",
+      x: 160,
+      presentationCues: [{ category: "", effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
+    }]);
+    expect(shown?.objectsById["obj-1"].lighting).toMatchObject({
+      pointLight: { x: 170, y: 90, radiusPx: 80 },
+      spatialFootprint: { footprintCenterXpx: 176, footprintCenterYpx: 96 }
+    });
+
+    const removed = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      hasRoomChange: false,
+      roomChange: undefined,
+      roomObjectChanges: [{ changeKind: "Removed", objectId: "obj-1", objectName: "Lantern", presentationCues: [] }]
+    }), shown);
+    expect(removed?.objectsById["obj-1"]).toBeUndefined();
+
+    const incompleteShow = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      hasRoomChange: false,
+      roomChange: undefined,
+      roomObjectChanges: [{ changeKind: "Shown", objectId: "obj-1", objectName: "Lantern", presentationCues: [] }]
+    }), removed);
+    expect(incompleteShow?.objectsById["obj-1"]).toBeUndefined();
+  });
+
+  it("uses the visible baseline as supplied and preserves objects across omitted deltas", () => {
+    const roomChange = buildSessionData().roomChange!;
+    const visibleObject = roomChange.newRoom!.renderableRoomObjects[0];
+    const visibleBaseline = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      roomChange: {
+        ...roomChange,
+        newRoom: {
+          ...roomChange.newRoom!,
+          renderableRoomObjects: [{ ...visibleObject, isHidden: true } as typeof visibleObject]
+        }
+      }
+    }));
+    expect(renderedRoomObjects(visibleBaseline).map((object) => object.objectId)).toEqual(["obj-1"]);
+
+    const noChange = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      hasRoomChange: false,
+      roomChange: undefined,
+      roomObjectChanges: []
+    }), visibleBaseline);
+    expect(renderedRoomObjects(noChange).map((object) => object.objectId)).toEqual(["obj-1"]);
+
+    const visibleOnlyResync = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      roomChange: {
+        ...roomChange,
+        newRoom: { ...roomChange.newRoom!, renderableRoomObjects: [] }
+      },
+      roomObjectChanges: []
+    }), noChange);
+    expect(renderedRoomObjects(visibleOnlyResync)).toEqual([]);
+  });
+
   it("maps authoritative active cues from baselines and reconciles delta selection and movement cues", () => {
     const baseline = mapHostSessionDataToSceneSnapshot(buildSessionData({
       roomChange: {

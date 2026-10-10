@@ -1457,6 +1457,7 @@ export class HostApiClient {
 
       const rawKind = this.readString(change, ["changeKind", "ChangeKind"]);
       const changeKind = rawKind === "Added" || rawKind === "Removed" || rawKind === "Updated"
+        || rawKind === "Hidden" || rawKind === "Shown"
         ? rawKind
         : "Updated";
 

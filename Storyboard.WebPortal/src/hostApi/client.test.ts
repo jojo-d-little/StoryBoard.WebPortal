@@ -4,6 +4,49 @@ import { describe, expect, it, vi } from "vitest";
 import { HostApiClient } from "./client";
 
 describe("HostApiClient", () => {
+  it("preserves Hidden and Shown change kinds and the shown renderable payload", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        resultCode: "Success",
+        sessionData: {
+          sessionDeltaWatermark: "3",
+          roomObjectChanges: [
+            { changeKind: "Hidden", objectId: "obj-1", objectName: "Lantern", presentationCues: [] },
+            {
+              changeKind: "Shown",
+              objectId: "obj-1",
+              objectName: "Lantern",
+              renderableRoomObject: {
+                objectId: "obj-1",
+                name: "Lantern",
+                renderableImage: { imagePath: "assets/images/lantern.png", x: 160, y: 80, rotationDegrees: 0, scale: 1 },
+                renderZOrder: 1002,
+                activePresentationCues: [{ effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
+              },
+              presentationCues: []
+            }
+          ]
+        },
+        sessionDeltaWatermark: "3",
+        diagnostics: []
+      })
+    }));
+
+    try {
+      const client = new HostApiClient({ baseUrl: "http://127.0.0.1:5199" });
+      const response = await client.getSessionDeltas("cred-1", "session-1", "2", "Medium");
+      expect(response.sessionData?.roomObjectChanges.map((change) => change.changeKind)).toEqual(["Hidden", "Shown"]);
+      expect(response.sessionData?.roomObjectChanges[1].renderableRoomObject).toMatchObject({
+        objectId: "obj-1",
+        renderableImage: { imagePath: "assets/images/lantern.png", x: 160 },
+        activePresentationCues: [{ effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("decodes lighting state from baseline-compatible deltas, including explicit zeros and prior snapshots", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

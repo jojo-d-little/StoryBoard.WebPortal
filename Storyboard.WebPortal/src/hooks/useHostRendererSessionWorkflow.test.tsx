@@ -1,8 +1,10 @@
 /* @vitest-environment jsdom */
 
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { HostCommandSoundCue } from "../hostApi/HostContracts";
+import type { HostCommandSoundCue, HostSessionDataEnvelope } from "../hostApi/HostContracts";
+import type { GameRenderSceneSnapshot } from "../gameRenderer/contracts/sceneTypes";
 import { useHostRendererSessionWorkflow } from "./useHostRendererSessionWorkflow";
 import type { HostApiClient } from "../hostApi/client";
 import { webPortalAssetCache } from "../cache/webPortalAssetCache";
@@ -46,6 +48,108 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
       expect(baselineReady).toBe(true);
     });
   }
+
+  it("renders Shown objects without reporting movement and clears Hidden objects and cues", async () => {
+    const hostApiClient = {
+      getSessionBaseline: vi.fn().mockResolvedValue({
+        sessionDeltaWatermark: "1",
+        soundCues: [],
+        orderedTextPresentationSteps: [],
+        roomChange: {
+          newRoom: {
+            roomId: "room-1",
+            name: "Atrium",
+            roomDisplayMode: "Overlay",
+            renderableRoomObjects: [],
+            directionalRenderableImages: []
+          }
+        }
+      }),
+      getSessionDeltas: vi.fn(),
+      getAssetPreviewDataUrl: vi.fn()
+    } as unknown as HostApiClient;
+    const addDiagnostic = vi.fn();
+    const refreshCacheStats = vi.fn();
+    const { result } = renderHook(() => {
+      const [scene, setScene] = useState<GameRenderSceneSnapshot | null>(null);
+      useHostRendererSessionWorkflow({
+        hostApiClient,
+        credentialHandle: "cred-1",
+        activeSessionId: "session-1",
+        selectedGameId: "game-1",
+        selectedGameKey: "game-key",
+        presentationCueCatalogRevision: 0,
+        rendererSceneSnapshot: scene,
+        setRendererSceneSnapshot: setScene,
+        applyPresentationCues: (snapshot) => snapshot,
+        getCurrentPresentationCueCatalog: () => null,
+        presentationCueCatalogSource: "none",
+        getHudOverlayEntries: () => [],
+        pollIntervalMs: 100,
+        heartbeatEveryNPolls: 100,
+        sessionDeltaResetEpoch: 0,
+        consumeSessionDeltaPhasePresentation: vi.fn(),
+        consumeSessionDeltaEcho: vi.fn(),
+        consumeSessionDeltaSoundCues: vi.fn(),
+        refreshCacheStats,
+        addDiagnostic
+      });
+      return scene;
+    });
+
+    await waitForBaselineSyncReady();
+    await waitFor(() => expect(result.current?.roomId).toBe("room-1"));
+    const onSessionData = () => {
+      const options = useSessionDeltaPollingMock.mock.calls[useSessionDeltaPollingMock.mock.calls.length - 1]?.[0] as {
+        onSessionData: (data: HostSessionDataEnvelope) => void;
+      };
+      return options.onSessionData;
+    };
+    const shownObject = {
+      objectId: "obj-1",
+      name: "Lantern",
+      renderableImage: {
+        imagePath: "data:image/png;base64,AAAA",
+        anchorX: 0,
+        anchorY: 0,
+        iconOffsetX: 0,
+        iconOffsetY: 0,
+        x: 160,
+        y: 80,
+        rotationDegrees: 0,
+        scale: 1
+      },
+      renderZOrder: 1,
+      activePresentationCues: [{ effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
+    };
+    const delta = (changeKind: "Shown" | "Hidden", watermark: string): HostSessionDataEnvelope => ({
+      sessionDeltaWatermark: watermark,
+      roomObjectChanges: [{
+        changeKind,
+        objectId: "obj-1",
+        objectName: "Lantern",
+        renderableRoomObject: shownObject,
+        presentationCues: [{ category: "Movement", effectKey: "movement.walk", movementDurationMs: 300 }]
+      }],
+      soundCues: [],
+      outputLines: [],
+      diagnostics: [],
+      orderedTextPresentationSteps: [],
+      hasRoomChange: false,
+      hasPhaseChange: false
+    });
+
+    act(() => onSessionData()(delta("Shown", "2")));
+    await waitFor(() => expect(result.current?.objectsById["obj-1"]?.sprite?.x).toBe(160));
+    expect(addDiagnostic.mock.calls.some(([, , message]) => message === "Movement cue resolution summary for session delta.")).toBe(false);
+    expect(addDiagnostic.mock.calls.some(([, , message]) => message === "Delta timing ledger for movement and sound cues.")).toBe(false);
+
+    addDiagnostic.mockClear();
+    act(() => onSessionData()(delta("Hidden", "3")));
+    await waitFor(() => expect(result.current?.objectsById["obj-1"]).toBeUndefined());
+    expect(addDiagnostic.mock.calls.some(([, , message]) => message === "Mapped authoritative active presentation cues from Host session delta into the renderer scene.")).toBe(false);
+    expect(addDiagnostic.mock.calls.some(([, , message]) => message === "Movement cue resolution summary for session delta.")).toBe(false);
+  });
 
   it("waits for baseline and starts delta polling from baseline watermark", async () => {
     const getSessionBaseline = vi.fn().mockResolvedValue({
