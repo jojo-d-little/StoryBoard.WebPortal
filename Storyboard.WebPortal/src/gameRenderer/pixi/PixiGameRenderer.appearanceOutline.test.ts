@@ -202,6 +202,7 @@ const pixiMocks = vi.hoisted(() => {
 vi.mock("pixi.js", () => pixiMocks);
 
 import { createGameRenderer, type GameRenderSceneSnapshot, type GameRendererDiagnosticsEvent } from "../index";
+import { DEFAULT_PRESENTATION_ISOLATION_SETTINGS } from "../presentationIsolation";
 import { createSceneObjectsFromRoomObjects } from "../scene/sceneObjects";
 
 function buildScene(withOutline: boolean): GameRenderSceneSnapshot {
@@ -864,7 +865,9 @@ function buildElevatorScaleScene(
   multiplier: number | null,
   elevatorRotation = 180,
   baseScale = 1,
-  shakeElevator = false
+  shakeElevator = false,
+  scaleActivationId = "elevator-scale",
+  shakeActivationId = "elevator-shake"
 ): GameRenderSceneSnapshot {
   const objectsById = createSceneObjectsFromRoomObjects([
     {
@@ -880,7 +883,7 @@ function buildElevatorScaleScene(
       resolvedObjectEffects: multiplier === null ? [] : [{
         kind: "scaleStyle",
         effectKey: multiplier < 1 ? "scale.shrink.medium" : "scale.grow.medium",
-        activationId: "elevator-scale",
+        activationId: scaleActivationId,
         style: { targetScaleMultiplier: multiplier, transitionDurationMs: 300 }
       }]
     },
@@ -898,13 +901,13 @@ function buildElevatorScaleScene(
         ...(multiplier === null ? [] : [{
           kind: "scaleStyle" as const,
           effectKey: multiplier < 1 ? "scale.shrink.medium" : "scale.grow.medium",
-          activationId: "elevator-scale",
+          activationId: scaleActivationId,
           style: { targetScaleMultiplier: multiplier, transitionDurationMs: 300 }
         }]),
         ...(shakeElevator ? [{
           kind: "shakeStyle" as const,
           effectKey: "shake.elevator",
-          activationId: "elevator-shake",
+          activationId: shakeActivationId,
           style: { horizontalDisplacementPx: 0, verticalDisplacementPx: 12, speedHz: 1 }
         }] : [])
       ]
@@ -1106,6 +1109,195 @@ describe("PixiGameRenderer scale cue pivots", () => {
         expect(scaleContainer(root).scale.x).toBe(1);
         expectRoomPoint(toRoomPoint(scaleContainer(root).parent!, scaleContainer(root).position, roomLayer), 800, 280);
       }
+    } finally {
+      now.mockRestore();
+      renderer.dispose();
+      mount.remove();
+    }
+  });
+
+  it("preserves scale and shake phase across repeated deltas, then resets only the removed cue", async () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const renderer = createGameRenderer(mount);
+    const loadMock = pixiMocks.Assets.load as ReturnType<typeof vi.fn>;
+    loadMock.mockImplementation(async () => ({ width: 400, height: 400 }));
+    const now = vi.spyOn(performance, "now").mockReturnValue(1000);
+    try {
+      renderer.resize(1600, 800);
+      await waitFor(() => {
+        const apps = pixiMocks.__appInstances as Array<{ stage: { children: unknown[] } }>;
+        return apps[apps.length - 1]?.stage.children.length > 0;
+      }, 1000);
+      renderer.updateScene(buildElevatorScaleScene(null));
+      await waitFor(() => getElevatorNodes().roomLayer?.children?.length === 2, 1000);
+      const { app, roomLayer, elevator } = getElevatorNodes();
+
+      renderer.updateScene(buildElevatorScaleScene(0.5, 180, 1, true));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      now.mockReturnValue(1125);
+      app.ticker.tick();
+      const scale = scaleContainer(elevator);
+      const shake = elevator.children[0];
+      const scaleAt125Ms = scale.scale.x;
+      const shakeAt125Ms = shake.position.y;
+      expect(scaleAt125Ms).toBeGreaterThan(0.5);
+      expect(scaleAt125Ms).toBeLessThan(1);
+      expect(shakeAt125Ms).toBeCloseTo(12 * Math.SQRT1_2, 5);
+
+      for (const label of ["delta-one", "delta-two"]) {
+        const repeated = buildElevatorScaleScene(0.5, 180, 1, true);
+        repeated.roomLabel = label;
+        renderer.updateScene(repeated);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        app.ticker.tick();
+        expect(scale.scale.x).toBeCloseTo(scaleAt125Ms, 5);
+        expect(shake.position.y).toBeCloseTo(shakeAt125Ms, 5);
+        expectRoomPoint(toRoomPoint(scale.parent!, scale.position, roomLayer), 800, 280 - shakeAt125Ms);
+      }
+
+      renderer.updateScene(buildElevatorScaleScene(0.5, 180, 1, true, "elevator-scale", "new-shake"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      app.ticker.tick();
+      expect(scale.scale.x).toBeCloseTo(scaleAt125Ms, 5);
+      expect(shake.position.y).toBeCloseTo(12, 5);
+
+      renderer.updateScene(buildElevatorScaleScene(null, 180, 1, true, "elevator-scale", "new-shake"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      app.ticker.tick();
+      expect(scale.scale.x).toBe(1);
+      expect(shake.position.y).toBeCloseTo(12, 5);
+
+      renderer.updateScene(buildElevatorScaleScene(null));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      app.ticker.tick();
+      expect(shake.position.x).toBe(0);
+      expect(shake.position.y).toBe(0);
+      expectRoomPoint(toRoomPoint(scale.parent!, scale.position, roomLayer), 800, 280);
+    } finally {
+      now.mockRestore();
+      renderer.dispose();
+      mount.remove();
+    }
+  });
+
+  it("starts a new activation and clears object state when the object is removed", async () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const renderer = createGameRenderer(mount);
+    const loadMock = pixiMocks.Assets.load as ReturnType<typeof vi.fn>;
+    loadMock.mockImplementation(async () => ({ width: 400, height: 400 }));
+    const now = vi.spyOn(performance, "now").mockReturnValue(1000);
+    try {
+      renderer.resize(1600, 800);
+      await waitFor(() => {
+        const apps = pixiMocks.__appInstances as Array<{ stage: { children: unknown[] } }>;
+        return apps[apps.length - 1]?.stage.children.length > 0;
+      }, 1000);
+      renderer.updateScene(buildElevatorScaleScene(null));
+      await waitFor(() => getElevatorNodes().roomLayer?.children?.length === 2, 1000);
+      const { app, roomLayer, elevator } = getElevatorNodes();
+
+      renderer.updateScene(buildElevatorScaleScene(0.5, 180, 1, false, "first"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      now.mockReturnValue(1150);
+      app.ticker.tick();
+      expect(scaleContainer(elevator).scale.x).toBeCloseTo(0.625, 5);
+
+      const repeated = buildElevatorScaleScene(0.5, 180, 1, false, "first");
+      repeated.roomLabel = "same-activation-delta";
+      renderer.updateScene(repeated);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      now.mockReturnValue(1200);
+      app.ticker.tick();
+      expect(scaleContainer(elevator).scale.x).toBeCloseTo(5 / 9, 5);
+
+      renderer.updateScene(buildElevatorScaleScene(0.5, 180, 1, false, "second"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      app.ticker.tick();
+      expect(scaleContainer(elevator).scale.x).toBe(1);
+      now.mockReturnValue(1350);
+      app.ticker.tick();
+      expect(scaleContainer(elevator).scale.x).toBeCloseTo(0.625, 5);
+
+      const withoutElevator = buildElevatorScaleScene(null);
+      delete withoutElevator.objectsById.elevator;
+      renderer.updateScene(withoutElevator);
+      await waitFor(() => roomLayer.children.length === 1, 1000);
+      expect(elevator.parent).toBeNull();
+
+      renderer.updateScene(buildElevatorScaleScene(0.5, 180, 1, false, "second"));
+      await waitFor(() => roomLayer.children.length === 2, 1000);
+      const replacement = roomLayer.children[1];
+      expect(replacement).not.toBe(elevator);
+      expect(scaleContainer(replacement).scale.x).toBe(1);
+      now.mockReturnValue(1500);
+      app.ticker.tick();
+      expect(scaleContainer(replacement).scale.x).toBeCloseTo(0.625, 5);
+    } finally {
+      now.mockRestore();
+      renderer.dispose();
+      mount.remove();
+    }
+  });
+
+  it("neutralizes transient effects when presentation is disabled and clears the old room", async () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const renderer = createGameRenderer(mount);
+    const loadMock = pixiMocks.Assets.load as ReturnType<typeof vi.fn>;
+    loadMock.mockImplementation(async () => ({ width: 400, height: 400 }));
+    const now = vi.spyOn(performance, "now").mockReturnValue(1000);
+    try {
+      renderer.resize(1600, 800);
+      await waitFor(() => {
+        const apps = pixiMocks.__appInstances as Array<{ stage: { children: unknown[] } }>;
+        return apps[apps.length - 1]?.stage.children.length > 0;
+      }, 1000);
+      renderer.updateScene(buildElevatorScaleScene(null));
+      await waitFor(() => getElevatorNodes().roomLayer?.children?.length === 2, 1000);
+      const { app, roomLayer, elevator } = getElevatorNodes();
+
+      renderer.updateScene(buildElevatorScaleScene(0.5, 180, 1, true));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      now.mockReturnValue(1125);
+      app.ticker.tick();
+      const scale = scaleContainer(elevator);
+      const shake = elevator.children[0];
+      expect(scale.scale.x).toBeLessThan(1);
+      expect(shake.position.y).not.toBe(0);
+
+      renderer.setPresentationIsolationSettings({ ...DEFAULT_PRESENTATION_ISOLATION_SETTINGS, enabled: false });
+      app.ticker.tick();
+      expect(scale.scale.x).toBe(1);
+      expect(shake.position.x).toBe(0);
+      expect(shake.position.y).toBe(0);
+
+      renderer.updateScene(buildElevatorScaleScene(null));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      renderer.setPresentationIsolationSettings(DEFAULT_PRESENTATION_ISOLATION_SETTINGS);
+      app.ticker.tick();
+      expect(scale.scale.x).toBe(1);
+      expect(shake.position.y).toBe(0);
+
+      now.mockReturnValue(1200);
+      renderer.updateScene(buildElevatorScaleScene(0.5, 180, 1, true, "room-exit"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      now.mockReturnValue(1325);
+      app.ticker.tick();
+      expect(scale.scale.x).toBeLessThan(1);
+      expect(shake.position.y).not.toBe(0);
+
+      const nextRoom: GameRenderSceneSnapshot = {
+        ...buildElevatorScaleScene(null),
+        roomId: "after-elevator-room",
+        objectsById: {}
+      };
+      renderer.updateScene(nextRoom);
+      await waitFor(() => roomLayer.children.length === 0, 1000);
+      expect(elevator.parent).toBeNull();
+      app.ticker.tick();
+      expect(roomLayer.children).toHaveLength(0);
     } finally {
       now.mockRestore();
       renderer.dispose();
