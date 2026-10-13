@@ -35,7 +35,7 @@ describe("mapLightingFrameInput", () => {
       lighting: {
         cellSizePx: 40,
         ambientLighting: { ambient: 0, ambientColor: "#506070" },
-        pointLightDefaults: { radiusPx: 200, intensityScale: 0, flickerAmount: 0 }
+        pointLightDefaults: { radiusPx: 200, intensityScale: 0.5, flickerAmount: 0 }
       },
       objectsById: {
         lantern: {
@@ -51,7 +51,7 @@ describe("mapLightingFrameInput", () => {
             zOrder: 1
           },
           lighting: {
-            pointLight: { x: 92.5, y: 144.25, radiusPx: 0, intensityScale: 0, motionMode: "static" },
+            pointLight: { x: 92.5, y: 144.25, radiusPx: 0, intensityScale: 0.25, motionMode: "static" },
             spatialFootprint: { cellX: 2, cellY: 3, sizeXCells: 1, sizeYCells: 2, cornerStyle: "rounded", elevationCells: 0 },
             lightOcclusion: { strength: 0 }
           }
@@ -91,10 +91,10 @@ describe("mapLightingFrameInput", () => {
     expect(result.geometry).toEqual({ widthPx: 800, heightPx: 600, cellSizePx: 40 });
     expect(result.frame).toEqual({
       roomLighting: { ambient: 0, ambientColor: "#506070" },
-      pointLightDefaults: { radiusPx: 200, intensityScale: 0, flickerAmount: 0 },
+      pointLightDefaults: { radiusPx: 200, intensityScale: 0.5, flickerAmount: 0 },
       pointLights: [
         { x: 12, y: 18, coneAngleDeg: 0 },
-        { x: 92.5, y: 144.25, radiusPx: 0, intensityScale: 0, motionMode: "static" }
+        { x: 92.5, y: 144.25, radiusPx: 0, intensityScale: 0.25, motionMode: "static" }
       ],
       blockers: [
         { xPx: 240, yPx: 280, sizeXCells: 1, sizeYCells: 1, cornerStyle: "square", strength: 1 },
