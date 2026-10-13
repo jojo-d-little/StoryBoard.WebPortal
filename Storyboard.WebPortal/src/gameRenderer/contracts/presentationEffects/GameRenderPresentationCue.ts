@@ -1,13 +1,15 @@
 import type { GameRenderMovementCueMetadata } from "./GameRenderMovementCueMetadata";
 
-/** Shared identity for active object cues and change-associated presentation cues. */
+/** Identity and resolved compatibility metadata for an active object cue. */
 export interface GameRenderCueReference {
   category: string;
   effectKey: string;
   activationId?: string;
 }
 
-/** Adapter output after active and change-associated cues have been reconciled. */
+/** Active cue state mapped into the Portal scene. */
 export interface GameRenderPresentationCue extends GameRenderCueReference, GameRenderMovementCueMetadata {
   cueType?: string;
+  activationStartAtMs?: number;
+  timelineStartAtMs?: number;
 }

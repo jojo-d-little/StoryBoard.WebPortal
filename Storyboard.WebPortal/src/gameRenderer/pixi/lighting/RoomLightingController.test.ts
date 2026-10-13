@@ -14,7 +14,7 @@ function scene(overrides: Partial<GameRenderSceneSnapshot> = {}): GameRenderScen
       lamp: {
         objectId: "lamp",
         objectName: "Lamp",
-        presentationCues: [],
+        activePresentationCues: [],
         lighting: { pointLight: { x: 20, y: 30, intensityScale: 0 } }
       }
     },
@@ -75,7 +75,7 @@ describe("RoomLightingController", () => {
     expect(dependencies.renderSurface).toHaveBeenCalledWith(expect.anything(), surface, sourceTexture);
     expect(pipeline.submitFrame).toHaveBeenCalledWith({
       roomLighting: { ambient: 0, ambientColor: "#FFFFFF" },
-      pointLights: [{ x: 20, y: 30, intensityScale: 0 }],
+      pointLights: [],
       blockers: []
     });
     expect(pipeline.renderFrame).toHaveBeenCalledWith(12.5);

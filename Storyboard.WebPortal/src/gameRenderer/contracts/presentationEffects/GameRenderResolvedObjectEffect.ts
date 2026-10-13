@@ -35,9 +35,28 @@ export interface GameRenderStyledPointEffect extends GameRenderResolvedObjectEff
   point: GameRenderObjectStyledPointEffect;
 }
 
+export interface GameRenderAppearanceColorOverlayTimelineEffect extends GameRenderResolvedObjectEffectIdentity {
+  kind: "appearanceColorOverlayTimelineStyle";
+  timelineStartAtMs: number;
+  style: {
+    maskPolicy: "binaryThreshold" | "sourceCoverage";
+    alphaThreshold?: number;
+    blendMode: "normal" | "add";
+    frames: Array<{ atMs: number; color: string; strength: number }>;
+  };
+}
+
+export interface GameRenderPointLightTimelineEffect extends GameRenderResolvedObjectEffectIdentity {
+  kind: "pointLightTimelineStyle";
+  timelineStartAtMs: number;
+  style: { frames: Array<{ atMs: number; enabled?: boolean; intensity?: number; color?: string; radius?: number }> };
+}
+
 export type GameRenderResolvedObjectEffect =
   | GameRenderAppearanceOutlineEffect
   | GameRenderAppearanceSilhouetteEffect
   | GameRenderShakeEffect
   | GameRenderScaleEffect
-  | GameRenderStyledPointEffect;
+  | GameRenderStyledPointEffect
+  | GameRenderAppearanceColorOverlayTimelineEffect
+  | GameRenderPointLightTimelineEffect;

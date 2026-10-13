@@ -2,6 +2,7 @@ import type {
   HostAuthenticateRequest,
   HostAuthenticateResult,
   HostCommandMoveLegTelemetry,
+  HostCommandActiveObjectPresentationCue,
   HostCommandSoundCue,
   HostCommandSoundCueOperation,
   HostClarificationAnswer,
@@ -1327,9 +1328,18 @@ export class HostApiClient {
       activePresentationCues: Array.isArray(activePresentationCues)
         ? activePresentationCues.map((entry) => {
             const cue = this.asRecord(entry);
+            const movement = this.readNullableRecord(cue, ["movement", "Movement"]);
             return {
+              category: this.readString(cue, ["category", "Category"]) as HostCommandActiveObjectPresentationCue["category"],
               effectKey: this.readString(cue, ["effectKey", "EffectKey"]),
-              activationId: this.readString(cue, ["activationId", "ActivationId"])
+              activationId: this.readString(cue, ["activationId", "ActivationId"]),
+              ...(movement ? {
+                movement: {
+                  moveDirection: this.readMoveDirection(movement) ?? "Down",
+                  movementDurationMs: this.readOptionalNonNegativeInt(movement, ["movementDurationMs", "MovementDurationMs"]) ?? 0,
+                  movementFrames: this.readOptionalNonNegativeInt(movement, ["movementFrames", "MovementFrames"]) ?? 0
+                }
+              } : {})
             };
           })
         : undefined
@@ -1453,8 +1463,6 @@ export class HostApiClient {
     return changes.map((entry) => {
       const change = this.asRecord(entry);
       const fromRenderableObject = this.readOptionalRenderableRoomObject(change, ["fromRenderableObject", "FromRenderableObject"]);
-      const presentationCues = this.readArray(change, ["presentationCues", "PresentationCues"]);
-
       const rawKind = this.readString(change, ["changeKind", "ChangeKind"]);
       const changeKind = rawKind === "Added" || rawKind === "Removed" || rawKind === "Updated"
         || rawKind === "Hidden" || rawKind === "Shown"
@@ -1467,9 +1475,6 @@ export class HostApiClient {
         objectName: this.readString(change, ["objectName", "ObjectName"]),
         renderableRoomObject: this.readOptionalRenderableRoomObject(change, ["renderableRoomObject", "RenderableRoomObject"]),
         fromRenderableObject,
-        presentationCues: presentationCues.map((cueEntry) => {
-          return this.readPresentationCue(cueEntry);
-        }),
         moveLegTelemetry: this.readMoveLegTelemetry(change)
       };
     });
@@ -1477,7 +1482,7 @@ export class HostApiClient {
 
   private readPresentationCue(
     cueEntry: unknown
-  ): HostSessionDataEnvelope["roomObjectChanges"][number]["presentationCues"][number] {
+  ): NonNullable<NonNullable<HostSessionDataEnvelope["roomChange"]>["presentationCues"]>[number] {
     const cue = this.asRecord(cueEntry);
     const movementDurationMs = this.readOptionalNonNegativeInt(cue, ["movementDurationMs", "MovementDurationMs"]);
     const movementFrames = this.readOptionalNonNegativeInt(cue, ["movementFrames", "MovementFrames"]);
@@ -1492,7 +1497,7 @@ export class HostApiClient {
     };
   }
 
-  private readPresentationCueType(source: Record<string, unknown>): HostSessionDataEnvelope["roomObjectChanges"][number]["presentationCues"][number]["cueType"] {
+  private readPresentationCueType(source: Record<string, unknown>): NonNullable<NonNullable<HostSessionDataEnvelope["roomChange"]>["presentationCues"]>[number]["cueType"] {
     const raw = this.readString(source, ["$cueType", "cueType", "CueType"]).trim();
     if (
       raw === "movement"

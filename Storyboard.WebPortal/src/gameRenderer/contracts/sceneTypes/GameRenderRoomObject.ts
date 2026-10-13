@@ -12,9 +12,10 @@ export interface GameRenderRoomObject {
   y: number;
   rotationDegrees: number;
   scale: number;
+  imageTransparency?: number;
   additionalSituationalScale?: number;
   zOrder: number;
-  presentationCues: GameRenderPresentationCue[];
+  activePresentationCues: GameRenderPresentationCue[];
   resolvedObjectEffects?: GameRenderResolvedObjectEffect[];
   movementDurationMs?: number;
   movementFrames?: number;

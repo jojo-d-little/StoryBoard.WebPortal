@@ -24,7 +24,7 @@ function scene(): GameRenderSceneSnapshot {
       crate: {
         objectId: "crate",
         objectName: "Crate",
-        presentationCues: [],
+        activePresentationCues: [],
         lighting: {
           pointLight: { x: 120, y: 130, radiusPx: 200 },
           spatialFootprint: { cellX: 4, cellY: 5, sizeXCells: 2, sizeYCells: 1 },

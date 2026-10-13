@@ -12,7 +12,7 @@ describe("HostApiClient", () => {
         sessionData: {
           sessionDeltaWatermark: "3",
           roomObjectChanges: [
-            { changeKind: "Hidden", objectId: "obj-1", objectName: "Lantern", presentationCues: [] },
+            { changeKind: "Hidden", objectId: "obj-1", objectName: "Lantern" },
             {
               changeKind: "Shown",
               objectId: "obj-1",
@@ -22,9 +22,8 @@ describe("HostApiClient", () => {
                 name: "Lantern",
                 renderableImage: { imagePath: "assets/images/lantern.png", x: 160, y: 80, rotationDegrees: 0, scale: 1 },
                 renderZOrder: 1002,
-                activePresentationCues: [{ effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
+                activePresentationCues: [{ category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
               },
-              presentationCues: []
             }
           ]
         },
@@ -40,7 +39,7 @@ describe("HostApiClient", () => {
       expect(response.sessionData?.roomObjectChanges[1].renderableRoomObject).toMatchObject({
         objectId: "obj-1",
         renderableImage: { imagePath: "assets/images/lantern.png", x: 160 },
-        activePresentationCues: [{ effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
+        activePresentationCues: [{ category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
       });
     } finally {
       vi.unstubAllGlobals();
@@ -76,7 +75,7 @@ describe("HostApiClient", () => {
                   renderZOrder: 0,
                   pointLight: { x: 0, y: 0, radiusPx: 0, intensityScale: 0, motionMode: "sway", swayStyle: "breeze" },
                   spatialFootprint: { cellX: 2, cellY: 3 },
-                  activePresentationCues: [{ effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" }]
+                  activePresentationCues: [{ category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" }]
                 }
               ]
             }
@@ -103,7 +102,6 @@ describe("HostApiClient", () => {
                 lightOcclusion: { strength: 0 },
                 activePresentationCues: []
               },
-              presentationCues: []
             }
           ],
           soundCues: [],
@@ -144,7 +142,7 @@ describe("HostApiClient", () => {
       elevationCells: undefined
     });
     expect(sessionData?.roomChange?.newRoom?.renderableRoomObjects[0].activePresentationCues).toEqual([
-      { effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" }
+      { category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" }
     ]);
     expect(sessionData?.roomObjectChanges[0].fromRenderableObject?.pointLight).toEqual({ x: 10, y: 20 });
     expect(sessionData?.roomObjectChanges[0].renderableRoomObject).toMatchObject({
@@ -514,18 +512,14 @@ describe("HostApiClient", () => {
                   rotationDegrees: 15,
                   scale: 1
                 },
-                renderZOrder: 1002
-              },
-              presentationCues: [
-                {
-                  "$cueType": "movement",
+                renderZOrder: 1002,
+                activePresentationCues: [{
                   category: "Movement",
                   effectKey: "walk",
-                  moveDirection: "East",
-                  movementDurationMs: 640,
-                  movementFrames: 16
-                }
-              ],
+                  activationId: "movement-activation-1",
+                  movement: { moveDirection: "East", movementDurationMs: 640, movementFrames: 16 }
+                }]
+              },
               moveLegTelemetry: []
             }
           ],
@@ -587,8 +581,8 @@ describe("HostApiClient", () => {
     expect(response.resultCode).toBe("Success");
     expect(response.sessionData?.roomChange?.newRoom?.name).toBe("Atrium");
     expect(response.sessionData?.roomChange?.travelDirection).toBe("East");
-    expect(response.sessionData?.roomChange?.presentationCues?.[0].cueType).toBe("roomTransition");
-    expect(response.sessionData?.roomChange?.presentationCues?.[0].effectKey).toBe("room.transition.authored.cue");
+    expect(response.sessionData?.roomChange?.presentationCues?.[0]?.cueType).toBe("roomTransition");
+    expect(response.sessionData?.roomChange?.presentationCues?.[0]?.effectKey).toBe("room.transition.authored.cue");
     expect(response.sessionData?.roomChange?.newRoom?.roomDisplayMode).toBe("Overlay");
     expect(response.sessionData?.roomChange?.newRoom?.roomImageCanvasWidth).toBe(600);
     expect(response.sessionData?.roomChange?.newRoom?.roomImageCanvasHeight).toBe(800);
@@ -596,11 +590,12 @@ describe("HostApiClient", () => {
     expect(response.sessionData?.roomChange?.newRoom?.renderableRoomObjects[0].objectId).toBe("obj-1");
     expect(response.sessionData?.roomObjectChanges[0].changeKind).toBe("Updated");
     expect(response.sessionData?.roomObjectChanges[0].renderableRoomObject?.renderableImage.x).toBe(140);
-    expect(response.sessionData?.roomObjectChanges[0].presentationCues[0].effectKey).toBe("walk");
-    expect(response.sessionData?.roomObjectChanges[0].presentationCues[0].cueType).toBe("movement");
-    expect(response.sessionData?.roomObjectChanges[0].presentationCues[0].moveDirection).toBe("East");
-    expect(response.sessionData?.roomObjectChanges[0].presentationCues[0].movementDurationMs).toBe(640);
-    expect(response.sessionData?.roomObjectChanges[0].presentationCues[0].movementFrames).toBe(16);
+    expect(response.sessionData?.roomObjectChanges[0].renderableRoomObject?.activePresentationCues?.[0]).toMatchObject({
+      category: "Movement",
+      effectKey: "walk",
+      activationId: "movement-activation-1",
+      movement: { moveDirection: "East", movementDurationMs: 640, movementFrames: 16 }
+    });
     expect(response.sessionData?.authoredRenderWidth).toBe(800);
     expect(response.sessionData?.authoredRenderHeight).toBe(600);
     expect(response.sessionData?.hasPhaseChange).toBe(true);

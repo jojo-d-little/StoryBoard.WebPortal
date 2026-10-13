@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { GameRenderSceneSnapshot } from "../gameRenderer";
 import type { GameRenderTravelDirection } from "../gameRenderer/contracts/sceneTypes";
 import type { PresentationCueCatalogDocument } from "../gameRenderer/contracts/presentationEffects";
@@ -39,9 +39,11 @@ function buildOptions(overrides: {
   enabled?: boolean;
   respectTravelDirection?: boolean;
   presentationCueCatalogRevision?: number;
+  activeSessionId?: string;
 } = {}) {
   const catalog = overrides.catalog ?? null;
   return {
+    activeSessionId: overrides.activeSessionId ?? "session-1",
     roomTransitionDefaults: {
       enabled: overrides.enabled ?? true,
       cueCategory: "RoomTransition",
@@ -64,7 +66,120 @@ function buildOptions(overrides: {
   };
 }
 
+function buildWindowCueScene(appearanceActivationId: string, lightingActivationId: string): GameRenderSceneSnapshot {
+  return {
+    ...buildSceneSnapshot("East"),
+    objectsById: {
+      window: {
+        objectId: "window",
+        objectName: "WindowPanes",
+        sprite: {
+          asset: { assetPath: "window.png", cacheKey: "window.png" },
+          x: 0,
+          y: 0,
+          rotationDegrees: 0,
+          scale: 1,
+          zOrder: 1
+        },
+        activePresentationCues: [
+          { category: "", effectKey: "appearance.overlay.lightning", activationId: appearanceActivationId },
+          { category: "", effectKey: "lighting.point-light.lightning.timeline", activationId: lightingActivationId }
+        ]
+      }
+    }
+  };
+}
+
 describe("usePresentationCueWorkflow", () => {
+  it("plays unseen active timeline activations from snapshots once and shares their start time", () => {
+    const catalog = buildCatalog([
+      {
+        category: "Appearance",
+        effectKey: "appearance.overlay.lightning",
+        appearanceColorOverlayTimelineStyle: {
+          maskPolicy: "sourceCoverage",
+          blendMode: "add",
+          timeline: { frames: [{ atMs: 0, color: "#ffffff", strength: 1 }, { atMs: 120, color: "#ffffff", strength: 0 }] }
+        }
+      },
+      {
+        category: "Lighting",
+        effectKey: "lighting.point-light.lightning.timeline",
+        pointLightTimelineStyle: {
+          timeline: { frames: [{ atMs: 0, intensity: 1 }, { atMs: 120, intensity: 0 }] }
+        }
+      }
+    ]);
+    const { result, rerender } = renderHook((props: ReturnType<typeof buildOptions>) => usePresentationCueWorkflow(props), {
+      initialProps: buildOptions({ catalog, scene: buildWindowCueScene("appearance-1", "lighting-1") })
+    });
+    const clock = vi.spyOn(performance, "now")
+      .mockReturnValueOnce(100)
+      .mockReturnValueOnce(200)
+      .mockReturnValueOnce(300);
+    const readTimelineStarts = (scene: GameRenderSceneSnapshot): number[] => {
+      const effects = scene.objectsById.window.resolvedObjectEffects ?? [];
+      return effects
+        .filter((effect) => effect.kind === "appearanceColorOverlayTimelineStyle" || effect.kind === "pointLightTimelineStyle")
+        .map((effect) => effect.timelineStartAtMs);
+    };
+
+    const initial = result.current.applyPresentationCues(buildWindowCueScene("appearance-1", "lighting-1"));
+    expect(readTimelineStarts(initial)).toEqual([100, 100]);
+    expect(initial.objectsById.window.activePresentationCues.map((cue) => cue.activationStartAtMs)).toEqual([100, 100]);
+
+    const repeated = result.current.applyPresentationCues(buildWindowCueScene("appearance-1", "lighting-1"));
+    expect(readTimelineStarts(repeated)).toEqual([100, 100]);
+
+    const retriggered = result.current.applyPresentationCues(buildWindowCueScene("appearance-2", "lighting-2"));
+    expect(readTimelineStarts(retriggered)).toEqual([200, 200]);
+
+    rerender(buildOptions({ activeSessionId: "session-2", catalog }));
+    const newSession = result.current.applyPresentationCues(buildWindowCueScene("appearance-1", "lighting-1"));
+    const newSessionStarts = readTimelineStarts(newSession);
+    expect(newSessionStarts[0]).toBe(newSessionStarts[1]);
+    expect(newSessionStarts[0]).toBeGreaterThan(200);
+    clock.mockRestore();
+  });
+
+  it("assigns movement activations a stable one-time acceptance origin", () => {
+    const { result } = renderHook(() => usePresentationCueWorkflow(buildOptions()));
+    const clock = vi.spyOn(performance, "now").mockReturnValueOnce(450).mockReturnValueOnce(500);
+    const buildMovementScene = (activationId: string): GameRenderSceneSnapshot => ({
+      ...buildSceneSnapshot("East"),
+      objectsById: {
+        mover: {
+          objectId: "mover",
+          objectName: "Mover",
+          sprite: {
+            asset: { assetPath: "mover.png", cacheKey: "mover.png" },
+            x: 100,
+            y: 100,
+            rotationDegrees: 0,
+            scale: 1,
+            zOrder: 1
+          },
+          activePresentationCues: [{
+            category: "Movement",
+            effectKey: "movement.walk",
+            activationId,
+            movementDurationMs: 300
+          }]
+        }
+      }
+    });
+
+    const startFor = (activationId: string): number | undefined => {
+      return result.current.applyPresentationCues(buildMovementScene(activationId))
+        .objectsById.mover.activePresentationCues[0]?.activationStartAtMs;
+    };
+
+    expect(startFor("move-1")).toBe(450);
+    expect(startFor("move-1")).toBe(450);
+    expect(startFor("move-2")).toBe(500);
+    clock.mockRestore();
+  });
+
   it("uses directional overrides for vertical travel and falls back to default for planar travel", () => {
     const catalog = buildCatalog([
       {

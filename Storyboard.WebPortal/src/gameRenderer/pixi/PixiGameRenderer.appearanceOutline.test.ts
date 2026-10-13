@@ -225,7 +225,7 @@ function buildScene(withOutline: boolean): GameRenderSceneSnapshot {
         rotationDegrees: 0,
         scale: 1,
         zOrder: 100,
-        presentationCues: [],
+        activePresentationCues: [],
         movementDurationMs: 0,
         appearanceOutlineStyle: withOutline
           ? {
@@ -259,7 +259,7 @@ function buildSilhouetteScene(withSilhouette: boolean): GameRenderSceneSnapshot 
         rotationDegrees: 0,
         scale: 1,
         zOrder: 100,
-        presentationCues: [],
+        activePresentationCues: [],
         movementDurationMs: 0,
         appearanceSilhouetteStyle: withSilhouette
           ? {
@@ -293,6 +293,63 @@ async function waitFor(predicate: () => boolean, timeoutMs = 500): Promise<void>
 }
 
 describe("PixiGameRenderer appearance outline cues", () => {
+  it("maps image transparency to base sprite alpha, defaulting missing values to opaque", async () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const renderer = createGameRenderer(mount);
+    renderer.resize(800, 600);
+    const loadMock = pixiMocks.Assets.load as ReturnType<typeof vi.fn>;
+    loadMock.mockImplementation(async () => ({ width: 64, height: 64 }));
+
+    const alphaFor = async (imageTransparency?: number): Promise<number> => {
+      renderer.updateScene({
+        roomId: "image-transparency-room",
+        displayMode: "composed",
+        bounds: { width: 800, height: 600 },
+        directionalOverlays: [],
+        objectsById: createSceneObjectsFromRoomObjects([{
+          objectId: "pane-object",
+          objectName: "Pane Object",
+          asset: { assetPath: "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='64'%20height='64'%3E%3Crect%20width='100%25'%20height='100%25'%20fill='%23FFFFFF'/%3E%3C/svg%3E" },
+          x: 10,
+          y: 20,
+          rotationDegrees: 0,
+          scale: 1,
+          ...(imageTransparency === undefined ? {} : { imageTransparency }),
+          zOrder: 1,
+          activePresentationCues: []
+        }])
+      });
+
+      const findSprite = (node: any): any => {
+        if (node?.texture?.width === 64 && node?.texture?.height === 64 && typeof node.alpha === "number") return node;
+        for (const child of node?.children ?? []) {
+          const sprite = findSprite(child);
+          if (sprite) return sprite;
+        }
+        return undefined;
+      };
+      await waitFor(() => {
+        const apps = pixiMocks.__appInstances as Array<{ stage: { children: any[] } }>;
+        const app = apps[apps.length - 1];
+        return Boolean(findSprite(app?.stage));
+      }, 1000);
+      const apps = pixiMocks.__appInstances as Array<{ stage: { children: any[] } }>;
+      const app = apps[apps.length - 1];
+      return findSprite(app.stage).alpha;
+    };
+
+    try {
+      expect(await alphaFor()).toBe(1);
+      expect(await alphaFor(0)).toBe(1);
+      expect(await alphaFor(0.5)).toBe(0.5);
+      expect(await alphaFor(1)).toBe(0);
+    } finally {
+      renderer.dispose();
+      mount.remove();
+    }
+  });
+
   it("applies and removes appearance outline when scene style toggles", async () => {
     const mount = document.createElement("div");
     document.body.appendChild(mount);
@@ -363,7 +420,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
           rotationDegrees: 0,
           scale: 1,
           zOrder: 100,
-          presentationCues: [],
+          activePresentationCues: [],
           movementDurationMs: 1000
         }
       ])
@@ -395,10 +452,12 @@ describe("PixiGameRenderer appearance outline cues", () => {
           rotationDegrees: 0,
           scale: 0.6,
           zOrder: 100,
-          presentationCues: [
+          activePresentationCues: [
             {
               category: "Movement",
               effectKey: "movement.speed.medium",
+              activationId: "move-1",
+              activationStartAtMs: 10,
               movementDurationMs: 1000
             }
           ],
@@ -430,8 +489,71 @@ describe("PixiGameRenderer appearance outline cues", () => {
     expect(root.position.x).toBeLessThan(200);
     expect(baseScaleContainer.scale.x).toBe(0.6);
 
+    renderer.updateScene({
+      roomId: "movement-scale-room",
+      roomLabel: "Movement Scale Room",
+      displayMode: "composed",
+      bounds: { width: 800, height: 600 },
+      directionalOverlays: [],
+      objectsById: createSceneObjectsFromRoomObjects([
+        {
+          objectId: "moving-object",
+          objectName: "Moving Object",
+          asset: { assetPath: "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='64'%20height='64'%3E%3Crect%20width='100%25'%20height='100%25'%20fill='%2322D3EE'/%3E%3C/svg%3E" },
+          x: 200,
+          y: 100,
+          rotationDegrees: 15,
+          scale: 0.6,
+          zOrder: 100,
+          activePresentationCues: [{
+            category: "Movement",
+            effectKey: "movement.speed.medium",
+            activationId: "move-1",
+            activationStartAtMs: 10,
+            movementDurationMs: 1000
+          }],
+          movementDurationMs: 1000
+        }
+      ])
+    });
+    await waitFor(() => root.position.x > 100, 500);
+    app.ticker.tick(100);
+    expect(root.position.x).toBeLessThan(200);
+
+    renderer.updateScene({
+      roomId: "movement-scale-room",
+      roomLabel: "Movement Scale Room",
+      displayMode: "composed",
+      bounds: { width: 800, height: 600 },
+      directionalOverlays: [],
+      objectsById: createSceneObjectsFromRoomObjects([
+        {
+          objectId: "moving-object",
+          objectName: "Moving Object",
+          asset: { assetPath: "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='64'%20height='64'%3E%3Crect%20width='100%25'%20height='100%25'%20fill='%2322D3EE'/%3E%3C/svg%3E" },
+          x: 300,
+          y: 100,
+          rotationDegrees: 15,
+          scale: 0.6,
+          zOrder: 100,
+          activePresentationCues: [{
+            category: "Movement",
+            effectKey: "movement.speed.medium",
+            activationId: "move-2",
+            activationStartAtMs: 20,
+            movementDurationMs: 1000
+          }],
+          movementDurationMs: 1000
+        }
+      ])
+    });
+    await waitFor(() => diagnostics.filter((event) => event.message === "Animating room object movement from cue timing.").length >= 2, 1000);
+    app.ticker.tick(500);
+    expect(root.position.x).toBeGreaterThan(100);
+    expect(root.position.x).toBeLessThan(300);
+
     app.ticker.tick(600);
-    expect(root.position.x).toBe(200);
+    expect(root.position.x).toBe(300);
     expect(baseScaleContainer.scale.x).toBe(0.6);
 
     renderer.dispose();
@@ -464,7 +586,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
           rotationDegrees: 0,
           scale: 1,
           zOrder: 220,
-          presentationCues: [],
+          activePresentationCues: [],
           movementDurationMs: 1000
         }
       ])
@@ -496,7 +618,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
           rotationDegrees: 0,
           scale: 1,
           zOrder: 120,
-          presentationCues: [
+          activePresentationCues: [
             {
               category: "Movement",
               effectKey: "movement.speed.medium",
@@ -558,7 +680,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
           rotationDegrees: 0,
           scale: 1,
           zOrder: 120,
-          presentationCues: [],
+          activePresentationCues: [],
           movementDurationMs: 1000
         }
       ])
@@ -590,7 +712,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
           rotationDegrees: 0,
           scale: 1,
           zOrder: 220,
-          presentationCues: [
+          activePresentationCues: [
             {
               category: "Movement",
               effectKey: "movement.speed.medium",
@@ -879,7 +1001,7 @@ function buildElevatorScaleScene(
       rotationDegrees: 0,
       scale: baseScale,
       zOrder: 1,
-      presentationCues: [],
+      activePresentationCues: [],
       resolvedObjectEffects: multiplier === null ? [] : [{
         kind: "scaleStyle",
         effectKey: multiplier < 1 ? "scale.shrink.medium" : "scale.grow.medium",
@@ -896,7 +1018,7 @@ function buildElevatorScaleScene(
       rotationDegrees: elevatorRotation,
       scale: baseScale,
       zOrder: 2,
-      presentationCues: [],
+      activePresentationCues: [],
       resolvedObjectEffects: [
         ...(multiplier === null ? [] : [{
           kind: "scaleStyle" as const,

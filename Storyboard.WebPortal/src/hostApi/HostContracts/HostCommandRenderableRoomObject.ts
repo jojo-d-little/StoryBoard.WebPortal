@@ -9,6 +9,7 @@ export interface HostCommandRenderableRoomObject {
   name: string;
   renderableImage: HostCommandRenderableImage;
   renderZOrder: number;
+  imageTransparency?: number;
   pointLight?: HostObjectPointLight | null;
   spatialFootprint?: HostObjectSpatialFootprint | null;
   lightOcclusion?: HostObjectLightOcclusion | null;

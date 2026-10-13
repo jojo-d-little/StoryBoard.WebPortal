@@ -104,6 +104,23 @@ export interface CatalogScaleStyle {
   transitionDurationMs?: number;
 }
 
+export interface CatalogAppearanceColorOverlayTimelineStyle {
+  maskPolicy?: "binaryThreshold" | "sourceCoverage";
+  alphaThreshold?: number;
+  blendMode?: "normal" | "add";
+  timeline?: { frames?: Array<{ atMs?: number; color?: string; strength?: number }> };
+}
+
+export interface CatalogPointLightTimelineStyle {
+  timeline?: { frames?: Array<{
+    atMs?: number;
+    enabled?: boolean;
+    intensity?: number;
+    color?: string;
+    radius?: number;
+  }> };
+}
+
 export interface PresentationCueCatalogEffect {
   category?: string;
   effectKey?: string;
@@ -116,6 +133,8 @@ export interface PresentationCueCatalogEffect {
   styledPointEffect?: CatalogStyledPointEffect;
   shakeStyle?: CatalogShakeStyle;
   scaleStyle?: CatalogScaleStyle;
+  appearanceColorOverlayTimelineStyle?: CatalogAppearanceColorOverlayTimelineStyle;
+  pointLightTimelineStyle?: CatalogPointLightTimelineStyle;
 }
 
 export interface PresentationCueCatalogDocument {

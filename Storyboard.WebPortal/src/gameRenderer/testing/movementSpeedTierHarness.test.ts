@@ -126,7 +126,7 @@ function buildScene(targetX: number): GameRenderSceneSnapshot {
       rotationDegrees: 0,
       scale: 1,
       zOrder: 1000,
-      presentationCues: [],
+      activePresentationCues: [],
       movementDurationMs: runner.durationMs
     })))
   };

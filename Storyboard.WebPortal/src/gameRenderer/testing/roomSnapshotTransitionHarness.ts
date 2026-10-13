@@ -75,7 +75,7 @@ const outgoing: GameRenderSceneSnapshot = {
     rotationDegrees: 0,
     scale: 1,
     zOrder: 1000,
-    presentationCues: []
+    activePresentationCues: []
   }])
 };
 
@@ -103,7 +103,7 @@ const incoming: GameRenderSceneSnapshot = {
     rotationDegrees: 0,
     scale: 1,
     zOrder: 100,
-    presentationCues: [],
+    activePresentationCues: [],
     movementDurationMs: 1000
   }, {
     objectId: "incoming-yellow",
@@ -114,7 +114,7 @@ const incoming: GameRenderSceneSnapshot = {
     rotationDegrees: 0,
     scale: 1,
     zOrder: 200,
-    presentationCues: []
+    activePresentationCues: []
   }]),
   moveLegTelemetry: [{
     targetObjectId: "incoming-cyan",

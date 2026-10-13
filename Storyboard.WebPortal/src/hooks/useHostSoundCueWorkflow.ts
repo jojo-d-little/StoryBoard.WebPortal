@@ -218,7 +218,7 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
     }, stepMs);
   }
 
-  function stopPlayback(playback: ActiveCuePlayback, reason: string): void {
+  function stopPlayback(playback: ActiveCuePlayback, reason: string, allowFadeOut = true): void {
     if (playback.canceled) {
       return;
     }
@@ -268,7 +268,7 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
       });
     };
 
-    const fadeOutMs = toNonNegativeInt(playback.cue.fadeOutMs);
+    const fadeOutMs = allowFadeOut ? toNonNegativeInt(playback.cue.fadeOutMs) : 0;
     if (fadeOutMs > 0 && playback.audio.volume > 0) {
       rampVolume(playback, playback.audio.volume, 0, fadeOutMs, finalizeStop);
       return;
@@ -335,7 +335,12 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
     }
 
     const cue = playback.cue;
-    if (cue.repeatMode === "None" || cue.repeatMode === "UntilCanceled") {
+    if (cue.repeatMode === "None") {
+      stopPlayback(playback, "natural-end", false);
+      return;
+    }
+
+    if (cue.repeatMode === "UntilCanceled") {
       return;
     }
 

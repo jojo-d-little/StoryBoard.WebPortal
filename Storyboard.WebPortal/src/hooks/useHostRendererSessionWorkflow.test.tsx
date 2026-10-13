@@ -120,7 +120,7 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
         scale: 1
       },
       renderZOrder: 1,
-      activePresentationCues: [{ effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
+      activePresentationCues: [{ category: "Appearance" as const, effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
     };
     const delta = (changeKind: "Shown" | "Hidden", watermark: string): HostSessionDataEnvelope => ({
       sessionDeltaWatermark: watermark,
@@ -129,7 +129,6 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
         objectId: "obj-1",
         objectName: "Lantern",
         renderableRoomObject: shownObject,
-        presentationCues: [{ category: "Movement", effectKey: "movement.walk", movementDurationMs: 300 }]
       }],
       soundCues: [],
       outputLines: [],

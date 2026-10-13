@@ -108,7 +108,7 @@ function buildScene(runnerX: number): GameRenderSceneSnapshot {
         rotationDegrees: 0,
         scale: 1,
         zOrder: 1001,
-        presentationCues: [],
+        activePresentationCues: [],
         movementDurationMs: 900
       }
     ])

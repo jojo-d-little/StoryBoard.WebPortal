@@ -17,6 +17,8 @@ export type {
   GameRenderShakeEffect,
   GameRenderScaleEffect,
   GameRenderStyledPointEffect,
+  GameRenderAppearanceColorOverlayTimelineEffect,
+  GameRenderPointLightTimelineEffect,
   GameRenderAppearanceOutlineStyle,
   GameRenderAppearanceSilhouettePass,
   GameRenderAppearanceSilhouetteStyle,

@@ -91,6 +91,7 @@ export type { HostRoomObjectChangeKind } from "./HostRoomObjectChangeKind";
 export type { HostMovementTravelVisualizationMode } from "./HostMovementTravelVisualizationMode";
 export type { HostCommandPresentationCue } from "./HostCommandPresentationCue";
 export type { HostCommandActiveObjectPresentationCue } from "./HostCommandActiveObjectPresentationCue";
+export type { HostCommandActiveObjectMovementPayload } from "./HostCommandActiveObjectMovementPayload";
 export type { HostCommandPresentationCueText } from "./HostCommandPresentationCueText";
 export type { HostCommandRenderableImage } from "./HostCommandRenderableImage";
 export type { HostCommandRoomDirectionalImage } from "./HostCommandRoomDirectionalImage";

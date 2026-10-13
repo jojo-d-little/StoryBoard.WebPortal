@@ -9,6 +9,8 @@ import { buildLegByLegSegments, type MovementTweenSegment } from "./reconciliati
 import { areHudOverlayEntriesEquivalent, createHudOverlayController } from "./hud/HudOverlayController";
 import { createAppearanceOutlineEffectController, type AppearanceOutlineEffectController } from "./effects/appearanceOutlineStyle/AppearanceOutlineEffectController";
 import { createAppearanceSilhouetteEffectController, type AppearanceSilhouetteEffectController } from "./effects/appearanceSilhouetteStyle/AppearanceSilhouetteEffectController";
+import { AppearanceColorOverlayTimelineController } from "./effects/appearanceColorOverlayTimelineStyle/AppearanceColorOverlayTimelineController";
+import { PointLightTimelineController } from "./effects/pointLightTimelineStyle/PointLightTimelineController";
 import { createShakeEffectController, type ShakeEffectController } from "./effects/shakeStyle/ShakeEffectController";
 import { createScaleEffectController, type ScaleEffectController } from "./effects/scaleStyle/ScaleEffectController";
 import { captureRoomTexture, type CapturedRoomTexture } from "./RoomSnapshotRenderer";
@@ -72,6 +74,8 @@ export interface GameRendererHandle {
 
 interface MovementTween {
   objectId: string;
+  activationId?: string;
+  activationStartAtMs?: number;
   state: RoomObjectSpriteState;
   segments: MovementTweenSegment[];
   segmentIndex: number;
@@ -108,6 +112,8 @@ interface RoomSurfaceState {
   roomObjectSpritesById: Map<string, RoomObjectSpriteState>;
   appearanceOutlineEffectController: AppearanceOutlineEffectController;
   appearanceSilhouetteEffectController: AppearanceSilhouetteEffectController;
+  appearanceColorOverlayTimelineController: AppearanceColorOverlayTimelineController;
+  pointLightTimelineController: PointLightTimelineController;
   shakeEffectController: ShakeEffectController;
   scaleEffectController: ScaleEffectController;
   styledPointEffectController: StyledPointEffectController;
@@ -199,8 +205,8 @@ function areSilhouettePassesEquivalent(
 }
 
 function arePresentationCuesEquivalent(
-  left: GameRenderRoomObject["presentationCues"],
-  right: GameRenderRoomObject["presentationCues"]
+  left: GameRenderRoomObject["activePresentationCues"],
+  right: GameRenderRoomObject["activePresentationCues"]
 ): boolean {
   if (left.length !== right.length) {
     return false;
@@ -213,6 +219,8 @@ function arePresentationCuesEquivalent(
       && cue.category === other.category
       && cue.effectKey === other.effectKey
       && cue.activationId === other.activationId
+      && cue.activationStartAtMs === other.activationStartAtMs
+      && cue.timelineStartAtMs === other.timelineStartAtMs
       && cue.moveDirection === other.moveDirection
       && cue.movementDurationMs === other.movementDurationMs
       && cue.movementFrames === other.movementFrames;
@@ -304,6 +312,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         roomObjectLayer,
         diagnostics
       }),
+      appearanceColorOverlayTimelineController: new AppearanceColorOverlayTimelineController(),
+      pointLightTimelineController: new PointLightTimelineController(diagnostics),
       shakeEffectController: createShakeEffectController(),
       scaleEffectController: createScaleEffectController(),
       styledPointEffectController: createStyledPointEffectController({
@@ -344,6 +354,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   let lightingGridGeometryKey = "";
   const lightingMovementTweensByObjectId = new Map<string, LightingMovementTween>();
   const pendingSpriteLightingMovementIds = new Set<string>();
+  const processedMovementActivationKeys = new Set<string>();
   let interactionMode: GameRendererInteractionMode = "CommandClick";
   const waypointDraft: GameRendererRoomPoint[] = [];
   const hudOverlayController = createHudOverlayController(() => isDisposed);
@@ -765,6 +776,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   function clearSurfaceSprites(surface: RoomSurfaceState): void {
     clearDirectionalOverlaySprites(surface);
     clearRoomObjectSprites(surface);
+    surface.appearanceColorOverlayTimelineController.clear();
+    surface.pointLightTimelineController.clear();
     surface.styledPointEffectController.clear();
   }
 
@@ -780,6 +793,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     surface.activeMovementTweensByObjectId.delete(objectId);
     surface.shakeEffectController.removeObject(objectId);
     surface.scaleEffectController.removeObject(objectId);
+    surface.appearanceColorOverlayTimelineController.remove(objectId);
+    surface.pointLightTimelineController.remove(objectId);
     pendingSpriteLightingMovementIds.delete(objectId);
     const existing = surface.roomObjectSpritesById.get(objectId);
     if (!existing) {
@@ -1124,6 +1139,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
 
     activeRoomSurface.appearanceOutlineEffectController.tick(performance.now());
     activeRoomSurface.appearanceSilhouetteEffectController.tick(performance.now());
+    activeRoomSurface.appearanceColorOverlayTimelineController.tick(performance.now());
     activeRoomSurface.styledPointEffectController.tick(performance.now());
   }
 
@@ -1241,7 +1257,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       objectsById ??= { ...projected.objectsById };
       objectsById[objectId] = { ...object, lighting };
     }
-    return objectsById ? { ...projected, objectsById } : projected;
+    const projectedScene = objectsById ? { ...projected, objectsById } : projected;
+    return activeRoomSurface.pointLightTimelineController.applyToScene(projectedScene, performance.now());
   }
 
   function updateRoomSwapTween(ticker: Ticker): void {
@@ -1561,8 +1578,15 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     if (appearanceDisabled || !presentationIsolationSettings.enabled) {
       activeRoomSurface.appearanceOutlineEffectController.clear();
       activeRoomSurface.appearanceSilhouetteEffectController.clear();
+      activeRoomSurface.appearanceColorOverlayTimelineController.clear();
       stagingRoomSurface.appearanceOutlineEffectController.clear();
       stagingRoomSurface.appearanceSilhouetteEffectController.clear();
+      stagingRoomSurface.appearanceColorOverlayTimelineController.clear();
+    }
+
+    if (!isLightingPresentationEnabled(presentationIsolationSettings)) {
+      activeRoomSurface.pointLightTimelineController.clear();
+      stagingRoomSurface.pointLightTimelineController.clear();
     }
 
     if (styledPointDisabled || !presentationIsolationSettings.enabled) {
@@ -1650,6 +1674,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         || leftObject.y !== rightObject.y
         || leftObject.rotationDegrees !== rightObject.rotationDegrees
         || leftObject.scale !== rightObject.scale
+        || leftObject.imageTransparency !== rightObject.imageTransparency
         || normalizeSituationalScale(leftObject.additionalSituationalScale) !== normalizeSituationalScale(rightObject.additionalSituationalScale)
         || leftObject.zOrder !== rightObject.zOrder
         || leftObject.movementDurationMs !== rightObject.movementDurationMs
@@ -1667,7 +1692,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         || !areSilhouettePassesEquivalent(leftObject.appearanceSilhouetteStyle, rightObject.appearanceSilhouetteStyle)
         || leftObject.appearanceSilhouetteStyle?.pulseMs !== rightObject.appearanceSilhouetteStyle?.pulseMs
         || !areResolvedObjectEffectsEquivalent(leftObject.resolvedObjectEffects, rightObject.resolvedObjectEffects)
-        || !arePresentationCuesEquivalent(leftObject.presentationCues, rightObject.presentationCues)) {
+        || !arePresentationCuesEquivalent(leftObject.activePresentationCues, rightObject.activePresentationCues)) {
         return false;
       }
     }
@@ -1809,7 +1834,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     let objectsWithSilhouetteEffects = 0;
     let objectsWithSilhouetteStyle = 0;
     for (const roomObject of roomObjects) {
-      const appearanceCues = roomObject.presentationCues.filter((cue) => cue.category.toLowerCase() === "appearance");
+      const appearanceCues = roomObject.activePresentationCues.filter((cue) => cue.category.toLowerCase() === "appearance");
       if (appearanceCues.length > 0) {
         objectsWithAppearanceCues += 1;
       }
@@ -1871,8 +1896,31 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       }
 
       try {
+        const movementCue = roomObject.activePresentationCues.find((cue) =>
+          cue.activationId && cue.category.trim().replace(/[\s_-]/g, "").toLowerCase() === "movement");
+        const movementActivationKey = movementCue?.activationId
+          ? `${roomObject.objectId}:${movementCue.activationId}:${movementCue.activationStartAtMs ?? "un-timed"}`
+          : undefined;
+        const movementActivationWasProcessed = movementActivationKey
+          ? processedMovementActivationKeys.has(movementActivationKey)
+          : false;
+        const existingTween = surface.activeMovementTweensByObjectId.get(roomObject.objectId);
+        const sameActivationTween = Boolean(movementCue?.activationId
+          && existingTween?.activationId === movementCue.activationId
+          && existingTween.activationStartAtMs === movementCue.activationStartAtMs);
+        const isFreshMovementActivation = Boolean(movementActivationKey && !movementActivationWasProcessed);
+        if (movementActivationKey && isFreshMovementActivation) {
+          processedMovementActivationKeys.add(movementActivationKey);
+          if (processedMovementActivationKeys.size > 4096) {
+            processedMovementActivationKeys.delete(processedMovementActivationKeys.values().next().value ?? "");
+          }
+        }
         const movementDurationMs = movementEffectsEnabled
-          ? Math.max(0, Math.round(roomObject.movementDurationMs ?? 0))
+          ? movementCue
+            ? movementActivationWasProcessed && !sameActivationTween
+              ? 0
+              : Math.max(0, Math.round(roomObject.movementDurationMs ?? 0))
+            : Math.max(0, Math.round(roomObject.movementDurationMs ?? 0))
           : 0;
         let roomObjectSpriteState = surface.roomObjectSpritesById.get(roomObject.objectId);
         let sprite = roomObjectSpriteState?.sprite;
@@ -1935,6 +1983,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         }
 
         sprite = roomObjectSpriteState.sprite;
+        sprite.alpha = 1 - Math.min(1, Math.max(0, Number.isFinite(roomObject.imageTransparency) ? roomObject.imageTransparency! : 0));
         if (roomObjectSpriteState.root.parent !== surface.roomObjectLayer) {
           surface.roomObjectLayer.addChild(roomObjectSpriteState.root);
         }
@@ -2002,9 +2051,39 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
             roomObject.resolvedObjectEffects
               ? (resolvedSilhouette?.kind === "appearanceSilhouetteStyle" ? resolvedSilhouette.style : undefined)
               : roomObject.appearanceSilhouetteStyle);
+          const overlayEffect = roomObject.resolvedObjectEffects?.find((effect) => effect.kind === "appearanceColorOverlayTimelineStyle");
+          const eventStartAtMs = Math.max(-1, ...roomObject.activePresentationCues
+            .filter((cue) => Number.isFinite(cue.timelineStartAtMs))
+            .map((cue) => cue.timelineStartAtMs!));
+          surface.appearanceColorOverlayTimelineController.replaceEvent(roomObject.objectId, eventStartAtMs < 0 ? undefined : eventStartAtMs);
+          surface.appearanceColorOverlayTimelineController.apply(
+            roomObject.objectId,
+            roomObjectSpriteState.effectTransformHost,
+            roomObjectSpriteState.sprite,
+            overlayEffect?.kind === "appearanceColorOverlayTimelineStyle" ? overlayEffect : undefined
+          );
         } else {
           surface.appearanceOutlineEffectController.removeObject(roomObject.objectId);
           surface.appearanceSilhouetteEffectController.removeObject(roomObject.objectId);
+          surface.appearanceColorOverlayTimelineController.remove(roomObject.objectId);
+        }
+        const pointLightTimeline = scene.objectsById[roomObject.objectId]?.resolvedObjectEffects
+          ?.find((effect) => effect.kind === "pointLightTimelineStyle");
+        const pointLightEventStartAtMs = Math.max(-1, ...(scene.objectsById[roomObject.objectId]?.activePresentationCues ?? [])
+          .filter((cue) => Number.isFinite(cue.timelineStartAtMs))
+          .map((cue) => cue.timelineStartAtMs!));
+        surface.pointLightTimelineController.replaceEvent(
+          roomObject.objectId,
+          pointLightEventStartAtMs < 0 ? undefined : pointLightEventStartAtMs
+        );
+        if (isLightingPresentationEnabled(presentationIsolationSettings)) {
+          surface.pointLightTimelineController.apply(
+            roomObject.objectId,
+            pointLightTimeline?.kind === "pointLightTimelineStyle" ? pointLightTimeline : undefined,
+            scene.objectsById[roomObject.objectId]?.lighting?.pointLight
+          );
+        } else {
+          surface.pointLightTimelineController.remove(roomObject.objectId);
         }
 
         const currentX = roomObjectSpriteState.root.position.x;
@@ -2012,14 +2091,15 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         const targetX = roomObject.x;
         const targetY = roomObject.y;
         const hasPositionDelta = currentX !== targetX || currentY !== targetY;
-        const existingTween = surface.activeMovementTweensByObjectId.get(roomObject.objectId);
         const existingTweenFinalSegment = existingTween && existingTween.segments.length > 0
           ? existingTween.segments[existingTween.segments.length - 1]
           : undefined;
         const existingTweenTotalDurationMs = existingTween
           ? existingTween.segments.reduce((sum, segment) => sum + segment.durationMs, 0)
           : undefined;
-        const movementPlan = planMovementRetarget({
+        const movementPlan = movementActivationWasProcessed && sameActivationTween
+          ? { kind: "noop" as const }
+          : planMovementRetarget({
           currentX,
           currentY,
           targetX,
@@ -2027,7 +2107,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
           durationMs: movementDurationMs,
           previousAuthoritativeX: previousRoomObject?.x,
           previousAuthoritativeY: previousRoomObject?.y,
-          existingTween: existingTween
+          existingTween: existingTween && !isFreshMovementActivation
             ? {
                 toX: existingTweenFinalSegment?.toX ?? targetX,
                 toY: existingTweenFinalSegment?.toY ?? targetY,
@@ -2039,7 +2119,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         const legByLegSegments = buildLegByLegSegments({
           objectId: roomObject.objectId,
           objectName: roomObject.objectName,
-          moveLegTelemetry: scene.moveLegTelemetry,
+          moveLegTelemetry: movementActivationWasProcessed ? [] : scene.moveLegTelemetry,
           currentX,
           currentY,
           fallbackTargetX: targetX,
@@ -2060,6 +2140,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
           const totalDurationMs = legByLegSegments.reduce((sum, segment) => sum + segment.durationMs, 0);
           surface.activeMovementTweensByObjectId.set(roomObject.objectId, {
             objectId: roomObject.objectId,
+            ...(movementCue?.activationId ? { activationId: movementCue.activationId } : {}),
+            ...(movementCue?.activationStartAtMs === undefined ? {} : { activationStartAtMs: movementCue.activationStartAtMs }),
             state: roomObjectSpriteState,
             segments: legByLegSegments,
             segmentIndex: 0,
@@ -2137,7 +2219,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
                 toScale: targetBaseScale,
                 fromSituationalScale: currentSituationalScale,
                 toSituationalScale: targetSituationalScale,
-                movementCueEffectKeys: roomObject.presentationCues
+                movementCueEffectKeys: roomObject.activePresentationCues
                   .filter((cue) => cue.category.trim().toLowerCase() === "movement")
                   .map((cue) => cue.effectKey)
               }
@@ -2156,6 +2238,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         syncRoomObjectAppearanceEffects(surface, roomObject.objectId);
         surface.activeMovementTweensByObjectId.set(roomObject.objectId, {
           objectId: roomObject.objectId,
+          ...(movementCue?.activationId ? { activationId: movementCue.activationId } : {}),
+          ...(movementCue?.activationStartAtMs === undefined ? {} : { activationStartAtMs: movementCue.activationStartAtMs }),
           state: roomObjectSpriteState,
           segments: [
             {

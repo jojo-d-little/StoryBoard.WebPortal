@@ -65,7 +65,7 @@ function makeScene(mode: FixtureMode, roomId = "lighting-compact"): GameRenderSc
     objectsById.roomLight = {
       objectId: "roomLight",
       objectName: "WorkshopTutorial RoomLight",
-      presentationCues: [],
+      activePresentationCues: [],
       lighting: {
         pointLight: {
           x: 420,
@@ -83,7 +83,7 @@ function makeScene(mode: FixtureMode, roomId = "lighting-compact"): GameRenderSc
     objectsById.brassKey = {
       objectId: "brassKey",
       objectName: "WorkshopTutorial Brass Key",
-      presentationCues: [],
+      activePresentationCues: [],
       sprite: {
         asset: { assetPath: svgDataUrl("#d5a318", 56, 56, "K") },
         x: 300,
@@ -120,7 +120,7 @@ function makeScene(mode: FixtureMode, roomId = "lighting-compact"): GameRenderSc
       objectsById[id] = {
         objectId: id,
         objectName: `Workshop light ${index + 1}`,
-        presentationCues: [],
+      activePresentationCues: [],
         lighting: {
           pointLight: {
             x: x + 40,
@@ -158,7 +158,7 @@ function makeScene(mode: FixtureMode, roomId = "lighting-compact"): GameRenderSc
       objectsById.crate = {
         objectId: "crate",
         objectName: "Lit crate",
-        presentationCues: [],
+      activePresentationCues: [],
         sprite: {
           asset: { assetPath: svgDataUrl("#a94f25", 80, 80, "C") },
           x: 280,
@@ -189,7 +189,7 @@ function makeScene(mode: FixtureMode, roomId = "lighting-compact"): GameRenderSc
       objectsById.lantern = {
         objectId: "lantern",
         objectName: "Light-only lantern",
-        presentationCues: [],
+      activePresentationCues: [],
         lighting: {
           pointLight: {
             x: 565,

@@ -33,6 +33,7 @@ export interface RoomTransitionCatalogStatus {
 }
 
 interface UsePresentationCueWorkflowOptions {
+  activeSessionId?: string;
   roomTransitionDefaults: {
     enabled: boolean;
     cueCategory: string;
@@ -124,6 +125,8 @@ export function usePresentationCueWorkflow(
   options: UsePresentationCueWorkflowOptions
 ): UsePresentationCueWorkflowResult {
   const pointCueDiagnosticSignaturesRef = useRef(new Map<string, string>());
+  const activationOriginsByIdRef = useRef(new Map<string, number>());
+  const timelineSessionIdRef = useRef(options.activeSessionId ?? "");
   const [selectedRoomTransitionCueEffectKey, setSelectedRoomTransitionCueEffectKey] = useState<string>("");
 
   function resolveConfiguredRoomTransitionCueEffectKey(
@@ -272,6 +275,11 @@ export function usePresentationCueWorkflow(
   }, [roomTransitionCueOptions, selectedRoomTransitionCueEffectKey]);
 
   function applyPresentationCues(scene: GameRenderSceneSnapshot): GameRenderSceneSnapshot {
+    const activeSessionId = options.activeSessionId ?? "";
+    if (timelineSessionIdRef.current !== activeSessionId) {
+      timelineSessionIdRef.current = activeSessionId;
+      activationOriginsByIdRef.current.clear();
+    }
     const catalog = options.getCurrentPresentationCueCatalog();
     const transition = scene.roomTransition;
     const transitionTravelDirection = options.roomTransitionDefaults.respectTravelDirection
@@ -297,7 +305,7 @@ export function usePresentationCueWorkflow(
       : undefined;
 
     const appearanceResolvedScene = mapRenderableRoomObjects(scene, (roomObject) => {
-      const presentationCues = roomObject.presentationCues.map((cue) => {
+      const categorizedCues = roomObject.activePresentationCues.map((cue) => {
         if (!cue.activationId || cue.category.trim()) {
           return cue;
         }
@@ -307,12 +315,60 @@ export function usePresentationCueWorkflow(
         });
         return effect?.category ? { ...cue, category: effect.category } : cue;
       });
+      const timelineCues = categorizedCues.filter((cue) => {
+        if (!cue.activationId) return false;
+        const effect = catalog?.effects?.find((candidate) =>
+          stringEqualsIgnoreCase(candidate.effectKey ?? "", cue.effectKey)
+          && (!cue.category || stringEqualsIgnoreCase(candidate.category ?? "", cue.category))
+        );
+        const category = (effect?.category ?? cue.category).trim().replace(/[\s_-]/g, "").toLowerCase();
+        return (category === "appearance" && Boolean(effect?.appearanceColorOverlayTimelineStyle))
+          || (category === "lighting" && Boolean(effect?.pointLightTimelineStyle));
+      });
+      const freshActivations = categorizedCues.filter((cue) => {
+        if (!cue.activationId) return false;
+        const identity = `${activeSessionId}:${roomObject.objectId}:${cue.activationId}`;
+        return !activationOriginsByIdRef.current.has(identity);
+      });
+      const sharedStartAtMs = freshActivations.length > 0
+        ? performance.now()
+        : undefined;
+      for (const cue of freshActivations) {
+        const identity = `${activeSessionId}:${roomObject.objectId}:${cue.activationId}`;
+        activationOriginsByIdRef.current.set(identity, sharedStartAtMs!);
+      }
+      for (const cue of timelineCues) {
+        const identity = `${activeSessionId}:${roomObject.objectId}:${cue.activationId}`;
+        const startAtMs = activationOriginsByIdRef.current.get(identity);
+        if (!freshActivations.some((freshCue) => freshCue.activationId === cue.activationId)) continue;
+        options.addDiagnostic?.("info", "presentation-cue-timeline", "Scheduled a newly observed active timeline cue.", {
+          sessionId: activeSessionId,
+          objectId: roomObject.objectId,
+          effectKey: cue.effectKey,
+          activationId: cue.activationId,
+          startAtMs,
+          identitySource: "activationId"
+        });
+      }
+      const activePresentationCues = categorizedCues.map((cue) => {
+        if (!cue.activationId) return cue;
+        const identity = `${activeSessionId}:${roomObject.objectId}:${cue.activationId}`;
+        const activationStartAtMs = activationOriginsByIdRef.current.get(identity);
+        const timelineStartAtMs = timelineCues.some((timelineCue) => timelineCue.activationId === cue.activationId)
+          ? activationStartAtMs
+          : cue.timelineStartAtMs;
+        return {
+          ...cue,
+          ...(activationStartAtMs === undefined ? {} : { activationStartAtMs }),
+          ...(timelineStartAtMs === undefined ? {} : { timelineStartAtMs })
+        };
+      });
       return {
         ...roomObject,
-        presentationCues,
-        resolvedObjectEffects: resolveObjectVisualEffects(presentationCues, catalog),
+        activePresentationCues,
+        resolvedObjectEffects: resolveObjectVisualEffects(activePresentationCues, catalog),
         movementDurationMs: roomObject.movementDurationMs
-          ?? resolveMovementCueDurationMs(presentationCues, catalog),
+          ?? resolveMovementCueDurationMs(activePresentationCues, catalog),
         appearanceOutlineStyle: undefined,
         appearanceSilhouetteStyle: undefined
       };
@@ -328,7 +384,7 @@ export function usePresentationCueWorkflow(
           && Number.isFinite(footprint?.footprintCenterYpx)
           && Number.isFinite(objectX)
           && Number.isFinite(objectY);
-        const styledPointEffects = object.presentationCues.flatMap((cue) => {
+        const styledPointEffects = object.activePresentationCues.flatMap((cue) => {
           const category = cue.category.trim().replace(/[\s_-]/g, "").toLowerCase();
           if (category !== "styledpointeffect") {
             return [];

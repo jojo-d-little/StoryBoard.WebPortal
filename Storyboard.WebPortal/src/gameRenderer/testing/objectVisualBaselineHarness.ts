@@ -47,7 +47,7 @@ const scene: GameRenderSceneSnapshot = {
       rotationDegrees: 0,
       scale: 1,
       zOrder: 1001,
-      presentationCues: []
+      activePresentationCues: []
     },
     {
       objectId: "key",
@@ -58,7 +58,7 @@ const scene: GameRenderSceneSnapshot = {
       rotationDegrees: -20,
       scale: 0.9,
       zOrder: 1002,
-      presentationCues: []
+      activePresentationCues: []
     },
     {
       objectId: "door",
@@ -69,7 +69,7 @@ const scene: GameRenderSceneSnapshot = {
       rotationDegrees: 0,
       scale: 1,
       zOrder: 1000,
-      presentationCues: []
+      activePresentationCues: []
     },
     {
       objectId: "backpack",
@@ -80,7 +80,7 @@ const scene: GameRenderSceneSnapshot = {
       rotationDegrees: 12,
       scale: 0.95,
       zOrder: 1003,
-      presentationCues: []
+      activePresentationCues: []
     }
   ])
 };

@@ -52,5 +52,17 @@ test("alpha-masked overlay follows source alpha for soft and binary policies", a
   expect(cutoffPartial).toEqual(baselinePartial);
   expect(softOpaque).toEqual(baselineOpaque);
   expect(binaryOpaque).toEqual(baselineOpaque);
+
+  await page.evaluate(() => window.__alphaMaskHarness?.setMode("pane-flash"));
+  await page.waitForTimeout(250);
+  const flashTransparent = await samplePixel(page, 32, 64);
+  const flashPartial = await samplePixel(page, 64, 64);
+  const flashOpaque = await samplePixel(page, 96, 64);
+
+  expect(flashTransparent).toEqual(baselineTransparent);
+  expect(flashPartial[0]).toBeGreaterThan(flashPartial[1]);
+  expect(flashPartial[1]).toBeGreaterThan(0);
+  expect(flashOpaque[0]).toBeGreaterThan(flashOpaque[1]);
+  expect(flashOpaque[1]).toBe(0);
   expect(errors).toEqual([]);
 });

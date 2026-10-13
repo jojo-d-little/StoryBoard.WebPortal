@@ -41,7 +41,7 @@ describe("mapLightingFrameInput", () => {
         lantern: {
           objectId: "lantern",
           objectName: "Lantern",
-          presentationCues: [],
+          activePresentationCues: [],
           sprite: {
             asset: { assetPath: "lantern.png", cacheKey: "lantern.png" },
             x: 300,
@@ -59,13 +59,13 @@ describe("mapLightingFrameInput", () => {
         hiddenLight: {
           objectId: "hiddenLight",
           objectName: "Hidden light",
-          presentationCues: [],
+          activePresentationCues: [],
           lighting: { pointLight: { x: 12, y: 18, coneAngleDeg: 0 } }
         },
         blockerOnly: {
           objectId: "blockerOnly",
           objectName: "Blocker only",
-          presentationCues: [],
+          activePresentationCues: [],
           lighting: {
             spatialFootprint: { cellX: 6, cellY: 7, cornerStyle: "sharp" },
             lightOcclusion: { strength: 1 }
@@ -74,13 +74,13 @@ describe("mapLightingFrameInput", () => {
         footprintOnly: {
           objectId: "footprintOnly",
           objectName: "Footprint only",
-          presentationCues: [],
+          activePresentationCues: [],
           lighting: { spatialFootprint: { cellX: 4, cellY: 5 } }
         },
         occlusionOnly: {
           objectId: "occlusionOnly",
           objectName: "Occlusion only",
-          presentationCues: [],
+          activePresentationCues: [],
           lighting: { lightOcclusion: { strength: 1 } }
         }
       }
@@ -116,7 +116,7 @@ describe("mapLightingFrameInput", () => {
         crate: {
           objectId: "crate",
           objectName: "Crate",
-          presentationCues: [],
+          activePresentationCues: [],
           lighting: {
             spatialFootprint: { cellX: 1, cellY: 2, xPx: 95.25, yPx: 195.75 },
             lightOcclusion: { strength: 1 }
@@ -142,7 +142,7 @@ describe("mapLightingFrameInput", () => {
         lantern: {
           objectId: "lantern",
           objectName: "Lantern",
-          presentationCues: [],
+          activePresentationCues: [],
           lighting: {
             pointLight: {
               x: 120,
@@ -189,13 +189,13 @@ describe("mapLightingFrameInput", () => {
         invalidLight: {
           objectId: "invalidLight",
           objectName: "Invalid light",
-          presentationCues: [],
+          activePresentationCues: [],
           lighting: { pointLight: { x: Number.NaN, y: 10 } }
         },
         invalidBlocker: {
           objectId: "invalidBlocker",
           objectName: "Invalid blocker",
-          presentationCues: [],
+          activePresentationCues: [],
           lighting: {
             spatialFootprint: { cellX: 1.5, cellY: 2 },
             lightOcclusion: { strength: 0.5 }
@@ -204,7 +204,7 @@ describe("mapLightingFrameInput", () => {
         validLight: {
           objectId: "validLight",
           objectName: "Valid light",
-          presentationCues: [],
+          activePresentationCues: [],
           lighting: { pointLight: { x: 0, y: 0, radiusPx: Number.NaN } }
         }
       }
@@ -224,8 +224,8 @@ describe("mapLightingFrameInput", () => {
   it("rejects frames above the configured package capacities rather than allowing silent truncation", () => {
     const result = mapLightingFrameInput(scene({
       objectsById: {
-        one: { objectId: "one", objectName: "One", presentationCues: [], lighting: { pointLight: { x: 1, y: 2 } } },
-        two: { objectId: "two", objectName: "Two", presentationCues: [], lighting: { pointLight: { x: 3, y: 4 } } }
+        one: { objectId: "one", objectName: "One", activePresentationCues: [], lighting: { pointLight: { x: 1, y: 2 } } },
+        two: { objectId: "two", objectName: "Two", activePresentationCues: [], lighting: { pointLight: { x: 3, y: 4 } } }
       }
     }), { maxLights: 1, maxBlockers: 1 });
 

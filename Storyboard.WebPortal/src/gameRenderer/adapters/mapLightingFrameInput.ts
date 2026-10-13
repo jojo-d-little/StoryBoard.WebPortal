@@ -105,6 +105,20 @@ function mapPointLight(
   return result;
 }
 
+function hasNonZeroEffectiveIntensity(
+  pointLight: NonNullable<GameRenderSceneSnapshot["objectsById"][string]["lighting"]>["pointLight"],
+  defaults: NonNullable<GameRenderSceneSnapshot["lighting"]>["pointLightDefaults"]
+): boolean {
+  if (!pointLight) return false;
+  const configuredIntensity = Number.isFinite(pointLight.intensityScale)
+    ? pointLight.intensityScale
+    : defaults?.intensityScale;
+  // Missing intensity uses the lighting package's non-zero default. Explicit zero
+  // (including a zero room default) stays defined in scene state but need not be
+  // submitted to the lighting pipeline.
+  return configuredIntensity === undefined || !Number.isFinite(configuredIntensity) || configuredIntensity > 0;
+}
+
 function mapDefaults(
   defaults: NonNullable<GameRenderSceneSnapshot["lighting"]>["pointLightDefaults"],
   diagnostics: LightingFrameMappingDiagnostic[]
@@ -200,8 +214,11 @@ export function mapLightingFrameInput(
     if (!object.lighting) {
       continue;
     }
-    const pointLight = mapPointLight(objectId, object.lighting.pointLight, diagnostics);
-    if (pointLight) pointLights.push(pointLight);
+    const sourcePointLight = object.lighting.pointLight;
+    const pointLight = mapPointLight(objectId, sourcePointLight, diagnostics);
+    if (pointLight && hasNonZeroEffectiveIntensity(sourcePointLight, scene.lighting?.pointLightDefaults)) {
+      pointLights.push(pointLight);
+    }
     const blocker = mapBlocker(objectId, object.lighting, geometry.cellSizePx, diagnostics);
     if (blocker) blockers.push(blocker);
   }

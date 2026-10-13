@@ -64,7 +64,8 @@ function resolveRoomTransitionCueEffectKey(roomChange: HostSessionDataEnvelope["
   return undefined;
 }
 
-function resolveMovementTimingFromCues(cues: Array<Pick<GameRenderSceneObject["presentationCues"][number], "category" | "movementDurationMs" | "movementFrames">>): {
+function resolveMovementTimingFromCues(cues: Array<Pick<GameRenderSceneObject["activePresentationCues"][number], "category">
+  & Partial<Pick<GameRenderSceneObject["activePresentationCues"][number], "movementDurationMs" | "movementFrames">>>): {
   movementDurationMs?: number;
   movementFrames?: number;
 } {
@@ -131,7 +132,7 @@ function mapLightingState(source: HostPresentationSceneSource): NonNullable<Game
 
 function mapHostObject(
   roomObject: HostCommandRenderableRoomObject,
-  presentationCues: GameRenderSceneObject["presentationCues"] = []
+  activePresentationCues: GameRenderSceneObject["activePresentationCues"] = []
 ): GameRenderSceneObject {
   const spriteObject = mapRenderableRoomObject(roomObject);
   const lighting = mapObjectLighting(roomObject);
@@ -140,13 +141,13 @@ function mapHostObject(
     objectName: roomObject.name,
     ...(spriteObject ? { sprite: toSpriteComponent(spriteObject) } : {}),
     ...(lighting ? { lighting } : {}),
-    presentationCues,
-    ...resolveMovementTimingFromCues(presentationCues)
+    activePresentationCues,
+    ...resolveMovementTimingFromCues(activePresentationCues)
   };
 }
 
-function mapActivePresentationCues(roomObject: HostCommandRenderableRoomObject): GameRenderSceneObject["presentationCues"] {
-  const cuesByEffectKey = new Map<string, GameRenderSceneObject["presentationCues"][number]>();
+function mapActivePresentationCues(roomObject: HostCommandRenderableRoomObject): GameRenderSceneObject["activePresentationCues"] {
+  const cuesByActivationId = new Map<string, GameRenderSceneObject["activePresentationCues"][number]>();
   for (const cue of roomObject.activePresentationCues ?? []) {
     const effectKey = cue.effectKey.trim();
     const activationId = cue.activationId.trim();
@@ -154,37 +155,21 @@ function mapActivePresentationCues(roomObject: HostCommandRenderableRoomObject):
       continue;
     }
 
-    const normalizedEffectKey = effectKey.toLocaleLowerCase();
-    if (!cuesByEffectKey.has(normalizedEffectKey)) {
-      cuesByEffectKey.set(normalizedEffectKey, {
-        category: "",
+    if (!cuesByActivationId.has(activationId)) {
+      cuesByActivationId.set(activationId, {
+        category: cue.category,
         effectKey,
-        activationId
+        activationId,
+        ...(cue.movement ? {
+          moveDirection: cue.movement.moveDirection,
+          movementDurationMs: toNonNegativeInt(cue.movement.movementDurationMs),
+          movementFrames: toNonNegativeInt(cue.movement.movementFrames)
+        } : {})
       });
     }
   }
 
-  return [...cuesByEffectKey.values()];
-}
-
-function mergeObjectPresentationCues(
-  activeCues: GameRenderSceneObject["presentationCues"],
-  changeCues: GameRenderSceneObject["presentationCues"]
-): GameRenderSceneObject["presentationCues"] {
-  const cuesByEffectKey = new Map<string, GameRenderSceneObject["presentationCues"][number]>();
-  for (const cue of activeCues) {
-    cuesByEffectKey.set(cue.effectKey.trim().toLocaleLowerCase(), cue);
-  }
-
-  for (const cue of changeCues) {
-    const key = cue.effectKey.trim().toLocaleLowerCase();
-    const activeCue = cuesByEffectKey.get(key);
-    cuesByEffectKey.set(key, activeCue
-      ? { ...activeCue, ...cue, ...(activeCue.activationId ? { activationId: activeCue.activationId } : {}) }
-      : cue);
-  }
-
-  return [...cuesByEffectKey.values()];
+  return [...cuesByActivationId.values()];
 }
 
 function mapRoomObjectsFromNewRoom(source: HostPresentationSceneSource): Record<string, GameRenderSceneObject> {
@@ -210,26 +195,16 @@ function applyObjectChanges(
     if (change.changeKind === "Shown" && !renderableRoomObject) {
       continue;
     }
-    const presentationCues = change.presentationCues.map((cue) => ({
-      cueType: cue.cueType,
-      category: cue.category,
-      effectKey: cue.effectKey,
-      moveDirection: cue.moveDirection,
-      movementDurationMs: cue.movementDurationMs,
-      movementFrames: cue.movementFrames
-    }));
+    const activePresentationCues = renderableRoomObject
+      ? mapActivePresentationCues(renderableRoomObject)
+      : [];
     const mapped = renderableRoomObject
-      ? mapHostObject(
-          renderableRoomObject,
-          renderableRoomObject.activePresentationCues === undefined
-            ? presentationCues
-            : mergeObjectPresentationCues(mapActivePresentationCues(renderableRoomObject), presentationCues)
-        )
+      ? mapHostObject(renderableRoomObject, activePresentationCues)
       : {
           objectId: change.objectId,
           objectName: change.objectName,
-          presentationCues,
-          ...resolveMovementTimingFromCues(presentationCues)
+          activePresentationCues: [],
+          ...resolveMovementTimingFromCues([])
         };
     const lightingTransitionFrom = change.fromRenderableObject
       ? mapObjectLighting(change.fromRenderableObject)
@@ -301,9 +276,12 @@ function mapRenderableRoomObject(
     scale: Number.isFinite(roomObject.renderableImage.scale) && roomObject.renderableImage.scale > 0
       ? roomObject.renderableImage.scale
       : 1,
+    ...(Number.isFinite(roomObject.imageTransparency)
+      ? { imageTransparency: Math.min(1, Math.max(0, roomObject.imageTransparency!)) }
+      : {}),
     ...(additionalSituationalScale === undefined ? {} : { additionalSituationalScale }),
     zOrder: roomObject.renderZOrder,
-    presentationCues: []
+    activePresentationCues: []
   };
 }
 

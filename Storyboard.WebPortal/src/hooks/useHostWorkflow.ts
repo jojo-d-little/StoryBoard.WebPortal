@@ -540,6 +540,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     roomTransitionCatalogStatus,
     applyPresentationCues
   } = usePresentationCueWorkflow({
+    activeSessionId,
     roomTransitionDefaults: options.roomTransitionDefaults,
     presentationCueCatalogRelativeLocator: options.presentationCueCatalogRelativeLocator,
     selectedGameId,

@@ -1,6 +1,6 @@
 import type { GameRenderTravelDirection } from "../sceneTypes/GameRenderTravelDirection";
 
-/** Change-associated timing for an object's room-coordinate movement. */
+/** Resolved movement data carried by an active movement cue. */
 export interface GameRenderMovementCueMetadata {
   moveDirection?: GameRenderTravelDirection;
   movementDurationMs?: number;

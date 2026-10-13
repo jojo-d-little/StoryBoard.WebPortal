@@ -283,7 +283,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
         continue;
       }
 
-      const movementCueEffectKeys = summarizeMovementCueEffects(roomObject.presentationCues);
+      const movementCueEffectKeys = summarizeMovementCueEffects(roomObject.activePresentationCues);
       const resolvedDurationMs = roomObject.movementDurationMs;
       const roundedDurationMs = resolvedDurationMs === undefined ? undefined : Math.max(0, Math.round(resolvedDurationMs));
 
@@ -351,7 +351,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
         continue;
       }
 
-      for (const cue of roomObject.presentationCues) {
+      for (const cue of roomObject.activePresentationCues) {
         if (!isAppearanceCueCategory(cue.category)) {
           continue;
         }
@@ -479,7 +479,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
         toY: roomObject.y,
         movementDurationMs: roomObject.movementDurationMs,
         movementFrames: roomObject.movementFrames,
-        movementCueEffectKeys: summarizeMovementCueEffects(roomObject.presentationCues)
+        movementCueEffectKeys: summarizeMovementCueEffects(roomObject.activePresentationCues)
       });
     }
 
@@ -862,7 +862,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
         objectId: change.objectId,
         objectName: change.objectName,
         rawActiveCues,
-        mappedPresentationCues: mappedObject?.presentationCues ?? [],
+        mappedActivePresentationCues: mappedObject?.activePresentationCues ?? [],
         footprintCenterXpx: change.renderableRoomObject?.spatialFootprint?.footprintCenterXpx,
         footprintCenterYpx: change.renderableRoomObject?.spatialFootprint?.footprintCenterYpx,
         mappedFootprintCenterXpx: mappedObject?.lighting?.spatialFootprint?.footprintCenterXpx,

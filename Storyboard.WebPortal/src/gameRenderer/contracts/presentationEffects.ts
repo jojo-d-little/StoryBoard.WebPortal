@@ -8,7 +8,9 @@ export type {
   CatalogAppearanceSilhouetteStyle,
   CatalogStyledPointEffect,
   CatalogShakeStyle,
-  CatalogScaleStyle
+  CatalogScaleStyle,
+  CatalogAppearanceColorOverlayTimelineStyle,
+  CatalogPointLightTimelineStyle
 } from "./presentationEffects/PresentationCueCatalogEffect";
 
 export type { GameRenderCueReference, GameRenderPresentationCue } from "./presentationEffects/GameRenderPresentationCue";
@@ -20,7 +22,9 @@ export type {
   GameRenderAppearanceSilhouetteEffect,
   GameRenderShakeEffect,
   GameRenderScaleEffect,
-  GameRenderStyledPointEffect
+  GameRenderStyledPointEffect,
+  GameRenderAppearanceColorOverlayTimelineEffect,
+  GameRenderPointLightTimelineEffect
 } from "./presentationEffects/GameRenderResolvedObjectEffect";
 export type { GameRenderAppearanceOutlineStyle } from "./presentationEffects/GameRenderAppearanceOutlineStyle";
 export type { GameRenderAppearanceSilhouettePass } from "./presentationEffects/GameRenderAppearanceSilhouettePass";

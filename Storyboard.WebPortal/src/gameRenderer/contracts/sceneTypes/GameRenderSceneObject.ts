@@ -6,7 +6,7 @@ import type { GameRenderResolvedObjectEffect } from "../presentationEffects/Game
 
 export type GameRenderSpriteComponent = Omit<
   GameRenderRoomObject,
-  "objectId" | "objectName" | "presentationCues" | "resolvedObjectEffects" | "movementDurationMs" | "movementFrames"
+  "objectId" | "objectName" | "activePresentationCues" | "resolvedObjectEffects" | "movementDurationMs" | "movementFrames"
 >;
 
 export interface GameRenderSceneObject {
@@ -18,7 +18,7 @@ export interface GameRenderSceneObject {
   /** @deprecated Direct scene callers only. Host cues resolve into resolvedObjectEffects. */
   styledPointEffects?: GameRenderObjectStyledPointEffect[];
   resolvedObjectEffects?: GameRenderResolvedObjectEffect[];
-  presentationCues: GameRenderPresentationCue[];
+  activePresentationCues: GameRenderPresentationCue[];
   movementDurationMs?: number;
   movementFrames?: number;
 }

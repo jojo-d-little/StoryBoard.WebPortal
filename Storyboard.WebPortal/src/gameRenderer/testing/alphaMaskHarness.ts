@@ -2,7 +2,7 @@ import { createGameRenderer, type GameRenderSceneSnapshot } from "../index";
 import { createSceneObjectsFromRoomObjects } from "../scene/sceneObjects";
 import { DEFAULT_PRESENTATION_ISOLATION_SETTINGS } from "../presentationIsolation";
 
-type AlphaMode = "none" | "soft" | "binary" | "binary-above-cutoff";
+type AlphaMode = "none" | "soft" | "binary" | "binary-above-cutoff" | "pane-flash";
 
 declare global {
   interface Window {
@@ -48,8 +48,28 @@ function scene(mode: AlphaMode): GameRenderSceneSnapshot {
       rotationDegrees: 0,
       scale: 1,
       zOrder: 1,
-      presentationCues: [],
-      appearanceSilhouetteStyle: mode === "none" ? undefined : {
+      imageTransparency: mode === "pane-flash" ? 1 : undefined,
+      activePresentationCues: mode === "pane-flash" ? [{
+        category: "Appearance",
+        effectKey: "appearance.lightning.pane-flash",
+        activationId: "flash-1",
+        timelineStartAtMs: performance.now()
+      }] : [],
+      resolvedObjectEffects: mode === "pane-flash" ? [{
+        kind: "appearanceColorOverlayTimelineStyle",
+        effectKey: "appearance.lightning.pane-flash",
+        activationId: "flash-1",
+        timelineStartAtMs: performance.now(),
+        style: {
+          maskPolicy: "sourceCoverage",
+          blendMode: "normal",
+          frames: [
+            { atMs: 0, color: "#FF0000", strength: 1 },
+            { atMs: 10_000, color: "#FF0000", strength: 1 }
+          ]
+        }
+      }] : undefined,
+      appearanceSilhouetteStyle: mode === "none" || mode === "pane-flash" ? undefined : {
         maskAlphaMode: mode === "soft" ? "soft" : "binary",
         maskAlphaCutoff: mode === "binary-above-cutoff" ? 0.6 : 0.4,
         passes: [{

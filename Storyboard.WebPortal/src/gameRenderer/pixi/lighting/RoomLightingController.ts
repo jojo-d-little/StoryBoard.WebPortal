@@ -88,6 +88,7 @@ export class RoomLightingController {
   private disposed = false;
   private faulted = false;
   private lastDiagnosticKey = "";
+  private readonly reportedLightingFrameKeys = new Set<string>();
 
   constructor(options: RoomLightingControllerOptions) {
     this.renderer = options.renderer;
@@ -161,6 +162,23 @@ export class RoomLightingController {
       this.presentationSprite.texture = output.composedTexture;
       this.presentationSprite.position.set(0, 0);
       this.presentationSprite.visible = true;
+      const pointLightCount = mapped.frame.pointLights.length;
+      const successfulFrameKey = `${scene.roomId ?? "(unknown)"}:${pointLightCount}`;
+      if (!this.reportedLightingFrameKeys.has(successfulFrameKey)) {
+        this.reportedLightingFrameKeys.add(successfulFrameKey);
+        this.diagnostics?.({
+          category: "frame",
+          level: "info",
+          message: "Composed a room lighting frame.",
+          details: {
+            roomId: scene.roomId ?? "(unknown)",
+            pointLightCount,
+            pointLights: mapped.frame.pointLights.slice(0, 8),
+            ambient: mapped.frame.roomLighting.ambient,
+            presentationSpriteVisible: this.presentationSprite.visible
+          }
+        });
+      }
       if (mapped.diagnostics.length === 0) {
         this.lastDiagnosticKey = "";
       }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { HostSessionDataEnvelope } from "../../hostApi/HostContracts";
 import type { GameRenderSceneSnapshot } from "../contracts/sceneTypes";
 import { mapHostPresentationToSceneSnapshot, mapHostSessionDataToSceneSnapshot } from "./mapHostSessionScene";
+import { mapLightingFrameInput } from "./mapLightingFrameInput";
 import { selectRenderableRoomObjects } from "../scene/sceneObjects";
 
 function renderedRoomObjects(scene: GameRenderSceneSnapshot | null | undefined) {
@@ -92,6 +93,33 @@ function buildSessionData(overrides: Partial<HostSessionDataEnvelope> = {}): Hos
 }
 
 describe("mapHostSessionDataToSceneSnapshot", () => {
+  it("keeps point lights in the lighting frame at every image transparency", () => {
+    const transparencyValues = [undefined, 0, 0.5, 1];
+    const pointLights = transparencyValues.map((imageTransparency) => {
+      const sourceObject = {
+        ...buildSessionData().roomChange!.newRoom!.renderableRoomObjects[0],
+        ...(imageTransparency === undefined ? {} : { imageTransparency }),
+        pointLight: { x: 120, y: 80, intensityScale: 0.75, radiusPx: 64 }
+      };
+      const snapshot = mapHostSessionDataToSceneSnapshot(buildSessionData({
+        sessionPresentationSettings: { cellSizePx: 40 },
+        roomChange: {
+          ...buildSessionData().roomChange!,
+          newRoom: {
+            ...buildSessionData().roomChange!.newRoom!,
+            renderableRoomObjects: [sourceObject]
+          }
+        }
+      }));
+      const lighting = mapLightingFrameInput(snapshot!);
+      expect(lighting.ok).toBe(true);
+      if (!lighting.ok) return [];
+      return lighting.frame.pointLights;
+    });
+
+    expect(pointLights).toEqual(Array(4).fill([{ x: 120, y: 80, intensityScale: 0.75, radiusPx: 64 }]));
+  });
+
   it("removes Hidden objects and restores Shown objects with their full visual state", () => {
     const visibleObject = buildSessionData().roomChange!.newRoom!.renderableRoomObjects[0];
     const baseline = mapHostSessionDataToSceneSnapshot(buildSessionData());
@@ -105,7 +133,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
         objectId: "obj-1",
         objectName: "Lantern",
         renderableRoomObject: visibleObject,
-        presentationCues: [{ category: "Movement", effectKey: "movement.walk", movementDurationMs: 300 }],
         moveLegTelemetry: [{
           targetObjectId: "obj-1",
           targetObjectName: "Lantern",
@@ -139,15 +166,14 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
           renderableImage: { ...visibleObject.renderableImage, x: 160 },
           pointLight: { x: 170, y: 90, radiusPx: 80 },
           spatialFootprint: { cellX: 4, cellY: 2, footprintCenterXpx: 176, footprintCenterYpx: 96 },
-          activePresentationCues: [{ effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
+          activePresentationCues: [{ category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
         },
-        presentationCues: []
       }]
     }), hidden);
     expect(renderedRoomObjects(shown)).toMatchObject([{
       objectId: "obj-1",
       x: 160,
-      presentationCues: [{ category: "", effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
+      activePresentationCues: [{ category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
     }]);
     expect(shown?.objectsById["obj-1"].lighting).toMatchObject({
       pointLight: { x: 170, y: 90, radiusPx: 80 },
@@ -157,14 +183,14 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     const removed = mapHostSessionDataToSceneSnapshot(buildSessionData({
       hasRoomChange: false,
       roomChange: undefined,
-      roomObjectChanges: [{ changeKind: "Removed", objectId: "obj-1", objectName: "Lantern", presentationCues: [] }]
+      roomObjectChanges: [{ changeKind: "Removed", objectId: "obj-1", objectName: "Lantern" }]
     }), shown);
     expect(removed?.objectsById["obj-1"]).toBeUndefined();
 
     const incompleteShow = mapHostSessionDataToSceneSnapshot(buildSessionData({
       hasRoomChange: false,
       roomChange: undefined,
-      roomObjectChanges: [{ changeKind: "Shown", objectId: "obj-1", objectName: "Lantern", presentationCues: [] }]
+      roomObjectChanges: [{ changeKind: "Shown", objectId: "obj-1", objectName: "Lantern" }]
     }), removed);
     expect(incompleteShow?.objectsById["obj-1"]).toBeUndefined();
   });
@@ -209,8 +235,8 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
           renderableRoomObjects: [{
             ...buildSessionData().roomChange!.newRoom!.renderableRoomObjects[0],
             activePresentationCues: [
-              { effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" },
-              { effectKey: "appearance.selection.outline.amber", activationId: "activation-2" }
+              { category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" },
+              { category: "Appearance", effectKey: "appearance.selection.outline.amber", activationId: "activation-2" }
             ]
           }]
         }
@@ -218,9 +244,9 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     }));
 
     const baselineObject = renderedRoomObjects(baseline).find((entry) => entry.objectId === "obj-1");
-    expect(baselineObject?.presentationCues).toEqual([
-      { category: "", effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" },
-      { category: "", effectKey: "appearance.selection.outline.amber", activationId: "activation-2" }
+    expect(baselineObject?.activePresentationCues).toEqual([
+      { category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" },
+      { category: "Appearance", effectKey: "appearance.selection.outline.amber", activationId: "activation-2" }
     ]);
 
     const moved = mapHostSessionDataToSceneSnapshot(buildSessionData({
@@ -233,18 +259,18 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
         renderableRoomObject: {
           ...buildSessionData().roomChange!.newRoom!.renderableRoomObjects[0],
           renderableImage: { ...buildSessionData().roomChange!.newRoom!.renderableRoomObjects[0].renderableImage, x: 140 },
-          activePresentationCues: [{ effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" }]
+          activePresentationCues: [
+            { category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "activation-2" },
+              { category: "Movement", effectKey: "movement.walk", activationId: "movement-1", movement: { moveDirection: "East", movementDurationMs: 640, movementFrames: 16 } }
+          ]
         },
-        presentationCues: [
-          { category: "Appearance", effectKey: "appearance.selection.outline.cyan" },
-          { category: "Movement", effectKey: "movement.walk", movementDurationMs: 640, movementFrames: 16 }
-        ]
       }]
     }), baseline);
 
     const movedObject = renderedRoomObjects(moved).find((entry) => entry.objectId === "obj-1");
-    expect(movedObject?.presentationCues).toHaveLength(2);
-    expect(movedObject?.presentationCues.find((cue) => cue.effectKey === "appearance.selection.outline.cyan")?.activationId).toBe("activation-1");
+    expect(movedObject?.activePresentationCues).toHaveLength(2);
+    expect(movedObject?.activePresentationCues.find((cue) => cue.effectKey === "appearance.selection.outline.cyan")?.activationId).toBe("activation-2");
+    expect(movedObject?.activePresentationCues.find((cue) => cue.effectKey === "movement.walk")?.activationId).toBe("movement-1");
     expect(movedObject?.movementDurationMs).toBe(640);
     expect(movedObject?.movementFrames).toBe(16);
 
@@ -259,10 +285,9 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
           ...buildSessionData().roomChange!.newRoom!.renderableRoomObjects[0],
           activePresentationCues: []
         },
-        presentationCues: []
       }]
     }), moved);
-    expect(renderedRoomObjects(cleared).find((entry) => entry.objectId === "obj-1")?.presentationCues).toEqual([]);
+    expect(renderedRoomObjects(cleared).find((entry) => entry.objectId === "obj-1")?.activePresentationCues).toEqual([]);
   });
 
   it("preserves the Host before endpoint as transient lighting movement input", () => {
@@ -307,9 +332,9 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
               scale: 1
             },
             renderZOrder: 1002,
-            pointLight: { x: 172, y: 92, radiusPx: 80 }
+            pointLight: { x: 172, y: 92, radiusPx: 80 },
+            activePresentationCues: [{ category: "Movement", effectKey: "movement.walk", activationId: "movement-walk-1", movement: { moveDirection: "East", movementDurationMs: 200, movementFrames: 5 } }]
           },
-          presentationCues: [{ cueType: "movement", category: "Movement", effectKey: "movement.walk", movementDurationMs: 200 }]
         }
       ]
     }), baseline);
@@ -416,7 +441,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
         objectName: "Lantern",
         sprite: expect.objectContaining({ asset: { assetPath: "assets/lantern.png", cacheKey: "assets/lantern.png" } }),
         lighting: { pointLight: { x: 0, y: 0, intensityScale: 0, radiusPx: 0, motionMode: "sway", swayStyle: "breeze" } },
-        presentationCues: []
+        activePresentationCues: []
       },
       "invisible-blocker": {
         objectId: "invisible-blocker",
@@ -425,7 +450,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
           spatialFootprint: { cellX: 3, cellY: 4, sizeXCells: 2, cornerStyle: "rounded" },
           lightOcclusion: { strength: 0 }
         },
-        presentationCues: []
+        activePresentationCues: []
       }
     });
   });
@@ -538,7 +563,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
             },
             renderZOrder: 0
           },
-          presentationCues: []
         }
       ]
     }), sameRoomReplacement);
@@ -551,7 +575,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     expect(ordinaryDelta?.objectsById["new-blocker"]).toMatchObject({
       objectId: "new-blocker",
       objectName: "New blocker",
-      presentationCues: []
+      activePresentationCues: []
     });
     expect(ordinaryDelta?.objectsById["new-blocker"]?.sprite).toBeUndefined();
     expect(ordinaryDelta?.objectsById["new-blocker"]?.lighting).toBeUndefined();
@@ -692,7 +716,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
           changeKind: "Updated",
           objectId: "obj-1",
           objectName: "Lantern",
-          presentationCues: [],
           moveLegTelemetry: [
             {
               targetObjectId: "obj-1",
@@ -925,18 +948,9 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
               rotationDegrees: 15,
               scale: 1
             },
-            renderZOrder: 1002
+            renderZOrder: 1002,
+            activePresentationCues: [{ category: "Movement", effectKey: "walk", activationId: "walk-1", movement: { moveDirection: "East", movementDurationMs: 640, movementFrames: 16 } }]
           },
-          presentationCues: [
-            {
-              cueType: "movement",
-              category: "Movement",
-              effectKey: "walk",
-              moveDirection: "East",
-              movementDurationMs: 640,
-              movementFrames: 16
-            }
-          ]
         },
         {
           changeKind: "Added",
@@ -958,7 +972,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
             },
             renderZOrder: 1004
           },
-          presentationCues: []
         }
       ]
     });
@@ -967,7 +980,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     expect(merged).not.toBeNull();
     expect(renderedRoomObjects(merged)).toHaveLength(2);
     expect(renderedRoomObjects(merged).find((entry) => entry.objectId === "obj-1")?.x).toBe(144);
-    expect(renderedRoomObjects(merged).find((entry) => entry.objectId === "obj-1")?.presentationCues).toHaveLength(1);
+    expect(renderedRoomObjects(merged).find((entry) => entry.objectId === "obj-1")?.activePresentationCues).toHaveLength(1);
     expect(renderedRoomObjects(merged).find((entry) => entry.objectId === "obj-1")?.movementDurationMs).toBe(640);
     expect(renderedRoomObjects(merged).find((entry) => entry.objectId === "obj-1")?.movementFrames).toBe(16);
 
@@ -979,7 +992,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
           changeKind: "Removed",
           objectId: "obj-1",
           objectName: "Lantern",
-          presentationCues: []
         }
       ]
     }), merged);
@@ -1014,9 +1026,12 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
               rotationDegrees: 45,
               scale: 0.9
             },
-            renderZOrder: 1002
+            renderZOrder: 1002,
+            activePresentationCues: [
+              { category: "Movement", effectKey: "movement.speed.quantum", activationId: "movement-quantum", movement: { moveDirection: "East", movementDurationMs: 0, movementFrames: 0 } },
+              { category: "Movement", effectKey: "movement.speed.slow", activationId: "movement-slow", movement: { moveDirection: "East", movementDurationMs: 640, movementFrames: 16 } }
+            ]
           },
-          presentationCues: []
         }
       ]
     }), previousSnapshot);
@@ -1120,7 +1135,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
             },
             renderZOrder: 1001
           },
-          presentationCues: []
         }
       ]
     }), previousSnapshot);
@@ -1155,26 +1169,12 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
               rotationDegrees: 0,
               scale: 1
             },
-            renderZOrder: 1002
+            renderZOrder: 1002,
+            activePresentationCues: [
+              { category: "Movement", effectKey: "movement.speed.quantum", activationId: "movement-quantum", movement: { moveDirection: "East", movementDurationMs: 0, movementFrames: 0 } },
+              { category: "Movement", effectKey: "movement.speed.slow", activationId: "movement-slow", movement: { moveDirection: "East", movementDurationMs: 640, movementFrames: 16 } }
+            ]
           },
-          presentationCues: [
-            {
-              cueType: "movement",
-              category: "Movement",
-              effectKey: "movement.speed.quantum",
-              moveDirection: "East",
-              movementDurationMs: 0,
-              movementFrames: 0
-            },
-            {
-              cueType: "movement",
-              category: "Movement",
-              effectKey: "movement.speed.slow",
-              moveDirection: "East",
-              movementDurationMs: 640,
-              movementFrames: 16
-            }
-          ]
         }
       ]
     }), previousSnapshot);
@@ -1182,6 +1182,49 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     const movedObject = renderedRoomObjects(moved).find((entry) => entry.objectId === "obj-1");
     expect(movedObject?.movementDurationMs).toBe(640);
     expect(movedObject?.movementFrames).toBe(16);
+  });
+
+  it("maps resolved movement timing from the active cue payload", () => {
+    const previousSnapshot = mapHostSessionDataToSceneSnapshot(buildSessionData());
+    const moved = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      hasRoomChange: false,
+      roomChange: undefined,
+      roomObjectChanges: [
+        {
+          changeKind: "Updated",
+          objectId: "obj-1",
+          objectName: "Lantern",
+          renderableRoomObject: {
+            objectId: "obj-1",
+            name: "Lantern",
+            renderableImage: {
+              imagePath: "assets/images/lantern.png",
+              anchorX: 0,
+              anchorY: 0,
+              iconOffsetX: 0,
+              iconOffsetY: 0,
+              x: 160,
+              y: 120,
+              rotationDegrees: 0,
+              scale: 1
+            },
+            renderZOrder: 1002,
+            activePresentationCues: [{ category: "Movement", effectKey: "movement.speed.medium", activationId: "movement-active-1", movement: { moveDirection: "East", movementDurationMs: 600, movementFrames: 15 } }]
+          }
+        }
+      ]
+    }), previousSnapshot);
+
+    expect(renderedRoomObjects(moved).find((entry) => entry.objectId === "obj-1")?.activePresentationCues)
+      .toEqual([{
+        category: "Movement",
+        effectKey: "movement.speed.medium",
+        activationId: "movement-active-1",
+        moveDirection: "East",
+        movementDurationMs: 600,
+        movementFrames: 15
+      }]);
+    expect(renderedRoomObjects(moved).find((entry) => entry.objectId === "obj-1")?.movementDurationMs).toBe(600);
   });
 
   it("uses only movement cues from the latest update when appearance cues are omitted", () => {
@@ -1209,15 +1252,9 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
               rotationDegrees: 0,
               scale: 1
             },
-            renderZOrder: 1002
+            renderZOrder: 1002,
+            activePresentationCues: [{ category: "Appearance", effectKey: "appearance.selection.silhouette.default", activationId: "appearance-1" }]
           },
-          presentationCues: [
-            {
-              cueType: "appearance",
-              category: "Appearance",
-              effectKey: "appearance.selection.silhouette.default"
-            }
-          ]
         }
       ]
     }), baselineSnapshot);
@@ -1244,24 +1281,16 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
               rotationDegrees: 0,
               scale: 1
             },
-            renderZOrder: 1002
+            renderZOrder: 1002,
+            activePresentationCues: [{ category: "Movement", effectKey: "movement.speed.medium", activationId: "movement-1", movement: { moveDirection: "East", movementDurationMs: 600, movementFrames: 15 } }]
           },
-          presentationCues: [
-            {
-              cueType: "movement",
-              category: "Movement",
-              effectKey: "movement.speed.medium",
-              movementDurationMs: 600,
-              movementFrames: 15
-            }
-          ]
         }
       ]
     }), previousSnapshot);
 
     const movedObject = renderedRoomObjects(moved).find((entry) => entry.objectId === "obj-1");
-    expect(movedObject?.presentationCues.some((cue) => cue.category.toLowerCase() === "appearance")).toBe(false);
-    expect(movedObject?.presentationCues.some((cue) => cue.category.toLowerCase() === "movement")).toBe(true);
+    expect(movedObject?.activePresentationCues.some((cue) => cue.category.toLowerCase() === "appearance")).toBe(false);
+    expect(movedObject?.activePresentationCues.some((cue) => cue.category.toLowerCase() === "movement")).toBe(true);
   });
 
   it("uses only movement cues from the latest update when room-change payload accompanies movement", () => {
@@ -1289,15 +1318,9 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
               rotationDegrees: 0,
               scale: 1
             },
-            renderZOrder: 1002
+            renderZOrder: 1002,
+            activePresentationCues: [{ category: "Appearance", effectKey: "appearance.selection.silhouette.default", activationId: "appearance-2" }]
           },
-          presentationCues: [
-            {
-              cueType: "appearance",
-              category: "Appearance",
-              effectKey: "appearance.selection.silhouette.default"
-            }
-          ]
         }
       ]
     }), baselineSnapshot);
@@ -1322,24 +1345,16 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
               rotationDegrees: 0,
               scale: 1
             },
-            renderZOrder: 1002
+            renderZOrder: 1002,
+            activePresentationCues: [{ category: "Movement", effectKey: "movement.speed.medium", activationId: "movement-2", movement: { moveDirection: "East", movementDurationMs: 600, movementFrames: 15 } }]
           },
-          presentationCues: [
-            {
-              cueType: "movement",
-              category: "Movement",
-              effectKey: "movement.speed.medium",
-              movementDurationMs: 600,
-              movementFrames: 15
-            }
-          ]
         }
       ]
     }), selectedSnapshot);
 
     const movedObject = renderedRoomObjects(movedWithRoomChange).find((entry) => entry.objectId === "obj-1");
-    expect(movedObject?.presentationCues.some((cue) => cue.category.toLowerCase() === "appearance")).toBe(false);
-    expect(movedObject?.presentationCues.some((cue) => cue.category.toLowerCase() === "movement")).toBe(true);
+    expect(movedObject?.activePresentationCues.some((cue) => cue.category.toLowerCase() === "appearance")).toBe(false);
+    expect(movedObject?.activePresentationCues.some((cue) => cue.category.toLowerCase() === "movement")).toBe(true);
   });
 
   it("clears existing appearance cues when host sends an explicit empty cue list", () => {
@@ -1367,15 +1382,9 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
               rotationDegrees: 0,
               scale: 1
             },
-            renderZOrder: 1002
+            renderZOrder: 1002,
+            activePresentationCues: [{ category: "Appearance", effectKey: "appearance.selection.silhouette.default", activationId: "appearance-active-1" }]
           },
-          presentationCues: [
-            {
-              cueType: "appearance",
-              category: "Appearance",
-              effectKey: "appearance.selection.silhouette.default"
-            }
-          ]
         }
       ]
     }), baselineSnapshot);
@@ -1402,14 +1411,14 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
               rotationDegrees: 0,
               scale: 1
             },
-            renderZOrder: 1002
+            renderZOrder: 1002,
+            activePresentationCues: []
           },
-          presentationCues: []
         }
       ]
     }), selectedSnapshot);
 
     const clearedObject = renderedRoomObjects(clearedSnapshot).find((entry) => entry.objectId === "obj-1");
-    expect(clearedObject?.presentationCues).toHaveLength(0);
+    expect(clearedObject?.activePresentationCues).toHaveLength(0);
   });
 });
