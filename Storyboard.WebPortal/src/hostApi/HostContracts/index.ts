@@ -83,6 +83,8 @@ export type { HostSoundEffectLane } from "./HostSoundEffectLane";
 export type { HostSoundEffectRepeatMode } from "./HostSoundEffectRepeatMode";
 export type { HostSoundEffectReplayPolicy } from "./HostSoundEffectReplayPolicy";
 export type { HostCommandSoundCue } from "./HostCommandSoundCue";
+export type { HostCommandActiveObjectSoundCue } from "./HostCommandActiveObjectSoundCue";
+export type { HostCommandRemoteRoomObject } from "./HostCommandRemoteRoomObject";
 
 export type { HostPresentationCueType } from "./HostPresentationCueType";
 export type { HostRoomChangeTravelDirection } from "./HostRoomChangeTravelDirection";

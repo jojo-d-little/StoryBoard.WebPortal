@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { DiagnosticsLevel } from "../components/DiagnosticsConsole";
 import { HostApiClient } from "../hostApi/client";
-import type { HostCommandSoundCue, HostSessionDataEnvelope } from "../hostApi/HostContracts";
+import type { HostCommandActiveObjectSoundCue, HostCommandSoundCue, HostSessionDataEnvelope } from "../hostApi/HostContracts";
 
 type AddDiagnostic = (level: DiagnosticsLevel, category: string, message: string, details?: unknown) => void;
 
 interface ActiveCuePlayback {
-  cue: HostCommandSoundCue;
+  cue: HostPlaybackCue;
   audio: HTMLAudioElement;
+  panner: StereoPannerNode | null;
   laneAndKey: string;
   acceptedAtMs: number;
   scheduledStartAtMs: number;
@@ -21,6 +22,17 @@ interface ActiveCuePlayback {
   baseVolume: number;
   fadeIntervalId: number | null;
 }
+
+type HostPlaybackCue = HostCommandSoundCue & {
+  activationId?: string;
+  volumeMultiplier?: number;
+  pan?: number;
+  repeatIntervalMinMs?: number | null;
+  repeatIntervalMaxMs?: number | null;
+  concurrencyGroup?: string | null;
+  concurrencyGroupImportance?: number | null;
+  importance?: number | null;
+};
 
 interface UseHostSoundCueWorkflowOptions {
   hostApiClient: HostApiClient;
@@ -49,7 +61,7 @@ export interface HostSoundCueWorkflowStatus {
 }
 
 interface UseHostSoundCueWorkflowResult {
-  consumeSessionDeltaSoundCues: (sessionData: HostSessionDataEnvelope) => void;
+  consumeSessionDeltaSoundCues: (sessionData: HostSessionDataEnvelope, isBaseline?: boolean) => void;
   clearActiveSoundCues: () => void;
   requestAudioUnlock: () => void;
   soundCueStatus: HostSoundCueWorkflowStatus;
@@ -118,7 +130,12 @@ function buildCueTraceKey(cue: HostCommandSoundCue): string {
 
 export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions): UseHostSoundCueWorkflowResult {
   const activeByInstanceIdRef = useRef<Map<string, ActiveCuePlayback>>(new Map());
+  const activeByActivationIdRef = useRef<Map<string, ActiveCuePlayback>>(new Map());
   const activeByLaneAndKeyRef = useRef<Map<string, ActiveCuePlayback>>(new Map());
+  const spatialCueSourceIdsRef = useRef<Map<string, Set<string>>>(new Map());
+  const spatialCueLatestRef = useRef<Map<string, HostCommandActiveObjectSoundCue>>(new Map());
+  const seenActivationIdsRef = useRef<Set<string>>(new Set());
+  const audioContextRef = useRef<AudioContext | null>(null);
   const seenCueKeysRef = useRef<Set<string>>(new Set());
   const seenCueKeyQueueRef = useRef<string[]>([]);
   const pendingUnlockPlayQueueRef = useRef<HostCommandSoundCue[]>([]);
@@ -170,6 +187,44 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
     const laneCurrent = activeByLaneAndKeyRef.current.get(playback.laneAndKey);
     if (laneCurrent === playback) {
       activeByLaneAndKeyRef.current.delete(playback.laneAndKey);
+    }
+
+    const activationId = playback.cue.activationId?.trim();
+    if (activationId && activeByActivationIdRef.current.get(activationId) === playback) {
+      activeByActivationIdRef.current.delete(activationId);
+    }
+  }
+
+  function resolvePlaybackVolume(cue: HostPlaybackCue): number {
+    return resolveBaseVolume(cue.baseVolumeDb) * clamp(cue.volumeMultiplier ?? 1, 0, 1);
+  }
+
+  function getAudioContext(): AudioContext | null {
+    if (typeof window === "undefined" || typeof window.AudioContext !== "function") {
+      return null;
+    }
+    if (!audioContextRef.current) {
+      try {
+        audioContextRef.current = new window.AudioContext();
+      } catch {
+        return null;
+      }
+    }
+    return audioContextRef.current;
+  }
+
+  function connectPanner(audio: HTMLAudioElement, pan: number): StereoPannerNode | null {
+    const context = getAudioContext();
+    if (!context) return null;
+    try {
+      const source = context.createMediaElementSource(audio);
+      const panner = context.createStereoPanner();
+      panner.pan.value = clamp(pan, -1, 1);
+      source.connect(panner);
+      panner.connect(context.destination);
+      return panner;
+    } catch {
+      return null;
     }
   }
 
@@ -235,6 +290,7 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
       try {
         playback.audio.pause();
         playback.audio.currentTime = 0;
+        playback.panner?.disconnect();
       } catch {
         // No-op: media teardown should not fail workflow execution.
       }
@@ -280,6 +336,7 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
   function clearActiveSoundCues(): void {
     const uniquePlaybacks = new Set<ActiveCuePlayback>([
       ...activeByInstanceIdRef.current.values(),
+      ...activeByActivationIdRef.current.values(),
       ...activeByLaneAndKeyRef.current.values()
     ]);
 
@@ -288,7 +345,10 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
     }
 
     activeByInstanceIdRef.current.clear();
+    activeByActivationIdRef.current.clear();
     activeByLaneAndKeyRef.current.clear();
+    spatialCueSourceIdsRef.current.clear();
+    spatialCueLatestRef.current.clear();
   }
 
   function trackCueDedupKey(dedupeKey: string): void {
@@ -307,7 +367,7 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
     }
   }
 
-  function queueCueForUnlockReplay(cue: HostCommandSoundCue): void {
+  function queueCueForUnlockReplay(cue: HostPlaybackCue): void {
     pendingUnlockPlayQueueRef.current.push(cue);
     while (pendingUnlockPlayQueueRef.current.length > PENDING_UNLOCK_QUEUE_LIMIT) {
       pendingUnlockPlayQueueRef.current.shift();
@@ -315,7 +375,7 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
     publishStatus();
   }
 
-  function handleAutoplayBlocked(cue: HostCommandSoundCue, reason: string): void {
+  function handleAutoplayBlocked(cue: HostPlaybackCue, reason: string): void {
     queueCueForUnlockReplay(cue);
     autoplayBlockedCountRef.current += 1;
     publishStatus();
@@ -360,7 +420,12 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
       }
     }
 
-    const repeatDelayMs = toNonNegativeInt(cue.repeatIntervalMs) + toNonNegativeInt(cue.repeatCooldownMs);
+    const minimumIntervalMs = cue.repeatIntervalMinMs ?? cue.repeatIntervalMs ?? 0;
+    const maximumIntervalMs = cue.repeatIntervalMaxMs ?? cue.repeatIntervalMs ?? minimumIntervalMs;
+    const repeatIntervalMs = maximumIntervalMs > minimumIntervalMs
+      ? minimumIntervalMs + Math.floor(Math.random() * (maximumIntervalMs - minimumIntervalMs + 1))
+      : minimumIntervalMs;
+    const repeatDelayMs = toNonNegativeInt(repeatIntervalMs) + toNonNegativeInt(cue.repeatCooldownMs);
     playback.repeatTimeoutId = window.setTimeout(async () => {
       playback.repeatTimeoutId = null;
       if (playback.canceled) {
@@ -408,6 +473,9 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
     }
 
     try {
+      if (audioContextRef.current?.state === "suspended") {
+        await audioContextRef.current.resume();
+      }
       playback.audio.volume = playback.baseVolume * resolveLaneMultiplier(playback.cue);
       await playback.audio.play();
       playback.actualStartAtMs = Date.now();
@@ -454,7 +522,7 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
     }
   }
 
-  async function handlePlayCue(cue: HostCommandSoundCue): Promise<void> {
+  async function handlePlayCue(cue: HostPlaybackCue): Promise<void> {
     if (!options.credentialHandle || !options.activeSessionId) {
       return;
     }
@@ -508,18 +576,25 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
       return;
     }
 
+    const activationId = cue.activationId?.trim();
+    const latestCue = activationId ? spatialCueLatestRef.current.get(activationId) : undefined;
+    if (activationId && !latestCue) {
+      return;
+    }
+    const effectiveCue = latestCue ? toSpatialPlaybackCue(latestCue) : cue;
     const audio = new Audio(previewDataUrl);
     audio.preload = "auto";
-    audio.loop = cue.repeatMode === "UntilCanceled";
-    const baseVolume = resolveBaseVolume(cue.baseVolumeDb);
-    const laneMultiplier = resolveLaneMultiplier(cue);
-    audio.volume = toNonNegativeInt(cue.fadeInMs) > 0
+    audio.loop = effectiveCue.repeatMode === "UntilCanceled";
+    const baseVolume = resolvePlaybackVolume(effectiveCue);
+    const laneMultiplier = resolveLaneMultiplier(effectiveCue);
+    audio.volume = toNonNegativeInt(effectiveCue.fadeInMs) > 0
       ? 0
       : baseVolume * laneMultiplier;
 
     const playback: ActiveCuePlayback = {
-      cue,
+      cue: effectiveCue,
       audio,
+      panner: connectPanner(audio, effectiveCue.pan ?? 0),
       laneAndKey,
       acceptedAtMs: Date.now(),
       scheduledStartAtMs: 0,
@@ -535,31 +610,41 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
     };
 
     activeByLaneAndKeyRef.current.set(laneAndKey, playback);
-    const instanceId = cue.playRequestInstanceId?.trim();
+    const instanceId = effectiveCue.playRequestInstanceId?.trim();
     if (instanceId) {
       activeByInstanceIdRef.current.set(instanceId, playback);
     }
+    const playbackActivationId = effectiveCue.activationId?.trim();
+    if (playbackActivationId) {
+      activeByActivationIdRef.current.set(playbackActivationId, playback);
+    }
+    if (effectiveCue.pan !== undefined && Math.abs(effectiveCue.pan) > 0.0001 && !playback.panner) {
+      options.addDiagnostic("warn", "session-audio", "Spatial pan is unavailable in this browser audio context.", {
+        activationId: effectiveCue.activationId ?? "(none)",
+        pan: effectiveCue.pan
+      });
+    }
 
-    const startDelayMs = toNonNegativeInt(cue.startDelayMs);
+    const startDelayMs = toNonNegativeInt(effectiveCue.startDelayMs);
     playback.scheduledStartAtMs = playback.acceptedAtMs + startDelayMs;
 
     options.addDiagnostic("info", "timing-sync", "Sound cue scheduled.", {
-      traceKey: buildCueTraceKey(cue),
-      commandCorrelationId: cue.commandCorrelationId,
-      actionId: cue.actionId,
-      sequenceIndex: cue.sequenceIndex,
-      lane: cue.soundEffectLane,
-      soundEffectKey: cue.soundEffectKey,
+      traceKey: buildCueTraceKey(effectiveCue),
+      commandCorrelationId: effectiveCue.commandCorrelationId,
+      actionId: effectiveCue.actionId,
+      sequenceIndex: effectiveCue.sequenceIndex,
+      lane: effectiveCue.soundEffectLane,
+      soundEffectKey: effectiveCue.soundEffectKey,
       acceptedAtMs: playback.acceptedAtMs,
       scheduledStartAtMs: playback.scheduledStartAtMs,
       scheduledDelayMs: startDelayMs,
-      maxPlayDurationMs: cue.maxPlayDurationMs ?? null,
-      repeatMode: cue.repeatMode,
-      replayPolicy: cue.replayPolicy,
-      repeatDurationMs: cue.repeatDurationMs ?? null,
-      repeatCount: cue.repeatCount ?? null,
-      repeatIntervalMs: cue.repeatIntervalMs ?? null,
-      repeatCooldownMs: cue.repeatCooldownMs ?? null
+      maxPlayDurationMs: effectiveCue.maxPlayDurationMs ?? null,
+      repeatMode: effectiveCue.repeatMode,
+      replayPolicy: effectiveCue.replayPolicy,
+      repeatDurationMs: effectiveCue.repeatDurationMs ?? null,
+      repeatCount: effectiveCue.repeatCount ?? null,
+      repeatIntervalMs: effectiveCue.repeatIntervalMs ?? null,
+      repeatCooldownMs: effectiveCue.repeatCooldownMs ?? null
     });
 
     if (startDelayMs > 0) {
@@ -572,18 +657,18 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
     }
 
     options.addDiagnostic("info", "session-audio", "Accepted sound cue playback request.", {
-      operation: cue.operation,
-      soundEffectKey: cue.soundEffectKey,
-      lane: cue.soundEffectLane,
-      playRequestInstanceId: cue.playRequestInstanceId ?? "(none)",
-      repeatMode: cue.repeatMode,
-      replayPolicy: cue.replayPolicy,
+      operation: effectiveCue.operation,
+      soundEffectKey: effectiveCue.soundEffectKey,
+      lane: effectiveCue.soundEffectLane,
+      playRequestInstanceId: effectiveCue.playRequestInstanceId ?? "(none)",
+      repeatMode: effectiveCue.repeatMode,
+      replayPolicy: effectiveCue.replayPolicy,
       laneMuted: laneMultiplier <= 0,
       laneVolumePercent: cue.soundEffectLane === "Ambient"
         ? normalizeLaneVolumePercent(options.audioLanes.ambient.volumePercent)
         : normalizeLaneVolumePercent(options.audioLanes.sfx.volumePercent),
       startDelayMs,
-      maxPlayDurationMs: cue.maxPlayDurationMs ?? null
+      maxPlayDurationMs: effectiveCue.maxPlayDurationMs ?? null
     });
   }
 
@@ -631,6 +716,7 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
     }
 
     isAudioUnlockedRef.current = true;
+    void audioContextRef.current?.resume().catch(() => undefined);
     publishStatus();
 
     options.addDiagnostic("info", "session-audio", "Audio playback unlocked after user gesture.", {
@@ -640,13 +726,9 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
     flushPendingUnlockQueue();
   }
 
-  function consumeSessionDeltaSoundCues(sessionData: HostSessionDataEnvelope): void {
-    if (sessionData.soundCues.length === 0) {
-      return;
-    }
-
+  function consumeSessionDeltaSoundCues(sessionData: HostSessionDataEnvelope, isBaseline = false): void {
     const watermark = sessionData.sessionDeltaWatermark.trim();
-    for (const cue of sessionData.soundCues) {
+    for (const cue of sessionData.soundCues ?? []) {
       const dedupeKey = buildCueDedupeKey(watermark, cue);
       if (seenCueKeysRef.current.has(dedupeKey)) {
         continue;
@@ -660,6 +742,121 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
         void handlePlayCue(cue);
       }
     }
+
+    const roomObjectChanges = sessionData.roomObjectChanges ?? [];
+    if (isBaseline) {
+      const baselineObjectIds = new Set(roomObjectChanges.map((change) => change.objectId));
+      for (const sourceKey of spatialCueSourceIdsRef.current.keys()) {
+        if (sourceKey.startsWith("local:") && !baselineObjectIds.has(sourceKey.slice("local:".length))) {
+          reconcileSpatialCueSource(sourceKey, []);
+        }
+      }
+    }
+    for (const change of roomObjectChanges) {
+      const sourceKey = `local:${change.objectId}`;
+      if (change.changeKind === "Removed") {
+        reconcileSpatialCueSource(sourceKey, []);
+        continue;
+      }
+      const cues = change.renderableRoomObject?.activeSoundCues ?? (isBaseline ? [] : undefined);
+      if (cues !== undefined) {
+        reconcileSpatialCueSource(sourceKey, cues);
+      }
+    }
+
+    if (isBaseline || sessionData.remoteRoomObjects !== undefined) {
+      const remoteRoomObjects = sessionData.remoteRoomObjects ?? [];
+      const nextSources = new Set(remoteRoomObjects.map((item) => `remote:${item.objectId}`));
+      for (const sourceKey of spatialCueSourceIdsRef.current.keys()) {
+        if (sourceKey.startsWith("remote:") && !nextSources.has(sourceKey)) {
+          reconcileSpatialCueSource(sourceKey, []);
+        }
+      }
+      for (const remoteObject of remoteRoomObjects) {
+        reconcileSpatialCueSource(`remote:${remoteObject.objectId}`, remoteObject.activeSoundCues ?? []);
+      }
+    }
+
+    for (const activationId of spatialCueLatestRef.current.keys()) {
+      const stillActive = [...spatialCueSourceIdsRef.current.values()].some((ids) => ids.has(activationId));
+      if (!stillActive) {
+        spatialCueLatestRef.current.delete(activationId);
+        const playback = activeByActivationIdRef.current.get(activationId);
+        if (playback) stopPlayback(playback, "active-object-cue-removed");
+      }
+    }
+  }
+
+  function toSpatialPlaybackCue(cue: HostCommandActiveObjectSoundCue): HostPlaybackCue {
+    return {
+      operation: "Play",
+      soundEffectId: cue.soundEffectId,
+      soundEffectLane: cue.soundEffectLane,
+      soundEffectKey: cue.soundEffectKey,
+      runtimeAssetRef: cue.runtimeAssetRef,
+      playRequestInstanceId: cue.activationId,
+      activationId: cue.activationId,
+      commandCorrelationId: 0,
+      actionId: "active-object-sound",
+      resultCode: "ActiveObjectSound",
+      sequenceIndex: 0,
+      repeatMode: cue.repeatMode,
+      replayPolicy: cue.replayPolicy,
+      repeatCount: cue.repeatCount ?? undefined,
+      repeatDurationMs: cue.repeatDurationMs ?? undefined,
+      repeatIntervalMs: cue.repeatIntervalMs ?? undefined,
+      repeatIntervalMinMs: cue.repeatIntervalMinMs,
+      repeatIntervalMaxMs: cue.repeatIntervalMaxMs,
+      repeatCooldownMs: cue.repeatCooldownMs ?? undefined,
+      concurrencyGroup: cue.concurrencyGroup,
+      concurrencyGroupImportance: cue.concurrencyGroupImportance,
+      importance: cue.importance,
+      startDelayMs: cue.startDelayMs ?? undefined,
+      fadeInMs: cue.fadeInMs ?? undefined,
+      fadeOutMs: cue.fadeOutMs ?? undefined,
+      sourceDurationMs: cue.sourceDurationMs ?? undefined,
+      maxPlayDurationMs: cue.maxPlayDurationMs ?? undefined,
+      baseVolumeDb: cue.baseVolumeDb ?? undefined,
+      volumeMultiplier: cue.volumeMultiplier,
+      pan: cue.pan
+    };
+  }
+
+  function updateSpatialPlayback(playback: ActiveCuePlayback, cue: HostCommandActiveObjectSoundCue): void {
+    playback.cue = toSpatialPlaybackCue(cue);
+    playback.baseVolume = resolvePlaybackVolume(playback.cue);
+    if (playback.fadeIntervalId !== null) {
+      window.clearInterval(playback.fadeIntervalId);
+      playback.fadeIntervalId = null;
+    }
+    playback.audio.volume = playback.baseVolume * resolveLaneMultiplier(playback.cue);
+    if (playback.panner) {
+      playback.panner.pan.value = clamp(cue.pan, -1, 1);
+    }
+  }
+
+  function reconcileSpatialCueSource(sourceKey: string, cues: HostCommandActiveObjectSoundCue[]): void {
+    const nextIds = new Set(cues.map((cue) => cue.activationId.trim()).filter(Boolean));
+    if (nextIds.size > 0) {
+      spatialCueSourceIdsRef.current.set(sourceKey, nextIds);
+    } else {
+      spatialCueSourceIdsRef.current.delete(sourceKey);
+    }
+
+    for (const cue of cues) {
+      const activationId = cue.activationId.trim();
+      if (!activationId) continue;
+      spatialCueLatestRef.current.set(activationId, cue);
+      const playback = activeByActivationIdRef.current.get(activationId);
+      if (playback) {
+        updateSpatialPlayback(playback, cue);
+        continue;
+      }
+      if (seenActivationIdsRef.current.has(activationId)) continue;
+      seenActivationIdsRef.current.add(activationId);
+      void handlePlayCue(toSpatialPlaybackCue(cue));
+    }
+
   }
 
   useEffect(() => {
@@ -677,6 +874,7 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
       seenCueKeysRef.current.clear();
       seenCueKeyQueueRef.current = [];
       pendingUnlockPlayQueueRef.current = [];
+      seenActivationIdsRef.current.clear();
     };
   }, [options.audioUnlockRequired]);
 
@@ -685,6 +883,7 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
     seenCueKeysRef.current.clear();
     seenCueKeyQueueRef.current = [];
     pendingUnlockPlayQueueRef.current = [];
+    seenActivationIdsRef.current.clear();
     autoplayBlockedCountRef.current = 0;
     isAudioUnlockedRef.current = !options.audioUnlockRequired;
     publishStatus();
@@ -704,7 +903,12 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
   }, [options.audioUnlockRequired]);
 
   useEffect(() => {
-    for (const playback of activeByLaneAndKeyRef.current.values()) {
+    const activePlaybacks = new Set<ActiveCuePlayback>([
+      ...activeByLaneAndKeyRef.current.values(),
+      ...activeByActivationIdRef.current.values(),
+      ...activeByInstanceIdRef.current.values()
+    ]);
+    for (const playback of activePlaybacks) {
       if (playback.canceled) {
         continue;
       }
@@ -716,6 +920,13 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
       playback.audio.volume = playback.baseVolume * resolveLaneMultiplier(playback.cue);
     }
   }, [options.audioLanes]);
+
+  useEffect(() => () => {
+    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+      void audioContextRef.current.close().catch(() => undefined);
+      audioContextRef.current = null;
+    }
+  }, []);
 
   return {
     consumeSessionDeltaSoundCues,

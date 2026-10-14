@@ -81,7 +81,7 @@ interface UseHostRendererSessionWorkflowOptions {
   onGameplayChange?: () => void;
   consumeSessionDeltaPhasePresentation: (sessionData: HostSessionDataEnvelope) => void;
   consumeSessionDeltaEcho: (sessionData: HostSessionDataEnvelope) => void;
-  consumeSessionDeltaSoundCues: (sessionData: HostSessionDataEnvelope) => void;
+  consumeSessionDeltaSoundCues: (sessionData: HostSessionDataEnvelope, isBaseline?: boolean) => void;
   refreshCacheStats: () => void;
   addDiagnostic: AddDiagnostic;
 }
@@ -739,7 +739,12 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     const baselineTextStepCount = baseline.orderedTextPresentationSteps?.length ?? 0;
     const baselineSessionData: HostSessionDataEnvelope = {
       sessionDeltaWatermark: baseline.sessionDeltaWatermark,
-      roomObjectChanges: [],
+      roomObjectChanges: baseline.roomObjectChanges?.length ? baseline.roomObjectChanges : baseline.roomChange?.newRoom?.renderableRoomObjects.map((renderableRoomObject) => ({
+        changeKind: "Added",
+        objectId: renderableRoomObject.objectId,
+        objectName: renderableRoomObject.name,
+        renderableRoomObject
+      })) ?? [],
       soundCues: baseline.soundCues,
       outputLines: [],
       diagnostics: [],
@@ -749,13 +754,12 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       orderedTextPresentationSteps: baseline.orderedTextPresentationSteps ?? [],
       authoredRenderWidth: baseline.authoredRenderWidth,
       authoredRenderHeight: baseline.authoredRenderHeight,
+      remoteRoomObjects: baseline.remoteRoomObjects,
       hasRoomChange: Boolean(baseline.roomChange),
       hasPhaseChange: Boolean(baseline.phaseChange)
     };
 
-    if (baseline.soundCues.length > 0) {
-      consumeSessionDeltaSoundCuesRef.current(baselineSessionData);
-    }
+    consumeSessionDeltaSoundCuesRef.current(baselineSessionData, true);
 
     if (baselineTextStepCount > 0) {
       consumeSessionDeltaPhasePresentationRef.current(baselineSessionData);

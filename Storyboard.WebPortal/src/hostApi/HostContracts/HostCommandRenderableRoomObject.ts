@@ -1,5 +1,6 @@
 import type { HostCommandRenderableImage } from "./HostCommandRenderableImage";
 import type { HostCommandActiveObjectPresentationCue } from "./HostCommandActiveObjectPresentationCue";
+import type { HostCommandActiveObjectSoundCue } from "./HostCommandActiveObjectSoundCue";
 import type { HostObjectLightOcclusion } from "./HostObjectLightOcclusion";
 import type { HostObjectPointLight } from "./HostObjectPointLight";
 import type { HostObjectSpatialFootprint } from "./HostObjectSpatialFootprint";
@@ -14,4 +15,5 @@ export interface HostCommandRenderableRoomObject {
   spatialFootprint?: HostObjectSpatialFootprint | null;
   lightOcclusion?: HostObjectLightOcclusion | null;
   activePresentationCues?: HostCommandActiveObjectPresentationCue[];
+  activeSoundCues?: HostCommandActiveObjectSoundCue[];
 }

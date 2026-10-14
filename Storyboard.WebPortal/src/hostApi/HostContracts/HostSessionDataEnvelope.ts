@@ -3,12 +3,14 @@ import type { HostCommandPresentationCueText } from "./HostCommandPresentationCu
 import type { HostCommandRoomChangeData } from "./HostCommandRoomChangeData";
 import type { HostCommandRoomObjectChange } from "./HostCommandRoomObjectChange";
 import type { HostCommandSoundCue } from "./HostCommandSoundCue";
+import type { HostCommandRemoteRoomObject } from "./HostCommandRemoteRoomObject";
 import type { HostSessionPresentationSettings } from "./HostSessionPresentationSettings";
 
 export interface HostSessionDataEnvelope {
   sessionDeltaWatermark: string;
   roomObjectChanges: HostCommandRoomObjectChange[];
   soundCues: HostCommandSoundCue[];
+  remoteRoomObjects?: HostCommandRemoteRoomObject[];
   outputLines: string[];
   diagnostics: string[];
   sessionPresentationSettings?: HostSessionPresentationSettings | null;
