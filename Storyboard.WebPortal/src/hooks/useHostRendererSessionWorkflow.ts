@@ -16,6 +16,7 @@ export interface HostRendererSessionWorkflowResult {
   reportRoomTransitionState: (state: GameRendererRoomTransitionState) => void;
   roomTransitionPreparationEpoch: number;
   roomTransitionActive: boolean;
+  sessionDeltaRevision: number;
 }
 
 function isMovementCueCategory(value: string): boolean {
@@ -96,6 +97,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   const [baselineWatermark, setBaselineWatermark] = useState<string>("");
   const [roomTransitionPreparationEpoch, setRoomTransitionPreparationEpoch] = useState<number>(0);
   const [roomTransitionActive, setRoomTransitionActive] = useState<boolean>(false);
+  const [sessionDeltaRevision, setSessionDeltaRevision] = useState<number>(0);
   const sceneHydrationGenerationRef = useRef<number>(0);
   const rendererSceneSnapshotRef = useRef<GameRenderSceneSnapshot | null>(options.rendererSceneSnapshot);
   const applyPresentationCuesRef = useRef(options.applyPresentationCues);
@@ -822,6 +824,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   }, [options.credentialHandle, options.activeSessionId, options.hostApiClient, options.setRendererSceneSnapshot, applySessionBaseline]);
 
   const handleSessionDataUpdate = useCallback((sessionData: HostSessionPresentationData): void => {
+    setSessionDeltaRevision((revision) => revision + 1);
     const hasRoomChange = Boolean(sessionData.roomChange);
     if (hasRoomChange) {
       assertRoomTransitionPollingPause("accepted-room-change-delta");
@@ -914,6 +917,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   return {
     reportRoomTransitionState,
     roomTransitionPreparationEpoch,
-    roomTransitionActive
+    roomTransitionActive,
+    sessionDeltaRevision
   };
 }

@@ -211,6 +211,7 @@ export interface HostWorkflowState {
   reportRendererDiagnostic: (event: GameRendererDiagnosticsEvent) => void;
   reportRendererRoomTransitionState: (state: GameRendererRoomTransitionState) => void;
   roomTransitionPreparationEpoch: number;
+  sessionDeltaRevision: number;
   sessionOutputLines: string[];
   pendingCommandClarification: HostPendingClarificationRequest | null;
   lastCommandResult: HostProcessCommandResult | null;
@@ -660,7 +661,8 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
   const {
     reportRoomTransitionState: reportRendererRoomTransitionState,
     roomTransitionPreparationEpoch,
-    roomTransitionActive
+    roomTransitionActive,
+    sessionDeltaRevision
   } = useHostRendererSessionWorkflow({
     hostApiClient,
     credentialHandle,
@@ -1137,6 +1139,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     reportRendererDiagnostic,
     reportRendererRoomTransitionState,
     roomTransitionPreparationEpoch,
+    sessionDeltaRevision,
     sessionOutputLines,
     pendingCommandClarification,
     lastCommandResult,

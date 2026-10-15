@@ -237,6 +237,8 @@ export function ConfigSlotFeatureRenderer(props: ConfigSlotFeatureRendererProps)
         sessionRecording={hostWorkflow.sessionRecording}
         activeSessionId={hostWorkflow.activeSessionId}
         selectedGameId={hostWorkflow.selectedGameId}
+        submitCommand={hostWorkflow.submitCommand}
+        sessionDeltaRevision={hostWorkflow.sessionDeltaRevision}
         diagnosticsEnabled={diagnosticsEnabled}
         diagnosticsVerbose={diagnosticsVerbose}
         hostApiBaseUrlOverride={hostApiBaseUrlOverride}
