@@ -6,6 +6,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import type { OrchestrationContracts } from "./orchestration/types";
 
+function buildResult(success: boolean, code: string, diagnostics: string[] = []) {
+  return {
+    success,
+    code,
+    message: "",
+    diagnostics,
+    correlationId: "",
+    occurredUtc: "",
+    retryable: false,
+    actorPrincipalId: "",
+    actionName: "",
+    actionUtc: ""
+  };
+}
+
 const { contracts, authenticateMock, currentPrincipalMock, discoverGamesMock, getGameDetailsMock, getAssetPreviewDataUrlMock, getRecordPlaybackCapabilitiesMock, startSessionMock, listSessionsMock, joinSessionMock, leaveSessionMock } = vi.hoisted(() => ({
   contracts: {
   featureMap: {
@@ -263,16 +278,16 @@ beforeEach(() => {
   leaveSessionMock.mockReset();
 
   authenticateMock.mockResolvedValue({
-    result: { success: true, code: "Identity.Authenticate.Success", diagnosticsMessages: [] },
+    result: buildResult(true, "Identity.Authenticate.Success", []),
     principalName: "admin",
     credentialHandle: "cred-123"
   });
   currentPrincipalMock.mockResolvedValue({
-    result: { success: true, code: "Identity.CurrentPrincipal.Success", diagnosticsMessages: [] },
+    result: buildResult(true, "Identity.CurrentPrincipal.Success", []),
     principalName: "admin"
   });
   discoverGamesMock.mockResolvedValue({
-    result: { success: true, code: "Discovery.Success", diagnosticsMessages: [] },
+    result: buildResult(true, "Discovery.Success", []),
     totalAvailableCount: 1,
     games: [
       {
@@ -284,7 +299,7 @@ beforeEach(() => {
     ]
   });
   getGameDetailsMock.mockResolvedValue({
-    result: { success: true, code: "GameDetails.Success", diagnosticsMessages: [] },
+    result: buildResult(true, "GameDetails.Success", []),
     game: {
       gameId: "g-1",
       gameKey: "sample.game",
@@ -301,7 +316,7 @@ beforeEach(() => {
   });
   getAssetPreviewDataUrlMock.mockResolvedValue(null);
   getRecordPlaybackCapabilitiesMock.mockResolvedValue({
-    result: { success: true, code: "Recording.Capabilities.Success", diagnosticsMessages: [] },
+    result: buildResult(true, "Recording.Capabilities.Success", []),
     capabilities: {
       available: false,
       canRecord: false,
@@ -318,7 +333,7 @@ beforeEach(() => {
     }
   });
   startSessionMock.mockResolvedValue({
-    result: { success: true, code: "Session.Start.Success", diagnosticsMessages: [] },
+    result: buildResult(true, "Session.Start.Success", []),
     created: true,
     session: {
       sessionId: "s-1",
@@ -335,7 +350,7 @@ beforeEach(() => {
     }
   });
   listSessionsMock.mockResolvedValue({
-    result: { success: true, code: "Session.List.Success", diagnosticsMessages: [] },
+    result: buildResult(true, "Session.List.Success", []),
     totalAvailableCount: 1,
     sessions: [
       {
@@ -354,7 +369,7 @@ beforeEach(() => {
     ]
   });
   joinSessionMock.mockResolvedValue({
-    result: { success: true, code: "Session.Join.Success", diagnosticsMessages: [] },
+    result: buildResult(true, "Session.Join.Success", []),
     joined: true,
     session: {
       sessionId: "s-1",
@@ -371,7 +386,7 @@ beforeEach(() => {
     }
   });
   leaveSessionMock.mockResolvedValue({
-    result: { success: true, code: "Session.Leave.Success", diagnosticsMessages: [] },
+    result: buildResult(true, "Session.Leave.Success", []),
     sessionId: "s-1",
     left: true
   });
@@ -490,7 +505,7 @@ describe("App override behavior", () => {
 
   it("attaches to the existing owner session during automatic bootstrap", async () => {
     startSessionMock.mockResolvedValueOnce({
-      result: { success: false, code: "Session.Start.AlreadyExists", diagnosticsMessages: [] },
+      result: buildResult(false, "Session.Start.AlreadyExists", []),
       created: false,
       session: {
         sessionId: "s-existing",
@@ -520,7 +535,7 @@ describe("App override behavior", () => {
 
   it("shows failed phase and diagnostics when sign-in fails", async () => {
     authenticateMock.mockResolvedValueOnce({
-      result: { success: false, code: "Identity.Authenticate.InvalidCredentials", diagnosticsMessages: ["bad credentials"] },
+      result: buildResult(false, "Identity.Authenticate.InvalidCredentials", ["bad credentials"]),
       principalName: "",
       credentialHandle: ""
     });

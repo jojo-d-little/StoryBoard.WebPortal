@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import type { HostSessionDataEnvelope } from "../hostApi/HostContracts";
+import type { HostSessionPresentationData } from "../hostApi/HostContracts";
 import type { DiagnosticsLevel } from "../components/DiagnosticsConsole";
 
 type AddDiagnostic = (level: DiagnosticsLevel, category: string, message: string, details?: unknown) => void;
@@ -26,7 +26,7 @@ interface UseSessionEchoWorkflowResult {
   clearSessionOutputLines: () => void;
   appendSessionOutputLines: (lines: string[], source: SessionOutputLineSource) => void;
   appendClientCommandEcho: (commandText: string) => void;
-  consumeSessionDeltaEcho: (sessionData: HostSessionDataEnvelope) => void;
+  consumeSessionDeltaEcho: (sessionData: HostSessionPresentationData) => void;
   resetEchoForSessionAttach: (reason: SessionAttachReason, targetSessionId: string) => void;
 }
 
@@ -85,12 +85,12 @@ export function useSessionEchoWorkflow(options: UseSessionEchoWorkflowOptions): 
     appendOutputLines([`> ${commandText}`], "client-command");
   }, [appendOutputLines]);
 
-  const consumeSessionDeltaEcho = useCallback((sessionData: HostSessionDataEnvelope): void => {
+  const consumeSessionDeltaEcho = useCallback((sessionData: HostSessionPresentationData): void => {
     if (sessionData.outputLines.length === 0) {
       return;
     }
 
-    const watermark = sessionData.sessionDeltaWatermark.trim();
+    const watermark = sessionData.sessionDeltaWatermark?.trim() ?? "";
     const signature = `${watermark}|${sessionData.outputLines.join("\n")}`;
 
     if (watermark && watermark === lastOutputWatermarkRef.current) {

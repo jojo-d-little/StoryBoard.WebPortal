@@ -1,11 +1,11 @@
-import type { HostCommandMoveLegTelemetry, HostCommandRenderableRoomObject, HostRoomDisplayMode, HostSessionDataEnvelope, HostSessionPresentationSettings } from "../../hostApi/HostContracts";
+import type { HostCommandMoveLegTelemetry, HostCommandRenderableRoomObject, HostRoomDisplayMode, HostSessionPresentationData, HostSessionPresentationSettings } from "../../hostApi/HostContracts";
 import type { GameRenderDisplayMode, GameRenderMoveLegTelemetry, GameRenderObjectLighting, GameRenderRoomObject, GameRenderSceneObject, GameRenderSceneSnapshot } from "../contracts/sceneTypes";
 import { buildDirectionalOverlayScene } from "../scene";
 import { toSpriteComponent } from "../scene/sceneObjects";
 
 const FALLBACK_ROOM_WIDTH = 800;
 const FALLBACK_ROOM_HEIGHT = 600;
-type HostRoomTransitionCue = NonNullable<NonNullable<HostSessionDataEnvelope["roomChange"]>["presentationCues"]>[number];
+type HostRoomTransitionCue = NonNullable<NonNullable<HostSessionPresentationData["roomChange"]>["presentationCues"]>[number];
 
 function mapDisplayMode(raw: HostRoomDisplayMode): GameRenderDisplayMode {
   if (typeof raw === "string") {
@@ -45,7 +45,7 @@ function isRoomTransitionCue(cue: HostRoomTransitionCue): boolean {
   return cue.category.replace(/\s+/g, "").trim().toLowerCase() === "roomtransition";
 }
 
-function resolveRoomTransitionCueEffectKey(roomChange: HostSessionDataEnvelope["roomChange"]): string | undefined {
+function resolveRoomTransitionCueEffectKey(roomChange: HostSessionPresentationData["roomChange"]): string | undefined {
   if (!roomChange) {
     return undefined;
   }
@@ -98,10 +98,10 @@ function resolveMovementTimingFromCues(cues: Array<Pick<GameRenderSceneObject["a
 }
 
 export interface HostPresentationSceneSource {
-  roomChange?: HostSessionDataEnvelope["roomChange"];
+  roomChange?: HostSessionPresentationData["roomChange"];
   sessionPresentationSettings?: HostSessionPresentationSettings | null;
-  authoredRenderWidth?: number;
-  authoredRenderHeight?: number;
+  authoredRenderWidth?: number | null;
+  authoredRenderHeight?: number | null;
 }
 
 function mapObjectLighting(roomObject: HostCommandRenderableRoomObject): GameRenderObjectLighting | undefined {
@@ -182,7 +182,7 @@ function mapRoomObjectsFromNewRoom(source: HostPresentationSceneSource): Record<
 
 function applyObjectChanges(
   initial: Record<string, GameRenderSceneObject>,
-  changes: HostSessionDataEnvelope["roomObjectChanges"]
+  changes: HostSessionPresentationData["roomObjectChanges"]
 ): Record<string, GameRenderSceneObject> {
   const objectsById = { ...initial };
   for (const change of changes) {
@@ -246,8 +246,8 @@ function applyLightingSessionSettings(
 function resolveRoomBounds(source: HostPresentationSceneSource): { width: number; height: number } {
   const roomSummary = source.roomChange?.newRoom;
   return {
-    width: resolveRoomDimension(roomSummary?.roomImageCanvasWidth, resolveRoomDimension(source.authoredRenderWidth, FALLBACK_ROOM_WIDTH)),
-    height: resolveRoomDimension(roomSummary?.roomImageCanvasHeight, resolveRoomDimension(source.authoredRenderHeight, FALLBACK_ROOM_HEIGHT))
+    width: resolveRoomDimension(roomSummary?.roomImageCanvasWidth, resolveRoomDimension(source.authoredRenderWidth ?? undefined, FALLBACK_ROOM_WIDTH)),
+    height: resolveRoomDimension(roomSummary?.roomImageCanvasHeight, resolveRoomDimension(source.authoredRenderHeight ?? undefined, FALLBACK_ROOM_HEIGHT))
   };
 }
 
@@ -307,7 +307,7 @@ function mapMoveLegTelemetry(entries: HostCommandMoveLegTelemetry[]): GameRender
   }));
 }
 
-function collectMoveLegTelemetry(changes: HostSessionDataEnvelope["roomObjectChanges"]): GameRenderMoveLegTelemetry[] {
+function collectMoveLegTelemetry(changes: HostSessionPresentationData["roomObjectChanges"]): GameRenderMoveLegTelemetry[] {
   if (changes.length === 0) {
     return [];
   }
@@ -361,7 +361,7 @@ export function mapHostPresentationToSceneSnapshot(source: HostPresentationScene
 }
 
 export function mapHostSessionDataToSceneSnapshot(
-  sessionData: HostSessionDataEnvelope,
+  sessionData: HostSessionPresentationData,
   previousSnapshot?: GameRenderSceneSnapshot | null
 ): GameRenderSceneSnapshot | null {
   const baselineSnapshot = mapHostPresentationToSceneSnapshot(sessionData);

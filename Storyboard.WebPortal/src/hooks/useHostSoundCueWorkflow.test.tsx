@@ -2,7 +2,7 @@
 
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { HostCommandActiveObjectSoundCue, HostCommandSoundCue, HostSessionDataEnvelope } from "../hostApi/HostContracts";
+import type { HostCommandActiveObjectSoundCue, HostCommandSoundCue, HostSessionPresentationData } from "../hostApi/HostContracts";
 import { useHostSoundCueWorkflow } from "./useHostSoundCueWorkflow";
 
 class FakeAudio {
@@ -75,16 +75,17 @@ function buildCue(overrides: Partial<HostCommandSoundCue> = {}): HostCommandSoun
   };
 }
 
-function buildSessionData(soundCues: HostCommandSoundCue[], watermark = "2"): HostSessionDataEnvelope {
+function buildSessionData(soundCues: HostCommandSoundCue[], watermark = "2"): HostSessionPresentationData {
   return {
     sessionDeltaWatermark: watermark,
     roomObjectChanges: [],
     soundCues,
     outputLines: [],
     diagnostics: [],
-    orderedTextPresentationSteps: [],
-    hasRoomChange: false,
-    hasPhaseChange: false
+    activeRoomObjectName: "",
+    activeRoomObjectSelectionCueEffectKey: "",
+    secondaryActiveRoomObjectName: "",
+    secondaryActiveRoomObjectSelectionCueEffectKey: "",
   };
 }
 
@@ -106,7 +107,7 @@ function buildActiveCue(overrides: Partial<HostCommandActiveObjectSoundCue> = {}
 function buildObjectCueSession(
   activeSoundCues: HostCommandActiveObjectSoundCue[],
   watermark = "2"
-): HostSessionDataEnvelope {
+): HostSessionPresentationData {
   return {
     ...buildSessionData([], watermark),
     roomObjectChanges: [{

@@ -191,7 +191,7 @@ export function useHostSessionWorkflow(options: UseHostSessionWorkflowOptions): 
 
       const attachedToExistingSession = canAttachToExistingStartedSession(response);
       if ((!response.result.success || !response.created) && !attachedToExistingSession) {
-        options.failHostOperation("sessionStart", `Start session failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnosticsMessages)}`);
+        options.failHostOperation("sessionStart", `Start session failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnostics)}`);
         return;
       }
 
@@ -251,7 +251,7 @@ export function useHostSessionWorkflow(options: UseHostSessionWorkflowOptions): 
 
       const attachedToExistingSession = canAttachToExistingStartedSession(response);
       if ((!response.result.success || !response.created) && !attachedToExistingSession) {
-        options.failHostOperation("sessionStart", `Start session failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnosticsMessages)}`);
+        options.failHostOperation("sessionStart", `Start session failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnostics)}`);
         return;
       }
 
@@ -306,7 +306,7 @@ export function useHostSessionWorkflow(options: UseHostSessionWorkflowOptions): 
       });
 
       if (!response.result.success) {
-        options.failHostOperation("sessionList", `List sessions failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnosticsMessages)}`);
+        options.failHostOperation("sessionList", `List sessions failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnostics)}`);
         return;
       }
 
@@ -361,7 +361,7 @@ export function useHostSessionWorkflow(options: UseHostSessionWorkflowOptions): 
       execute: async () => {
       const response = await options.hostApiClient.joinSession(options.credentialHandle, sessionId);
       if (!response.result.success || !response.joined) {
-        options.failHostOperation("sessionJoin", `Join session failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnosticsMessages)}`);
+        options.failHostOperation("sessionJoin", `Join session failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnostics)}`);
         return;
       }
 
@@ -408,7 +408,7 @@ export function useHostSessionWorkflow(options: UseHostSessionWorkflowOptions): 
       execute: async () => {
       const response = await options.hostApiClient.leaveSession(options.credentialHandle, targetSessionId);
       if (!response.result.success || !response.left) {
-        options.failHostOperation("sessionLeave", `Leave session failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnosticsMessages)}`);
+        options.failHostOperation("sessionLeave", `Leave session failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnostics)}`);
         return;
       }
 
@@ -462,7 +462,7 @@ export function useHostSessionWorkflow(options: UseHostSessionWorkflowOptions): 
       execute: async () => {
       const response = await options.hostApiClient.joinSession(options.credentialHandle, targetSessionId);
       if (!response.result.success || !response.joined) {
-        options.failHostOperation("sessionReconnect", `Reconnect failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnosticsMessages)}`);
+        options.failHostOperation("sessionReconnect", `Reconnect failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnostics)}`);
         options.tryTransitionByEvents(["ReconnectFailed"], "SessionDisconnected");
         return;
       }

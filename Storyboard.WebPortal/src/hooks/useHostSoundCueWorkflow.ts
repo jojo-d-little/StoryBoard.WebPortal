@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { DiagnosticsLevel } from "../components/DiagnosticsConsole";
 import { HostApiClient } from "../hostApi/client";
-import type { HostCommandActiveObjectSoundCue, HostCommandSoundCue, HostSessionDataEnvelope } from "../hostApi/HostContracts";
+import type { HostCommandActiveObjectSoundCue, HostCommandSoundCue, HostSessionPresentationData } from "../hostApi/HostContracts";
 
 type AddDiagnostic = (level: DiagnosticsLevel, category: string, message: string, details?: unknown) => void;
 
@@ -61,7 +61,7 @@ export interface HostSoundCueWorkflowStatus {
 }
 
 interface UseHostSoundCueWorkflowResult {
-  consumeSessionDeltaSoundCues: (sessionData: HostSessionDataEnvelope, isBaseline?: boolean) => void;
+  consumeSessionDeltaSoundCues: (sessionData: HostSessionPresentationData, isBaseline?: boolean) => void;
   clearActiveSoundCues: () => void;
   requestAudioUnlock: () => void;
   soundCueStatus: HostSoundCueWorkflowStatus;
@@ -726,8 +726,8 @@ export function useHostSoundCueWorkflow(options: UseHostSoundCueWorkflowOptions)
     flushPendingUnlockQueue();
   }
 
-  function consumeSessionDeltaSoundCues(sessionData: HostSessionDataEnvelope, isBaseline = false): void {
-    const watermark = sessionData.sessionDeltaWatermark.trim();
+  function consumeSessionDeltaSoundCues(sessionData: HostSessionPresentationData, isBaseline = false): void {
+    const watermark = sessionData.sessionDeltaWatermark?.trim() ?? "";
     for (const cue of sessionData.soundCues ?? []) {
       const dedupeKey = buildCueDedupeKey(watermark, cue);
       if (seenCueKeysRef.current.has(dedupeKey)) {

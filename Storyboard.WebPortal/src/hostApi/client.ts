@@ -3,6 +3,8 @@ import type {
   HostAuthenticateResult,
   HostCommandMoveLegTelemetry,
   HostCommandActiveObjectPresentationCue,
+  HostCommandActiveObjectSoundCue,
+  HostCommandRemoteRoomObject,
   HostCommandSoundCue,
   HostCommandSoundCueOperation,
   HostClarificationAnswer,
@@ -10,11 +12,10 @@ import type {
   HostGameDiagnosticsLevel,
   HostPendingClarificationRequest,
   HostProcessCommandResult,
-  HostRuntimePresentationResult,
+  HostSessionPresentationData,
   HostSoundEffectLane,
   HostSoundEffectReplayPolicy,
   HostSoundEffectRepeatMode,
-  HostSessionDataEnvelope,
   HostSessionDeltaBatchProfile,
   HostSessionDeltaPollResult,
   HostSessionDeltaPollResultCode,
@@ -90,7 +91,7 @@ export interface HostApiTraceEvent {
 }
 
 const defaultBaseUrl = (import.meta.env.VITE_HOST_API_BASE_URL as string | undefined) || window.location.origin;
-type HostRoomTravelDirection = NonNullable<HostSessionDataEnvelope["roomChange"]>["travelDirection"];
+type HostRoomTravelDirection = NonNullable<HostSessionPresentationData["roomChange"]>["travelDirection"];
 
 export class HostApiClient {
   private readonly baseUrl: string;
@@ -714,9 +715,9 @@ export class HostApiClient {
 
     return {
       resultCode: this.readDeltaResultCode(data),
-      sessionData: this.readOptionalSessionDataEnvelope(data),
-      sessionDeltaWatermark: this.readString(data, ["sessionDeltaWatermark", "SessionDeltaWatermark"]),
-      diagnostics: this.readArray(data, ["diagnostics", "Diagnostics"]).map((x) => String(x))
+      sessionData: this.readOptionalSessionPresentationData(data),
+      diagnostics: this.readArray(data, ["diagnostics", "Diagnostics"]).map((x) => String(x)),
+      isNoOp: this.readBoolean(data, ["isNoOp", "IsNoOp"])
     };
   }
 
@@ -724,26 +725,11 @@ export class HostApiClient {
     credentialHandle: string,
     sessionId: string,
     diagnosticsLevel = "None"
-  ): Promise<HostRuntimePresentationResult> {
+  ): Promise<HostSessionPresentationData> {
     const context = this.buildContext("webportal-session-baseline", credentialHandle, sessionId);
     const path = this.buildSessionBaselinePath("/api/v1/session/baseline", diagnosticsLevel);
     const data = await this.postJson<Record<string, unknown>>(path, context);
-    const roomChange = this.readRoomChangeData(data);
-    const phaseChange = this.readPhaseChangeData(data);
-    const orderedTextPresentationSteps = this.readOrderedTextPresentationSteps(data, phaseChange);
-    const authoredRenderWidth = this.readNumber(data, ["authoredRenderWidth", "AuthoredRenderWidth"]);
-    const authoredRenderHeight = this.readNumber(data, ["authoredRenderHeight", "AuthoredRenderHeight"]);
-
-    return {
-      sessionDeltaWatermark: this.readString(data, ["sessionDeltaWatermark", "SessionDeltaWatermark"]),
-      sessionPresentationSettings: this.readSessionPresentationSettings(data),
-      roomChange,
-      phaseChange,
-      soundCues: this.readSoundCues(data),
-      orderedTextPresentationSteps,
-      authoredRenderWidth,
-      authoredRenderHeight
-    };
+    return this.readSessionPresentationData(data);
   }
 
   private async postJson<T>(
@@ -919,8 +905,7 @@ export class HostApiClient {
       success: this.readBoolean(result, ["success", "Success"]),
       code: this.readString(result, ["code", "Code"]),
       message: this.readString(result, ["message", "Message"]),
-      diagnostics: this.readArray(result, ["diagnostics", "Diagnostics"]).map(String),
-      diagnosticsMessages: this.readArray(result, ["diagnosticsMessages", "DiagnosticsMessages", "diagnostics", "Diagnostics"]).map(String),
+      diagnostics: this.readArray(result, ["diagnostics", "Diagnostics", "diagnosticsMessages", "DiagnosticsMessages"]).map(String),
       correlationId: this.readString(result, ["correlationId", "CorrelationId"]),
       occurredUtc: this.readString(result, ["occurredUtc", "OccurredUtc"]),
       retryable: this.readBoolean(result, ["retryable", "Retryable"]),
@@ -1027,30 +1012,38 @@ export class HostApiClient {
     return "Success";
   }
 
-  private readOptionalSessionDataEnvelope(input: Record<string, unknown>): HostSessionDataEnvelope | null {
+  private readOptionalSessionPresentationData(input: Record<string, unknown>): HostSessionPresentationData | null {
     const sessionData = this.readObject(input, ["sessionData", "SessionData"]);
     const hasSessionData = Object.keys(sessionData).length > 0;
     if (!hasSessionData) {
       return null;
     }
 
-    const phaseChange = this.readPhaseChangeData(sessionData);
-    const orderedTextPresentationSteps = this.readOrderedTextPresentationSteps(sessionData, phaseChange);
+    return this.readSessionPresentationData(sessionData);
+  }
 
+  private readSessionPresentationData(source: Record<string, unknown>): HostSessionPresentationData {
+    const activeRoomObjectId = this.readOptionalGuidString(source, ["activeRoomObjectId", "ActiveRoomObjectId"]);
+    const secondaryActiveRoomObjectId = this.readOptionalGuidString(source, ["secondaryActiveRoomObjectId", "SecondaryActiveRoomObjectId"]);
+    const sessionDeltaWatermark = this.readOptionalString(source, ["sessionDeltaWatermark", "SessionDeltaWatermark"]);
     return {
-      sessionDeltaWatermark: this.readString(sessionData, ["sessionDeltaWatermark", "SessionDeltaWatermark"]),
-      roomObjectChanges: this.readRoomObjectChanges(sessionData),
-      soundCues: this.readSoundCues(sessionData),
-      outputLines: this.readArray(sessionData, ["outputLines", "OutputLines"]).map((x) => String(x)),
-      diagnostics: this.readArray(sessionData, ["diagnostics", "Diagnostics"]).map((x) => String(x)),
-      sessionPresentationSettings: this.readSessionPresentationSettings(sessionData),
-      roomChange: this.readRoomChangeData(sessionData),
-      phaseChange,
-      orderedTextPresentationSteps,
-      authoredRenderWidth: this.readNumber(sessionData, ["authoredRenderWidth", "AuthoredRenderWidth"]),
-      authoredRenderHeight: this.readNumber(sessionData, ["authoredRenderHeight", "AuthoredRenderHeight"]),
-      hasRoomChange: Object.keys(this.readObject(sessionData, ["roomChange", "RoomChange"])).length > 0,
-      hasPhaseChange: phaseChange !== undefined
+      sessionPresentationSettings: this.readSessionPresentationSettings(source),
+      roomChange: this.readRoomChangeData(source),
+      phaseChange: this.readPhaseChangeData(source),
+      roomObjectChanges: this.readRoomObjectChanges(source),
+      activeRoomObjectId: activeRoomObjectId ?? null,
+      activeRoomObjectName: this.readString(source, ["activeRoomObjectName", "ActiveRoomObjectName"]),
+      activeRoomObjectSelectionCueEffectKey: this.readString(source, ["activeRoomObjectSelectionCueEffectKey", "ActiveRoomObjectSelectionCueEffectKey"]),
+      secondaryActiveRoomObjectId: secondaryActiveRoomObjectId ?? null,
+      secondaryActiveRoomObjectName: this.readString(source, ["secondaryActiveRoomObjectName", "SecondaryActiveRoomObjectName"]),
+      secondaryActiveRoomObjectSelectionCueEffectKey: this.readString(source, ["secondaryActiveRoomObjectSelectionCueEffectKey", "SecondaryActiveRoomObjectSelectionCueEffectKey"]),
+      authoredRenderWidth: this.readOptionalPositiveInt(source, ["authoredRenderWidth", "AuthoredRenderWidth"]) ?? null,
+      authoredRenderHeight: this.readOptionalPositiveInt(source, ["authoredRenderHeight", "AuthoredRenderHeight"]) ?? null,
+      soundCues: this.readSoundCues(source),
+      remoteRoomObjects: this.readOptionalRemoteRoomObjects(source),
+      outputLines: this.readArray(source, ["outputLines", "OutputLines"]).map(String),
+      diagnostics: this.readArray(source, ["diagnostics", "Diagnostics"]).map(String),
+      ...(sessionDeltaWatermark === undefined ? {} : { sessionDeltaWatermark })
     };
   }
 
@@ -1089,7 +1082,7 @@ export class HostApiClient {
       : "LegByLeg";
   }
 
-  private readPhaseChangeData(source: Record<string, unknown>): HostSessionDataEnvelope["phaseChange"] {
+  private readPhaseChangeData(source: Record<string, unknown>): HostSessionPresentationData["phaseChange"] {
     const phaseChange = this.readObject(source, ["phaseChange", "PhaseChange"]);
     if (Object.keys(phaseChange).length === 0) {
       return undefined;
@@ -1110,24 +1103,7 @@ export class HostApiClient {
     };
   }
 
-  private readOrderedTextPresentationSteps(
-    sessionData: Record<string, unknown>,
-    phaseChange: HostSessionDataEnvelope["phaseChange"]
-  ): HostSessionDataEnvelope["orderedTextPresentationSteps"] {
-    const direct = this.readPhaseTextPresentationSteps(sessionData);
-    if (direct.length > 0) {
-      return direct;
-    }
-
-    if (!phaseChange) {
-      return [];
-    }
-
-    const phaseChangeRecord = this.readObject(sessionData, ["phaseChange", "PhaseChange"]);
-    return this.readPhaseTextPresentationSteps(phaseChangeRecord);
-  }
-
-  private readPhaseSummary(source: Record<string, unknown>, keys: string[]): NonNullable<HostSessionDataEnvelope["phaseChange"]>["newPhase"] {
+  private readPhaseSummary(source: Record<string, unknown>, keys: string[]): NonNullable<HostSessionPresentationData["phaseChange"]>["newPhase"] {
     const phaseSummary = this.readObject(source, keys);
     if (Object.keys(phaseSummary).length === 0) {
       return undefined;
@@ -1142,7 +1118,7 @@ export class HostApiClient {
     };
   }
 
-  private readPhaseNodeSummary(source: Record<string, unknown>): NonNullable<NonNullable<HostSessionDataEnvelope["phaseChange"]>["newPhase"]>["book"] {
+  private readPhaseNodeSummary(source: Record<string, unknown>): NonNullable<NonNullable<HostSessionPresentationData["phaseChange"]>["newPhase"]>["book"] {
     return {
       nodeId: this.readString(source, ["nodeId", "NodeId"]),
       displayName: this.readString(source, ["displayName", "DisplayName"]),
@@ -1152,7 +1128,9 @@ export class HostApiClient {
     };
   }
 
-  private readPhaseTextPresentationSteps(source: Record<string, unknown>): HostSessionDataEnvelope["orderedTextPresentationSteps"] {
+  private readPhaseTextPresentationSteps(
+    source: Record<string, unknown>
+  ): NonNullable<NonNullable<HostSessionPresentationData["phaseChange"]>["orderedTextPresentationSteps"]> {
     const entries = this.readArray(source, ["orderedTextPresentationSteps", "OrderedTextPresentationSteps"]);
 
     return entries.map((entry) => {
@@ -1317,6 +1295,7 @@ export class HostApiClient {
     const spatialFootprint = this.readNullableRecord(source, ["spatialFootprint", "SpatialFootprint"]);
     const lightOcclusion = this.readNullableRecord(source, ["lightOcclusion", "LightOcclusion"]);
     const activePresentationCues = source.activePresentationCues ?? source.ActivePresentationCues;
+    const activeSoundCues = source.activeSoundCues ?? source.ActiveSoundCues;
     return {
       objectId: this.readString(source, ["objectId", "ObjectId"]),
       name: this.readString(source, ["name", "Name"]),
@@ -1342,6 +1321,9 @@ export class HostApiClient {
               } : {})
             };
           })
+        : undefined,
+      activeSoundCues: Array.isArray(activeSoundCues)
+        ? activeSoundCues.map((entry) => this.readActiveObjectSoundCue(this.asRecord(entry)))
         : undefined
     };
   }
@@ -1354,7 +1336,7 @@ export class HostApiClient {
     return roomObject === null || roomObject === undefined ? roomObject : this.readRenderableRoomObject(roomObject);
   }
 
-  private readRoomChangeData(source: Record<string, unknown>): HostSessionDataEnvelope["roomChange"] {
+  private readRoomChangeData(source: Record<string, unknown>): HostSessionPresentationData["roomChange"] {
     const roomChange = this.readObject(source, ["roomChange", "RoomChange"]);
     const newRoom = this.readNullableRecord(roomChange, ["newRoom", "NewRoom"]);
     const directionalRenderableImages = this.readArray(newRoom, ["directionalRenderableImages", "DirectionalRenderableImages"]);
@@ -1394,7 +1376,7 @@ export class HostApiClient {
     };
   }
 
-  private readRoomDisplayMode(source: Record<string, unknown>): NonNullable<NonNullable<HostSessionDataEnvelope["roomChange"]>["newRoom"]>["roomDisplayMode"] {
+  private readRoomDisplayMode(source: Record<string, unknown>): NonNullable<NonNullable<HostSessionPresentationData["roomChange"]>["newRoom"]>["roomDisplayMode"] {
     const rawText = this.readString(source, ["roomDisplayMode", "RoomDisplayMode"]);
     if (rawText === "Independent" || rawText === "Overlay") {
       return rawText;
@@ -1457,7 +1439,7 @@ export class HostApiClient {
     }
   }
 
-  private readRoomObjectChanges(source: Record<string, unknown>): HostSessionDataEnvelope["roomObjectChanges"] {
+  private readRoomObjectChanges(source: Record<string, unknown>): HostSessionPresentationData["roomObjectChanges"] {
     const changes = this.readArray(source, ["roomObjectChanges", "RoomObjectChanges"]);
 
     return changes.map((entry) => {
@@ -1480,9 +1462,24 @@ export class HostApiClient {
     });
   }
 
+  private readOptionalRemoteRoomObjects(source: Record<string, unknown>): HostCommandRemoteRoomObject[] | undefined {
+    const entries = source.remoteRoomObjects ?? source.RemoteRoomObjects;
+    if (!Array.isArray(entries)) return undefined;
+    return entries.map((entry) => {
+      const remoteObject = this.asRecord(entry);
+      return {
+        objectId: this.readString(remoteObject, ["objectId", "ObjectId"]),
+        objectName: this.readString(remoteObject, ["objectName", "ObjectName"]),
+        sourceRoomId: this.readString(remoteObject, ["sourceRoomId", "SourceRoomId"]),
+        sourceRoomName: this.readString(remoteObject, ["sourceRoomName", "SourceRoomName"]),
+        activeSoundCues: this.readActiveObjectSoundCues(remoteObject)
+      };
+    });
+  }
+
   private readPresentationCue(
     cueEntry: unknown
-  ): NonNullable<NonNullable<HostSessionDataEnvelope["roomChange"]>["presentationCues"]>[number] {
+  ): NonNullable<NonNullable<HostSessionPresentationData["roomChange"]>["presentationCues"]>[number] {
     const cue = this.asRecord(cueEntry);
     const movementDurationMs = this.readOptionalNonNegativeInt(cue, ["movementDurationMs", "MovementDurationMs"]);
     const movementFrames = this.readOptionalNonNegativeInt(cue, ["movementFrames", "MovementFrames"]);
@@ -1497,7 +1494,7 @@ export class HostApiClient {
     };
   }
 
-  private readPresentationCueType(source: Record<string, unknown>): NonNullable<NonNullable<HostSessionDataEnvelope["roomChange"]>["presentationCues"]>[number]["cueType"] {
+  private readPresentationCueType(source: Record<string, unknown>): NonNullable<NonNullable<HostSessionPresentationData["roomChange"]>["presentationCues"]>[number]["cueType"] {
     const raw = this.readString(source, ["$cueType", "cueType", "CueType"]).trim();
     if (
       raw === "movement"
@@ -1727,6 +1724,40 @@ export class HostApiClient {
         fadeOutMs: this.readOptionalNonNegativeInt(cue, ["fadeOutMs", "FadeOutMs"])
       };
     });
+  }
+
+  private readActiveObjectSoundCues(source: Record<string, unknown>): HostCommandActiveObjectSoundCue[] {
+    const entries = this.readArray(source, ["activeSoundCues", "ActiveSoundCues"]);
+    return entries.map((entry) => this.readActiveObjectSoundCue(this.asRecord(entry)));
+  }
+
+  private readActiveObjectSoundCue(cue: Record<string, unknown>): HostCommandActiveObjectSoundCue {
+    return {
+      activationId: this.readString(cue, ["activationId", "ActivationId"]),
+      soundEffectId: this.readString(cue, ["soundEffectId", "SoundEffectId"]),
+      soundEffectLane: this.readSoundEffectLane(cue),
+      soundEffectKey: this.readString(cue, ["soundEffectKey", "SoundEffectKey"]),
+      runtimeAssetRef: this.readString(cue, ["runtimeAssetRef", "RuntimeAssetRef"]),
+      repeatMode: this.readSoundEffectRepeatMode(cue),
+      replayPolicy: this.readSoundEffectReplayPolicy(cue),
+      repeatCount: this.readOptionalNonNegativeInt(cue, ["repeatCount", "RepeatCount"]),
+      repeatDurationMs: this.readOptionalNonNegativeInt(cue, ["repeatDurationMs", "RepeatDurationMs"]),
+      repeatIntervalMs: this.readOptionalNonNegativeInt(cue, ["repeatIntervalMs", "RepeatIntervalMs"]),
+      repeatIntervalMinMs: this.readOptionalNonNegativeInt(cue, ["repeatIntervalMinMs", "RepeatIntervalMinMs"]),
+      repeatIntervalMaxMs: this.readOptionalNonNegativeInt(cue, ["repeatIntervalMaxMs", "RepeatIntervalMaxMs"]),
+      repeatCooldownMs: this.readOptionalNonNegativeInt(cue, ["repeatCooldownMs", "RepeatCooldownMs"]),
+      concurrencyGroup: this.readOptionalString(cue, ["concurrencyGroup", "ConcurrencyGroup"]),
+      concurrencyGroupImportance: this.readOptionalFiniteNumber(cue, ["concurrencyGroupImportance", "ConcurrencyGroupImportance"]),
+      importance: this.readOptionalFiniteNumber(cue, ["importance", "Importance"]),
+      startDelayMs: this.readOptionalNonNegativeInt(cue, ["startDelayMs", "StartDelayMs"]),
+      fadeInMs: this.readOptionalNonNegativeInt(cue, ["fadeInMs", "FadeInMs"]),
+      fadeOutMs: this.readOptionalNonNegativeInt(cue, ["fadeOutMs", "FadeOutMs"]),
+      sourceDurationMs: this.readOptionalNonNegativeInt(cue, ["sourceDurationMs", "SourceDurationMs"]),
+      maxPlayDurationMs: this.readOptionalNonNegativeInt(cue, ["maxPlayDurationMs", "MaxPlayDurationMs"]),
+      baseVolumeDb: this.readOptionalFiniteNumber(cue, ["baseVolumeDb", "BaseVolumeDb"]),
+      volumeMultiplier: this.readNumber(cue, ["volumeMultiplier", "VolumeMultiplier"]),
+      pan: this.readNumber(cue, ["pan", "Pan"])
+    };
   }
 
   private readRenderableImage(source: Record<string, unknown>): HostCommandRenderableImage {

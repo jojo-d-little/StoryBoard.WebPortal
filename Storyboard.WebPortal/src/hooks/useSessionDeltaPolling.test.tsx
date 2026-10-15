@@ -20,8 +20,6 @@ describe("useSessionDeltaPolling", () => {
         soundCues: [],
         outputLines: ["hello"],
         diagnostics: ["trace"],
-        hasRoomChange: true,
-        hasPhaseChange: false
       },
       sessionDeltaWatermark: "2",
       diagnostics: []
@@ -75,8 +73,6 @@ describe("useSessionDeltaPolling", () => {
         soundCues: [],
         outputLines: [],
         diagnostics: [],
-        hasRoomChange: false,
-        hasPhaseChange: false
       },
       sessionDeltaWatermark: "9",
       diagnostics: []
@@ -125,8 +121,6 @@ describe("useSessionDeltaPolling", () => {
         soundCues: [],
         outputLines: ["one output line"],
         diagnostics: [],
-        hasRoomChange: false,
-        hasPhaseChange: false
       },
       sessionDeltaWatermark: "2",
       diagnostics: []
@@ -176,8 +170,6 @@ describe("useSessionDeltaPolling", () => {
         soundCues: [],
         outputLines: [],
         diagnostics: [],
-        hasRoomChange: false,
-        hasPhaseChange: false
       },
       sessionDeltaWatermark: "1",
       diagnostics: []
@@ -232,8 +224,6 @@ describe("useSessionDeltaPolling", () => {
         soundCues: [],
         outputLines: [],
         diagnostics: ["poll trace"],
-        hasRoomChange: false,
-        hasPhaseChange: false
       },
       sessionDeltaWatermark: "",
       diagnostics: []
@@ -290,8 +280,6 @@ describe("useSessionDeltaPolling", () => {
           soundCues: [],
           outputLines: [],
           diagnostics: [],
-          hasRoomChange: false,
-          hasPhaseChange: false
         },
         sessionDeltaWatermark: "10",
         diagnostics: []
@@ -300,7 +288,6 @@ describe("useSessionDeltaPolling", () => {
     const baseline = {
       sessionDeltaWatermark: "9",
       soundCues: [],
-      orderedTextPresentationSteps: []
     };
 
     const getSessionBaseline = vi.fn().mockResolvedValue(baseline);
@@ -353,8 +340,6 @@ describe("useSessionDeltaPolling", () => {
         soundCues: [],
         outputLines: [],
         diagnostics: [],
-        hasRoomChange: false,
-        hasPhaseChange: false
       },
       sessionDeltaWatermark: "2",
       diagnostics: []

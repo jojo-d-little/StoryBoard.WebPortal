@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { HostSessionDataEnvelope } from "../../hostApi/HostContracts";
+import type { HostSessionPresentationData } from "../../hostApi/HostContracts";
 import type { GameRenderSceneSnapshot } from "../contracts/sceneTypes";
 import { mapHostPresentationToSceneSnapshot, mapHostSessionDataToSceneSnapshot } from "./mapHostSessionScene";
 import { mapLightingFrameInput } from "./mapLightingFrameInput";
@@ -9,18 +9,17 @@ function renderedRoomObjects(scene: GameRenderSceneSnapshot | null | undefined) 
   return scene ? selectRenderableRoomObjects(scene) : [];
 }
 
-function buildSessionData(overrides: Partial<HostSessionDataEnvelope> = {}): HostSessionDataEnvelope {
-  const normalizedOrderedTextSteps = overrides.orderedTextPresentationSteps ?? [];
-
+function buildSessionData(overrides: Partial<HostSessionPresentationData> = {}): HostSessionPresentationData {
   return {
     sessionDeltaWatermark: "1",
     roomObjectChanges: [],
     soundCues: [],
     outputLines: [],
     diagnostics: [],
-    orderedTextPresentationSteps: normalizedOrderedTextSteps,
-    hasRoomChange: true,
-    hasPhaseChange: false,
+    activeRoomObjectName: "",
+    activeRoomObjectSelectionCueEffectKey: "",
+    secondaryActiveRoomObjectName: "",
+    secondaryActiveRoomObjectSelectionCueEffectKey: "",
     roomChange: {
       travelDirection: "East",
       presentationCues: [
@@ -126,7 +125,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     expect(renderedRoomObjects(baseline)).toHaveLength(1);
 
     const hidden = mapHostSessionDataToSceneSnapshot(buildSessionData({
-      hasRoomChange: false,
       roomChange: undefined,
       roomObjectChanges: [{
         changeKind: "Hidden",
@@ -155,7 +153,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     expect(hidden?.moveLegTelemetry).toEqual([]);
 
     const shown = mapHostSessionDataToSceneSnapshot(buildSessionData({
-      hasRoomChange: false,
       roomChange: undefined,
       roomObjectChanges: [{
         changeKind: "Shown",
@@ -181,14 +178,12 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     });
 
     const removed = mapHostSessionDataToSceneSnapshot(buildSessionData({
-      hasRoomChange: false,
       roomChange: undefined,
       roomObjectChanges: [{ changeKind: "Removed", objectId: "obj-1", objectName: "Lantern" }]
     }), shown);
     expect(removed?.objectsById["obj-1"]).toBeUndefined();
 
     const incompleteShow = mapHostSessionDataToSceneSnapshot(buildSessionData({
-      hasRoomChange: false,
       roomChange: undefined,
       roomObjectChanges: [{ changeKind: "Shown", objectId: "obj-1", objectName: "Lantern" }]
     }), removed);
@@ -210,7 +205,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     expect(renderedRoomObjects(visibleBaseline).map((object) => object.objectId)).toEqual(["obj-1"]);
 
     const noChange = mapHostSessionDataToSceneSnapshot(buildSessionData({
-      hasRoomChange: false,
       roomChange: undefined,
       roomObjectChanges: []
     }), visibleBaseline);
@@ -250,7 +244,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     ]);
 
     const moved = mapHostSessionDataToSceneSnapshot(buildSessionData({
-      hasRoomChange: false,
       roomChange: undefined,
       roomObjectChanges: [{
         changeKind: "Updated",
@@ -275,7 +268,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     expect(movedObject?.movementFrames).toBe(16);
 
     const cleared = mapHostSessionDataToSceneSnapshot(buildSessionData({
-      hasRoomChange: false,
       roomChange: undefined,
       roomObjectChanges: [{
         changeKind: "Updated",
@@ -294,7 +286,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     const baseline = mapHostSessionDataToSceneSnapshot(buildSessionData());
     const updated = mapHostSessionDataToSceneSnapshot(buildSessionData({
       roomChange: undefined,
-      hasRoomChange: false,
       roomObjectChanges: [
         {
           changeKind: "Updated",
@@ -490,7 +481,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     expect(baseline).not.toBeNull();
 
     const sameRoomReplacement = mapHostSessionDataToSceneSnapshot(buildSessionData({
-      hasRoomChange: true,
       roomChange: {
         newRoom: {
           roomId: "room-1",
@@ -541,7 +531,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
 
     const ordinaryDelta = mapHostSessionDataToSceneSnapshot(buildSessionData({
       roomChange: undefined,
-      hasRoomChange: false,
       roomObjectChanges: [
         {
           changeKind: "Updated",
@@ -860,7 +849,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
   it("returns null when room change payload is absent", () => {
     const snapshot = mapHostSessionDataToSceneSnapshot(buildSessionData({
       roomChange: undefined,
-      hasRoomChange: false
     }));
 
     expect(snapshot).toBeNull();
@@ -927,7 +915,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     expect(previousSnapshot).not.toBeNull();
 
     const deltaOnly = buildSessionData({
-      hasRoomChange: false,
       roomChange: undefined,
       roomObjectChanges: [
         {
@@ -985,7 +972,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     expect(renderedRoomObjects(merged).find((entry) => entry.objectId === "obj-1")?.movementFrames).toBe(16);
 
     const removed = mapHostSessionDataToSceneSnapshot(buildSessionData({
-      hasRoomChange: false,
       roomChange: undefined,
       roomObjectChanges: [
         {
@@ -1005,7 +991,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     expect(previousSnapshot).not.toBeNull();
 
     const moved = mapHostSessionDataToSceneSnapshot(buildSessionData({
-      hasRoomChange: false,
       roomChange: undefined,
       roomObjectChanges: [
         {
@@ -1112,7 +1097,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     }));
 
     const merged = mapHostSessionDataToSceneSnapshot(buildSessionData({
-      hasRoomChange: false,
       roomChange: undefined,
       roomObjectChanges: [
         {
@@ -1148,7 +1132,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     expect(previousSnapshot).not.toBeNull();
 
     const moved = mapHostSessionDataToSceneSnapshot(buildSessionData({
-      hasRoomChange: false,
       roomChange: undefined,
       roomObjectChanges: [
         {
@@ -1187,7 +1170,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
   it("maps resolved movement timing from the active cue payload", () => {
     const previousSnapshot = mapHostSessionDataToSceneSnapshot(buildSessionData());
     const moved = mapHostSessionDataToSceneSnapshot(buildSessionData({
-      hasRoomChange: false,
       roomChange: undefined,
       roomObjectChanges: [
         {
@@ -1231,7 +1213,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     const baselineSnapshot = mapHostSessionDataToSceneSnapshot(buildSessionData());
 
     const previousSnapshot = mapHostSessionDataToSceneSnapshot(buildSessionData({
-      hasRoomChange: false,
       roomChange: undefined,
       roomObjectChanges: [
         {
@@ -1260,7 +1241,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     }), baselineSnapshot);
 
     const moved = mapHostSessionDataToSceneSnapshot(buildSessionData({
-      hasRoomChange: false,
       roomChange: undefined,
       roomObjectChanges: [
         {
@@ -1297,7 +1277,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     const baselineSnapshot = mapHostSessionDataToSceneSnapshot(buildSessionData());
 
     const selectedSnapshot = mapHostSessionDataToSceneSnapshot(buildSessionData({
-      hasRoomChange: false,
       roomChange: undefined,
       roomObjectChanges: [
         {
@@ -1361,7 +1340,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     const baselineSnapshot = mapHostSessionDataToSceneSnapshot(buildSessionData());
 
     const selectedSnapshot = mapHostSessionDataToSceneSnapshot(buildSessionData({
-      hasRoomChange: false,
       roomChange: undefined,
       roomObjectChanges: [
         {
@@ -1390,7 +1368,6 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     }), baselineSnapshot);
 
     const clearedSnapshot = mapHostSessionDataToSceneSnapshot(buildSessionData({
-      hasRoomChange: false,
       roomChange: undefined,
       roomObjectChanges: [
         {

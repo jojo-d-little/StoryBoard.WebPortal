@@ -598,12 +598,12 @@ describe("HostApiClient", () => {
     });
     expect(response.sessionData?.authoredRenderWidth).toBe(800);
     expect(response.sessionData?.authoredRenderHeight).toBe(600);
-    expect(response.sessionData?.hasPhaseChange).toBe(true);
+    expect(response.sessionData?.phaseChange).toBeDefined();
     expect(response.sessionData?.phaseChange?.newPhase?.pathDisplayName).toBe("Book A / Chapter 2 / Page 7");
-    expect(response.sessionData?.orderedTextPresentationSteps[0].presentationCueEffectKey).toBe("text.overlay.page");
-    expect(response.sessionData?.orderedTextPresentationSteps[0].where).toBe("HudEdgeCard");
-    expect(response.sessionData?.orderedTextPresentationSteps[0].how).toBe("FadeIn");
-    expect(response.sessionData?.orderedTextPresentationSteps[0].motionInMs).toBe(500);
+    expect(response.sessionData?.phaseChange?.orderedTextPresentationSteps?.[0].presentationCueEffectKey).toBe("text.overlay.page");
+    expect(response.sessionData?.phaseChange?.orderedTextPresentationSteps?.[0].where).toBe("HudEdgeCard");
+    expect(response.sessionData?.phaseChange?.orderedTextPresentationSteps?.[0].how).toBe("FadeIn");
+    expect(response.sessionData?.phaseChange?.orderedTextPresentationSteps?.[0].motionInMs).toBe(500);
 
     vi.unstubAllGlobals();
   });
@@ -703,11 +703,11 @@ describe("HostApiClient", () => {
     expect(baseline.roomChange?.newRoom?.roomImageCanvasHeight).toBe(800);
     expect(baseline.roomChange?.newRoom?.directionalRenderableImages[0].slot).toBe("Down");
     expect(baseline.roomChange?.newRoom?.renderableRoomObjects[0].name).toBe("Lantern");
-    expect(baseline.orderedTextPresentationSteps).toHaveLength(1);
-    expect(baseline.orderedTextPresentationSteps?.[0].presentationCueEffectKey).toBe("text.hudoverlay.autoscroll.manualdismiss");
-    expect(baseline.orderedTextPresentationSteps?.[0].where).toBe("HudEdgeCard");
-    expect(baseline.orderedTextPresentationSteps?.[0].how).toBe("AutoScroll");
-    expect(baseline.orderedTextPresentationSteps?.[0].displayDurationMs).toBe(0);
+    expect(baseline.phaseChange?.orderedTextPresentationSteps).toHaveLength(1);
+    expect(baseline.phaseChange?.orderedTextPresentationSteps?.[0].presentationCueEffectKey).toBe("text.hudoverlay.autoscroll.manualdismiss");
+    expect(baseline.phaseChange?.orderedTextPresentationSteps?.[0].where).toBe("HudEdgeCard");
+    expect(baseline.phaseChange?.orderedTextPresentationSteps?.[0].how).toBe("AutoScroll");
+    expect(baseline.phaseChange?.orderedTextPresentationSteps?.[0].displayDurationMs).toBe(0);
     expect(baseline.soundCues).toHaveLength(1);
     expect(baseline.soundCues[0].soundEffectLane).toBe("Ambient");
     expect(baseline.soundCues[0].resultCode).toBe("SessionBaseline.PhaseAmbient");

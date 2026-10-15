@@ -3,19 +3,20 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useSessionPhasePresentationWorkflow } from "./useSessionPhasePresentationWorkflow";
-import type { HostSessionDataEnvelope } from "../hostApi/HostContracts";
+import type { HostSessionPresentationData } from "../hostApi/HostContracts";
 import { DEFAULT_PRESENTATION_ISOLATION_SETTINGS } from "../gameRenderer/presentationIsolation";
 
-function createBaseSessionData(): HostSessionDataEnvelope {
+function createBaseSessionData(): HostSessionPresentationData {
   return {
     sessionDeltaWatermark: "1",
     roomObjectChanges: [],
     soundCues: [],
     outputLines: [],
     diagnostics: [],
-    orderedTextPresentationSteps: [],
-    hasRoomChange: false,
-    hasPhaseChange: true,
+    activeRoomObjectName: "",
+    activeRoomObjectSelectionCueEffectKey: "",
+    secondaryActiveRoomObjectName: "",
+    secondaryActiveRoomObjectSelectionCueEffectKey: "",
     phaseChange: {
       reason: "advance",
       newPhase: {
@@ -74,7 +75,7 @@ describe("useSessionPhasePresentationWorkflow", () => {
     );
 
     const sessionData = createBaseSessionData();
-    sessionData.orderedTextPresentationSteps = [
+    sessionData.phaseChange!.orderedTextPresentationSteps = [
       {
         category: "Text",
         effectKey: "text.echo.page",
@@ -118,7 +119,7 @@ describe("useSessionPhasePresentationWorkflow", () => {
     );
 
     const sessionData = createBaseSessionData();
-    sessionData.orderedTextPresentationSteps = [
+    sessionData.phaseChange!.orderedTextPresentationSteps = [
       {
         category: "Text",
         effectKey: "text.echo.page",
@@ -158,7 +159,7 @@ describe("useSessionPhasePresentationWorkflow", () => {
     );
 
     const sessionData = createBaseSessionData();
-    sessionData.orderedTextPresentationSteps = [
+    sessionData.phaseChange!.orderedTextPresentationSteps = [
       {
         category: "Text",
         effectKey: "text.hud.fullscreen.page",
@@ -217,7 +218,7 @@ describe("useSessionPhasePresentationWorkflow", () => {
     );
 
     const sessionData = createBaseSessionData();
-    sessionData.orderedTextPresentationSteps = [
+    sessionData.phaseChange!.orderedTextPresentationSteps = [
       {
         category: "Text",
         effectKey: "text.hud.page",

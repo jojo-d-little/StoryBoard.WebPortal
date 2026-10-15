@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   HostCommandPresentationCueText,
-  HostSessionDataEnvelope
+  HostSessionPresentationData
 } from "../hostApi/HostContracts";
 import type { DiagnosticsLevel } from "../components/DiagnosticsConsole";
 import type { ResolvedTextPresentationCue } from "../gameRenderer/presentationCue/presentationCueCatalog";
@@ -47,7 +47,7 @@ interface UseSessionPhasePresentationWorkflowOptions {
 
 interface UseSessionPhasePresentationWorkflowResult {
   hudOverlayEntries: HudOverlayEntry[];
-  consumeSessionDeltaPhasePresentation: (sessionData: HostSessionDataEnvelope) => void;
+  consumeSessionDeltaPhasePresentation: (sessionData: HostSessionPresentationData) => void;
   dismissHudOverlay: () => void;
   resetPhasePresentationForSessionAttach: (reason: SessionAttachReason, targetSessionId: string) => void;
   clearPhasePresentationState: () => void;
@@ -138,11 +138,9 @@ function normalizeScrollSpeedPxPerSec(value: number | undefined): number {
   return Math.max(1, Number(value));
 }
 
-function buildPhasePresentationSignature(sessionData: HostSessionDataEnvelope): string {
-  const watermark = sessionData.sessionDeltaWatermark.trim();
-  const stepsSource = sessionData.orderedTextPresentationSteps.length > 0
-    ? sessionData.orderedTextPresentationSteps
-    : (sessionData.phaseChange ? sessionData.phaseChange.orderedTextPresentationSteps ?? [] : []);
+function buildPhasePresentationSignature(sessionData: HostSessionPresentationData): string {
+  const watermark = sessionData.sessionDeltaWatermark?.trim() ?? "";
+  const stepsSource = sessionData.phaseChange?.orderedTextPresentationSteps ?? [];
   if (stepsSource.length === 0) {
     return `${watermark}|none`;
   }
@@ -303,17 +301,15 @@ export function useSessionPhasePresentationWorkflow(
     showNextHudOverlayCue();
   }, [showNextHudOverlayCue]);
 
-  const consumeSessionDeltaPhasePresentation = useCallback((sessionData: HostSessionDataEnvelope): void => {
-    const orderedSteps = sessionData.orderedTextPresentationSteps.length > 0
-      ? sessionData.orderedTextPresentationSteps
-      : (sessionData.phaseChange ? sessionData.phaseChange.orderedTextPresentationSteps ?? [] : []);
+  const consumeSessionDeltaPhasePresentation = useCallback((sessionData: HostSessionPresentationData): void => {
+    const orderedSteps = sessionData.phaseChange?.orderedTextPresentationSteps ?? [];
 
     if (orderedSteps.length === 0) {
       return;
     }
 
     const signature = buildPhasePresentationSignature(sessionData);
-    const watermark = sessionData.sessionDeltaWatermark.trim();
+    const watermark = sessionData.sessionDeltaWatermark?.trim() ?? "";
 
     if (watermark && watermark === lastWatermarkRef.current) {
       return;

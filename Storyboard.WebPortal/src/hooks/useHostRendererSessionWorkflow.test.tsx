@@ -3,7 +3,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { HostCommandSoundCue, HostSessionDataEnvelope } from "../hostApi/HostContracts";
+import type { HostCommandSoundCue, HostSessionPresentationData } from "../hostApi/HostContracts";
 import type { GameRenderSceneSnapshot } from "../gameRenderer/contracts/sceneTypes";
 import { useHostRendererSessionWorkflow } from "./useHostRendererSessionWorkflow";
 import type { HostApiClient } from "../hostApi/client";
@@ -54,7 +54,6 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
       getSessionBaseline: vi.fn().mockResolvedValue({
         sessionDeltaWatermark: "1",
         soundCues: [],
-        orderedTextPresentationSteps: [],
         roomChange: {
           newRoom: {
             roomId: "room-1",
@@ -101,7 +100,7 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
     await waitFor(() => expect(result.current?.roomId).toBe("room-1"));
     const onSessionData = () => {
       const options = useSessionDeltaPollingMock.mock.calls[useSessionDeltaPollingMock.mock.calls.length - 1]?.[0] as {
-        onSessionData: (data: HostSessionDataEnvelope) => void;
+        onSessionData: (data: HostSessionPresentationData) => void;
       };
       return options.onSessionData;
     };
@@ -122,7 +121,7 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
       renderZOrder: 1,
       activePresentationCues: [{ category: "Appearance" as const, effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
     };
-    const delta = (changeKind: "Shown" | "Hidden", watermark: string): HostSessionDataEnvelope => ({
+    const delta = (changeKind: "Shown" | "Hidden", watermark: string): HostSessionPresentationData => ({
       sessionDeltaWatermark: watermark,
       roomObjectChanges: [{
         changeKind,
@@ -133,9 +132,10 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
       soundCues: [],
       outputLines: [],
       diagnostics: [],
-      orderedTextPresentationSteps: [],
-      hasRoomChange: false,
-      hasPhaseChange: false
+      activeRoomObjectName: "",
+      activeRoomObjectSelectionCueEffectKey: "",
+      secondaryActiveRoomObjectName: "",
+      secondaryActiveRoomObjectSelectionCueEffectKey: "",
     });
 
     act(() => onSessionData()(delta("Shown", "2")));
@@ -154,7 +154,6 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
     const getSessionBaseline = vi.fn().mockResolvedValue({
       sessionDeltaWatermark: "42",
       soundCues: [buildBaselineSoundCue()],
-      orderedTextPresentationSteps: []
     });
 
     const consumeSessionDeltaSoundCues = vi.fn();
@@ -231,7 +230,6 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
       getSessionBaseline: vi.fn().mockResolvedValue({
         sessionDeltaWatermark: "42",
         soundCues: [],
-        orderedTextPresentationSteps: [],
         roomChange: {
           newRoom: {
             roomId: "room-1",
@@ -304,7 +302,6 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
     const getSessionBaseline = vi.fn().mockResolvedValue({
       sessionDeltaWatermark: "42",
       soundCues: [],
-      orderedTextPresentationSteps: []
     });
 
     const hostApiClient = {
@@ -352,7 +349,6 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
       getSessionBaseline: vi.fn().mockResolvedValue({
         sessionDeltaWatermark: "1",
         soundCues: [],
-        orderedTextPresentationSteps: []
       }),
       getSessionDeltas: vi.fn(),
       getAssetPreviewDataUrl: vi.fn()
@@ -395,9 +391,6 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
       soundCues: [],
       outputLines: [],
       diagnostics: [],
-      orderedTextPresentationSteps: [{ sequence: 1 }],
-      hasRoomChange: true,
-      hasPhaseChange: true,
       roomChange: {
         travelDirection: "East",
         presentationCues: [],

@@ -53,7 +53,7 @@ export function useHostAuthDiscoveryWorkflow(
     try {
       const response = await options.hostApiClient.authenticate(options.authUsername, options.authPassword);
       if (!response.result.success) {
-        options.failHostOperation("auth", `Sign-in failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnosticsMessages)}`);
+        options.failHostOperation("auth", `Sign-in failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnostics)}`);
         return;
       }
 
@@ -91,7 +91,7 @@ export function useHostAuthDiscoveryWorkflow(
     try {
       const response = await options.hostApiClient.getCurrentPrincipal(options.credentialHandle);
       if (!response.result.success) {
-        options.failHostOperation("principal", `Current principal failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnosticsMessages)}`);
+        options.failHostOperation("principal", `Current principal failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnostics)}`);
         return;
       }
 
@@ -123,7 +123,7 @@ export function useHostAuthDiscoveryWorkflow(
     try {
       const response = await options.hostApiClient.discoverGames(options.credentialHandle);
       if (!response.result.success) {
-        options.failHostOperation("discovery", `Discovery failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnosticsMessages)}`);
+        options.failHostOperation("discovery", `Discovery failed: ${response.result.code}${options.formatDiagnostics(response.result.diagnostics)}`);
         return;
       }
 

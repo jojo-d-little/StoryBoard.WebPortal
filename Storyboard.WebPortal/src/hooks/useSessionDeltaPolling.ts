@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { DiagnosticsLevel } from "../components/DiagnosticsConsole";
 import { HostApiClient } from "../hostApi/client";
-import type { HostRuntimePresentationResult, HostSessionDataEnvelope } from "../hostApi/HostContracts";
+import type { HostSessionPresentationData } from "../hostApi/HostContracts";
 
 interface SessionDeltaPollingSettings {
   pollIntervalMs: number;
@@ -18,9 +18,9 @@ interface UseSessionDeltaPollingOptions {
   enabled: boolean;
   isPaused?: () => boolean;
   allowInTest?: boolean;
-  onSessionData?: (sessionData: HostSessionDataEnvelope) => void;
+  onSessionData?: (sessionData: HostSessionPresentationData) => void;
   onGameplayChange?: () => void;
-  onResyncBaseline?: (baseline: HostRuntimePresentationResult) => void | Promise<void>;
+  onResyncBaseline?: (baseline: HostSessionPresentationData) => void | Promise<void>;
   addDiagnostic: (level: DiagnosticsLevel, category: string, message: string, details?: unknown) => void;
 }
 
@@ -94,7 +94,7 @@ function hasWatermarkAdvanced(fromWatermark: string, toWatermark: string): boole
 }
 
 function analyzeSessionData(
-  sessionData: HostSessionDataEnvelope | null,
+  sessionData: HostSessionPresentationData | null,
   fromWatermark: string,
   toWatermark: string
 ): PollAnalysis {
@@ -123,8 +123,10 @@ function analyzeSessionData(
   };
 
   // Treat diagnostics-only payloads with unchanged watermark as no-op to avoid noisy logs.
-  const hasSubstantivePayload = sessionData.hasRoomChange
-    || sessionData.hasPhaseChange
+  const hasRoomChange = Boolean(sessionData.roomChange);
+  const hasPhaseChange = Boolean(sessionData.phaseChange);
+  const hasSubstantivePayload = hasRoomChange
+    || hasPhaseChange
     || counts.roomObjectChanges > 0
     || counts.soundCues > 0
     || counts.outputLines > 0
@@ -132,8 +134,8 @@ function analyzeSessionData(
     || counts.moveLegTelemetry > 0;
 
   const hasData = hasSubstantivePayload || hasWatermarkAdvanced(fromWatermark, toWatermark);
-  const hasHighSignalData = sessionData.hasRoomChange
-    || sessionData.hasPhaseChange
+  const hasHighSignalData = hasRoomChange
+    || hasPhaseChange
     || counts.roomObjectChanges > 0
     || counts.soundCues > 0
     || counts.moveLegTelemetry > 0;
@@ -291,7 +293,7 @@ export function useSessionDeltaPolling(options: UseSessionDeltaPollingOptions): 
           return;
         }
 
-        const toWatermark = (pollResult.sessionData?.sessionDeltaWatermark || pollResult.sessionDeltaWatermark || "").trim();
+        const toWatermark = (pollResult.sessionData?.sessionDeltaWatermark ?? "").trim();
         if (toWatermark) {
           runtimeState.currentWatermark = toWatermark;
         }

@@ -4,7 +4,7 @@ import { mapHostPresentationToSceneSnapshot, mapHostSessionDataToSceneSnapshot }
 import { mapRenderableRoomObjects, selectRenderableRoomObjects } from "../gameRenderer/scene/sceneObjects";
 import type { DiagnosticsLevel } from "../components/DiagnosticsConsole";
 import { HostApiClient } from "../hostApi/client";
-import type { HostCommandSoundCue, HostRuntimePresentationResult, HostSessionDataEnvelope } from "../hostApi/HostContracts";
+import type { HostCommandSoundCue, HostSessionPresentationData } from "../hostApi/HostContracts";
 import { useSessionDeltaPolling } from "./useSessionDeltaPolling";
 import { buildAssetCacheKey, webPortalAssetCache } from "../cache/webPortalAssetCache";
 import type { PresentationCueCatalogDocument } from "../gameRenderer/contracts/presentationEffects";
@@ -79,9 +79,9 @@ interface UseHostRendererSessionWorkflowOptions {
   heartbeatEveryNPolls: number;
   sessionDeltaResetEpoch: number;
   onGameplayChange?: () => void;
-  consumeSessionDeltaPhasePresentation: (sessionData: HostSessionDataEnvelope) => void;
-  consumeSessionDeltaEcho: (sessionData: HostSessionDataEnvelope) => void;
-  consumeSessionDeltaSoundCues: (sessionData: HostSessionDataEnvelope, isBaseline?: boolean) => void;
+  consumeSessionDeltaPhasePresentation: (sessionData: HostSessionPresentationData) => void;
+  consumeSessionDeltaEcho: (sessionData: HostSessionPresentationData) => void;
+  consumeSessionDeltaSoundCues: (sessionData: HostSessionPresentationData, isBaseline?: boolean) => void;
   refreshCacheStats: () => void;
   addDiagnostic: AddDiagnostic;
 }
@@ -109,7 +109,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   const presentationCueCatalogRevisionRef = useRef<number>(options.presentationCueCatalogRevision);
   const pollingPausedForRoomTransitionRef = useRef<boolean>(false);
   const pollingPauseWatchdogRef = useRef<number | null>(null);
-  const deferredPhasePresentationRef = useRef<HostSessionDataEnvelope[]>([]);
+  const deferredPhasePresentationRef = useRef<HostSessionPresentationData[]>([]);
 
   const releaseRoomTransitionPollingPause = useCallback((reason: string): void => {
     if (pollingPauseWatchdogRef.current !== null) {
@@ -243,7 +243,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     source: "baseline" | "delta",
     previousScene: GameRenderSceneSnapshot | null,
     resolvedScene: GameRenderSceneSnapshot,
-    sessionData: HostSessionDataEnvelope | null
+    sessionData: HostSessionPresentationData | null
   ): void => {
     if (source !== "delta") {
       return;
@@ -330,7 +330,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   const emitAppearanceCueResolutionDiagnostics = useCallback((
     source: "baseline" | "delta",
     resolvedScene: GameRenderSceneSnapshot,
-    sessionData: HostSessionDataEnvelope | null
+    sessionData: HostSessionPresentationData | null
   ): void => {
     const catalog = getCurrentPresentationCueCatalogRef.current();
     const appearanceEffects = (catalog?.effects ?? []).filter((effect) => {
@@ -391,7 +391,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   const emitRoomTransitionCueResolutionDiagnostics = useCallback((
     source: "baseline" | "delta",
     resolvedScene: GameRenderSceneSnapshot,
-    sessionData: HostSessionDataEnvelope | null
+    sessionData: HostSessionPresentationData | null
   ): void => {
     const roomChange = sessionData?.roomChange;
     if (!roomChange?.presentationCues || roomChange.presentationCues.length === 0) {
@@ -439,7 +439,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   const emitTimingSyncDiagnostics = useCallback((
     previousScene: GameRenderSceneSnapshot | null,
     resolvedScene: GameRenderSceneSnapshot,
-    sessionData: HostSessionDataEnvelope
+    sessionData: HostSessionPresentationData
   ): void => {
     const changedById = new Map((sessionData.roomObjectChanges ?? []).map((change) => [change.objectId, change]));
     const previousById = new Map((previousScene ? selectRenderableRoomObjects(previousScene) : []).map((roomObject) => [roomObject.objectId, roomObject]));
@@ -729,35 +729,15 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   ]);
 
   const applySessionBaseline = useCallback(async (
-    baseline: HostRuntimePresentationResult,
+    baseline: HostSessionPresentationData,
     source: "startup" | "resync"
   ): Promise<void> => {
     const baselineWatermark = (baseline.sessionDeltaWatermark ?? "").trim();
     setBaselineWatermark(baselineWatermark);
 
     const baselineSnapshot = mapHostPresentationToSceneSnapshot(baseline);
-    const baselineTextStepCount = baseline.orderedTextPresentationSteps?.length ?? 0;
-    const baselineSessionData: HostSessionDataEnvelope = {
-      sessionDeltaWatermark: baseline.sessionDeltaWatermark,
-      roomObjectChanges: baseline.roomObjectChanges?.length ? baseline.roomObjectChanges : baseline.roomChange?.newRoom?.renderableRoomObjects.map((renderableRoomObject) => ({
-        changeKind: "Added",
-        objectId: renderableRoomObject.objectId,
-        objectName: renderableRoomObject.name,
-        renderableRoomObject
-      })) ?? [],
-      soundCues: baseline.soundCues,
-      outputLines: [],
-      diagnostics: [],
-      sessionPresentationSettings: baseline.sessionPresentationSettings,
-      roomChange: baseline.roomChange,
-      phaseChange: baseline.phaseChange,
-      orderedTextPresentationSteps: baseline.orderedTextPresentationSteps ?? [],
-      authoredRenderWidth: baseline.authoredRenderWidth,
-      authoredRenderHeight: baseline.authoredRenderHeight,
-      remoteRoomObjects: baseline.remoteRoomObjects,
-      hasRoomChange: Boolean(baseline.roomChange),
-      hasPhaseChange: Boolean(baseline.phaseChange)
-    };
+    const baselineTextStepCount = baseline.phaseChange?.orderedTextPresentationSteps?.length ?? 0;
+    const baselineSessionData = baseline;
 
     consumeSessionDeltaSoundCuesRef.current(baselineSessionData, true);
 
@@ -841,8 +821,9 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     };
   }, [options.credentialHandle, options.activeSessionId, options.hostApiClient, options.setRendererSceneSnapshot, applySessionBaseline]);
 
-  const handleSessionDataUpdate = useCallback((sessionData: HostSessionDataEnvelope): void => {
-    if (sessionData.hasRoomChange) {
+  const handleSessionDataUpdate = useCallback((sessionData: HostSessionPresentationData): void => {
+    const hasRoomChange = Boolean(sessionData.roomChange);
+    if (hasRoomChange) {
       assertRoomTransitionPollingPause("accepted-room-change-delta");
       setRoomTransitionPreparationEpoch((value) => value + 1);
       deferredPhasePresentationRef.current.push(sessionData);
@@ -892,11 +873,11 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
           roomId: resolvedSnapshot.roomId || "(unknown)",
           message: error instanceof Error ? error.message : String(error)
         });
-        if (sessionData.hasRoomChange) {
+        if (hasRoomChange) {
           releaseRoomTransitionPollingPause("room-change-hydration-failed");
         }
       });
-    } else if (sessionData.hasRoomChange) {
+    } else if (hasRoomChange) {
       releaseRoomTransitionPollingPause("room-change-without-renderable-scene");
     }
     consumeSessionDeltaEchoRef.current(sessionData);

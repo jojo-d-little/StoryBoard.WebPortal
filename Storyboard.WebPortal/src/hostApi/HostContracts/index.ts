@@ -77,6 +77,7 @@ export type { HostProcessCommandResult } from "./HostProcessCommandResult";
 export type { HostSessionDeltaBatchProfile } from "./HostSessionDeltaBatchProfile";
 export type { HostSessionDeltaPollResultCode } from "./HostSessionDeltaPollResultCode";
 export type { HostSessionDeltaPollResult } from "./HostSessionDeltaPollResult";
+export type { HostAttachSessionResult } from "./HostAttachSessionResult";
 
 export type { HostCommandSoundCueOperation } from "./HostCommandSoundCueOperation";
 export type { HostSoundEffectLane } from "./HostSoundEffectLane";
@@ -111,5 +112,4 @@ export type { HostCommandRoomChangeData } from "./HostCommandRoomChangeData";
 export type { HostCommandPhaseNodeSummary } from "./HostCommandPhaseNodeSummary";
 export type { HostCommandPhaseSummary } from "./HostCommandPhaseSummary";
 export type { HostCommandPhaseChangeData } from "./HostCommandPhaseChangeData";
-export type { HostSessionDataEnvelope } from "./HostSessionDataEnvelope";
-export type { HostRuntimePresentationResult } from "./HostRuntimePresentationResult";
+export type { HostSessionPresentationData } from "./HostSessionPresentationData";
