@@ -41,6 +41,28 @@ export interface RoomLightingControllerOptions {
   dependencies?: RoomLightingControllerDependencies;
 }
 
+interface AmbientLightingValues {
+  ambient: number;
+  ambientColor: string;
+}
+
+function parseHexColor(color: string): [number, number, number] | null {
+  if (!/^#[0-9a-fA-F]{6}$/.test(color)) return null;
+  return [
+    Number.parseInt(color.slice(1, 3), 16),
+    Number.parseInt(color.slice(3, 5), 16),
+    Number.parseInt(color.slice(5, 7), 16)
+  ];
+}
+
+function interpolateColor(from: string, to: string, progress: number): string {
+  const fromRgb = parseHexColor(from);
+  const toRgb = parseHexColor(to);
+  if (!fromRgb || !toRgb) return progress >= 1 ? to : from;
+  const channels = fromRgb.map((channel, index) => Math.round(channel + ((toRgb[index]! - channel) * progress)));
+  return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
+
 function createPipeline(renderer: Renderer): LightingPipeline {
   return new TopDownLightingPipeline({
     renderer,
@@ -89,6 +111,11 @@ export class RoomLightingController {
   private faulted = false;
   private lastDiagnosticKey = "";
   private readonly reportedLightingFrameKeys = new Set<string>();
+  private displayedAmbientLighting: AmbientLightingValues | null = null;
+  private ambientTransitionTarget: AmbientLightingValues | null = null;
+  private ambientTransitionFrom: AmbientLightingValues | null = null;
+  private ambientTransitionStartedAtMs = 0;
+  private ambientTransitionDurationMs = 0;
 
   constructor(options: RoomLightingControllerOptions) {
     this.renderer = options.renderer;
@@ -143,6 +170,14 @@ export class RoomLightingController {
     }
 
     try {
+      const timeMs = timeSeconds * 1000;
+      const targetAmbient: AmbientLightingValues = mapped.frame.roomLighting;
+      const durationMs = scene.lighting?.ambientLighting?.transitionDurationMs;
+      const safeDurationMs = Number.isFinite(durationMs) ? Math.max(0, durationMs!) : 0;
+      const currentAmbient = this.resolveAmbientLighting(targetAmbient, safeDurationMs, timeMs);
+      mapped.frame.roomLighting.ambient = currentAmbient.ambient;
+      mapped.frame.roomLighting.ambientColor = currentAmbient.ambientColor;
+
       this.ensureRoomGeometry(mapped.geometry);
       const sourceTexture = this.sourceTexture;
       if (!sourceTexture) {
@@ -191,6 +226,58 @@ export class RoomLightingController {
       });
       return false;
     }
+  }
+
+  private resolveAmbientLighting(
+    target: AmbientLightingValues,
+    durationMs: number,
+    nowMs: number
+  ): AmbientLightingValues {
+    if (!this.displayedAmbientLighting) {
+      this.displayedAmbientLighting = { ...target };
+      this.ambientTransitionTarget = { ...target };
+      this.ambientTransitionFrom = { ...target };
+      this.ambientTransitionDurationMs = 0;
+      return this.displayedAmbientLighting;
+    }
+
+    if (durationMs <= 0) {
+      this.displayedAmbientLighting = { ...target };
+      this.ambientTransitionTarget = { ...target };
+      this.ambientTransitionFrom = { ...target };
+      this.ambientTransitionStartedAtMs = nowMs;
+      this.ambientTransitionDurationMs = 0;
+      return this.displayedAmbientLighting;
+    }
+
+    const current = this.sampleAmbientTransition(nowMs);
+    if (this.ambientTransitionTarget?.ambient !== target.ambient
+      || this.ambientTransitionTarget?.ambientColor !== target.ambientColor) {
+      this.ambientTransitionFrom = { ...current };
+      this.ambientTransitionTarget = { ...target };
+      this.ambientTransitionStartedAtMs = nowMs;
+      this.ambientTransitionDurationMs = durationMs;
+      this.displayedAmbientLighting = { ...current };
+      return this.displayedAmbientLighting;
+    }
+
+    return current;
+  }
+
+  private sampleAmbientTransition(nowMs: number): AmbientLightingValues {
+    const from = this.ambientTransitionFrom ?? this.displayedAmbientLighting!;
+    const target = this.ambientTransitionTarget ?? this.displayedAmbientLighting!;
+    if (this.ambientTransitionDurationMs <= 0) {
+      this.displayedAmbientLighting = { ...target };
+      return this.displayedAmbientLighting;
+    }
+
+    const progress = Math.max(0, Math.min(1, (nowMs - this.ambientTransitionStartedAtMs) / this.ambientTransitionDurationMs));
+    this.displayedAmbientLighting = {
+      ambient: from.ambient + ((target.ambient - from.ambient) * progress),
+      ambientColor: interpolateColor(from.ambientColor, target.ambientColor, progress)
+    };
+    return this.displayedAmbientLighting;
   }
 
   renderForCapture(surface: Container, scene: GameRenderSceneSnapshot, timeSeconds: number): Texture | null {

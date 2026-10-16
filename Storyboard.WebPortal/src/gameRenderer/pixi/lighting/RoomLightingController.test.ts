@@ -87,6 +87,78 @@ describe("RoomLightingController", () => {
     expect(pipeline.dispose).toHaveBeenCalledOnce();
   });
 
+  it("interpolates ambient intensity and color from controlled frame time", () => {
+    const { controller, pipeline } = createTestController();
+    const surface = new Container();
+    controller.setEnabled(true);
+
+    controller.render(surface, scene({
+      lighting: { cellSizePx: 40, ambientLighting: { ambient: 0, ambientColor: "#ffffff" } }
+    }), 0);
+    controller.render(surface, scene({
+      lighting: { cellSizePx: 40, ambientLighting: { ambient: 1, ambientColor: "#000000", transitionDurationMs: 1000 } }
+    }), 1);
+    controller.render(surface, scene({
+      lighting: { cellSizePx: 40, ambientLighting: { ambient: 1, ambientColor: "#000000", transitionDurationMs: 1000 } }
+    }), 1.5);
+
+    expect(pipeline.submitFrame.mock.calls[pipeline.submitFrame.mock.calls.length - 1]?.[0].roomLighting).toEqual({ ambient: 0.5, ambientColor: "#808080" });
+    controller.dispose();
+  });
+
+  it("restarts an interrupted transition from the currently displayed values", () => {
+    const { controller, pipeline } = createTestController();
+    const surface = new Container();
+    controller.setEnabled(true);
+
+    controller.render(surface, scene({
+      lighting: { cellSizePx: 40, ambientLighting: { ambient: 0, ambientColor: "#ffffff" } }
+    }), 0);
+    controller.render(surface, scene({
+      lighting: { cellSizePx: 40, ambientLighting: { ambient: 1, ambientColor: "#000000", transitionDurationMs: 1000 } }
+    }), 1);
+    controller.render(surface, scene({
+      lighting: { cellSizePx: 40, ambientLighting: { ambient: 1, ambientColor: "#000000", transitionDurationMs: 1000 } }
+    }), 1.5);
+    controller.render(surface, scene({
+      lighting: { cellSizePx: 40, ambientLighting: { ambient: 0.25, ambientColor: "#0000ff", transitionDurationMs: 1000 } }
+    }), 1.5);
+    controller.render(surface, scene({
+      lighting: { cellSizePx: 40, ambientLighting: { ambient: 0.25, ambientColor: "#0000ff", transitionDurationMs: 1000 } }
+    }), 2);
+
+    expect(pipeline.submitFrame.mock.calls[pipeline.submitFrame.mock.calls.length - 1]?.[0].roomLighting).toEqual({ ambient: 0.375, ambientColor: "#4040c0" });
+    controller.dispose();
+  });
+
+  it("applies initial, zero-duration, and legacy missing-duration targets immediately", () => {
+    const { controller, pipeline } = createTestController();
+    const surface = new Container();
+    controller.setEnabled(true);
+
+    controller.render(surface, scene({
+      lighting: { cellSizePx: 40, ambientLighting: { ambient: 0.4, ambientColor: "#123456", transitionDurationMs: 10000 } }
+    }), 0);
+    expect(pipeline.submitFrame.mock.calls[pipeline.submitFrame.mock.calls.length - 1]?.[0].roomLighting).toEqual({ ambient: 0.4, ambientColor: "#123456" });
+
+    controller.render(surface, scene({
+      lighting: { cellSizePx: 40, ambientLighting: { ambient: 1, ambientColor: "#ffffff", transitionDurationMs: 1000 } }
+    }), 1);
+    controller.render(surface, scene({
+      lighting: { cellSizePx: 40, ambientLighting: { ambient: 1, ambientColor: "#ffffff", transitionDurationMs: 1000 } }
+    }), 1.5);
+    controller.render(surface, scene({
+      lighting: { cellSizePx: 40, ambientLighting: { ambient: 1, ambientColor: "#ffffff", transitionDurationMs: 0 } }
+    }), 1.5);
+    expect(pipeline.submitFrame.mock.calls[pipeline.submitFrame.mock.calls.length - 1]?.[0].roomLighting).toEqual({ ambient: 1, ambientColor: "#ffffff" });
+
+    controller.render(surface, scene({
+      lighting: { cellSizePx: 40, ambientLighting: { ambient: 0.2, ambientColor: "#abcdef" } }
+    }), 2);
+    expect(pipeline.submitFrame.mock.calls[pipeline.submitFrame.mock.calls.length - 1]?.[0].roomLighting).toEqual({ ambient: 0.2, ambientColor: "#abcdef" });
+    controller.dispose();
+  });
+
   it("renders a temporary composed output for transition capture without changing the live enable state", () => {
     const { controller, pipeline, dependencies } = createTestController();
     const surface = new Container();

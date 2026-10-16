@@ -1345,7 +1345,8 @@ export class HostApiClient {
   private readRoomAmbientLighting(source: Record<string, unknown>): HostRoomAmbientLighting {
     return {
       ambient: this.readOptionalFiniteNumber(source, ["ambient", "Ambient"]),
-      ambientColor: this.readOptionalString(source, ["ambientColor", "AmbientColor"])
+      ambientColor: this.readOptionalString(source, ["ambientColor", "AmbientColor"]),
+      transitionDurationMs: this.readOptionalFiniteNumber(source, ["transitionDurationMs", "TransitionDurationMs"])
     };
   }
 

@@ -65,7 +65,7 @@ describe("HostApiClient", () => {
               roomDisplayMode: "Independent",
               roomImageCanvasWidth: 800,
               roomImageCanvasHeight: 600,
-              ambientLighting: { ambient: 0, ambientColor: "#010203" },
+              ambientLighting: { ambient: 0, ambientColor: "#010203", transitionDurationMs: 2500 },
               directionalRenderableImages: [],
               renderableRoomObjects: [
                 {
@@ -124,7 +124,7 @@ describe("HostApiClient", () => {
       cellSizePx: 32,
       pointLightDefaults: { radiusPx: 0, intensityScale: 0, color: "#abcdef", swayStyle: "breeze" }
     });
-    expect(sessionData?.roomChange?.newRoom?.ambientLighting).toEqual({ ambient: 0, ambientColor: "#010203" });
+    expect(sessionData?.roomChange?.newRoom?.ambientLighting).toEqual({ ambient: 0, ambientColor: "#010203", transitionDurationMs: 2500 });
     expect(sessionData?.roomChange?.newRoom?.renderableRoomObjects[0].pointLight).toEqual({
       x: 0,
       y: 0,

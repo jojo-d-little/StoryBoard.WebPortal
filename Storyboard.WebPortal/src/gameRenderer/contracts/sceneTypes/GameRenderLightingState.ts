@@ -1,6 +1,7 @@
 export interface GameRenderAmbientLighting {
   ambient?: number;
   ambientColor?: string;
+  transitionDurationMs?: number;
 }
 
 export interface GameRenderPointLightDefaults {
