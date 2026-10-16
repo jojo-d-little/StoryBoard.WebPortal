@@ -8,6 +8,7 @@ import type {
 } from "../gameRenderer/presentationIsolation";
 import { DiagnosticsWorkspace, type DiagnosticsWorkspaceProps } from "./DiagnosticsWorkspace";
 import type { SessionRecordingWorkflow } from "../hooks/useSessionRecordingWorkflow";
+import type { GameScopeDumpWorkflow } from "../hooks/useGameScopeDumpWorkflow";
 import { parseCommandSequence, type CommandSequenceStep } from "../utils/commandSequence";
 
 type SlotModeOverrides = Record<string, SlotMode>;
@@ -128,6 +129,7 @@ const HUD_THEME_TYPOGRAPHY_DESCRIPTIONS: Record<HudThemeTypographyTokenKey, { la
 };
 
 interface DevToolsPanelProps {
+  gameScopeDump: GameScopeDumpWorkflow;
   diagnosticsEnabled: boolean;
   diagnosticsVerbose: boolean;
   hostApiBaseUrlOverride: string;
@@ -496,7 +498,11 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
           ) : null}
 
           {activeSection === "diagnostics" ? (
-            <DiagnosticsWorkspace {...props.diagnosticsWorkspace} />
+            <DiagnosticsWorkspace
+              {...props.diagnosticsWorkspace}
+              gameScopeDump={props.gameScopeDump}
+              hasActiveGameSession={Boolean(props.activeSessionId && props.selectedGameId)}
+            />
           ) : null}
 
           {activeSection === "recording" ? (

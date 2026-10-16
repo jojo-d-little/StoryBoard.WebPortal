@@ -67,7 +67,10 @@ import type {
   HostAdvancePlaybackResult,
   HostContinueRecordingFromHereResult,
   HostNextPlaybackStep,
-  HostPlaybackStepOutcome
+  HostPlaybackStepOutcome,
+  HostGameScopeDumpPreset,
+  HostGetGameScopeDumpCapabilitiesResult,
+  HostGameScopeDumpResult
 } from "./HostContracts";
 
 export interface HostApiClientOptions {
@@ -375,6 +378,70 @@ export class HostApiClient {
 
     const data = await this.postJson<Record<string, unknown>>("/api/v1/runtime/process-command", payload);
     return this.readProcessCommandResult(data, rawCommandText, commandCorrelationId);
+  }
+
+  async getGameScopeDumpCapabilities(
+    credentialHandle: string,
+    gameId: string,
+    sessionId: string
+  ): Promise<HostGetGameScopeDumpCapabilitiesResult> {
+    const payload = {
+      context: this.buildContext("webportal-game-scope-dump-capabilities", credentialHandle, sessionId),
+      gameId
+    };
+    const data = await this.postJson<Record<string, unknown>>(
+      "/api/v1/session/game-scope-dump/capabilities",
+      payload
+    );
+    const capabilities = this.readObject(data, ["capabilities", "Capabilities"]);
+    return {
+      result: this.readResult(data),
+      capabilities: {
+        available: this.readBoolean(capabilities, ["available", "Available"]),
+        maxItems: this.readNumber(capabilities, ["maxItems", "MaxItems"]),
+        maxRecordBytes: this.readNumber(capabilities, ["maxRecordBytes", "MaxRecordBytes"]),
+        maxTotalBytes: this.readNumber(capabilities, ["maxTotalBytes", "MaxTotalBytes"]),
+        maxDurationMilliseconds: this.readNumber(capabilities, ["maxDurationMilliseconds", "MaxDurationMilliseconds"])
+      }
+    };
+  }
+
+  async requestGameScopeDump(
+    credentialHandle: string,
+    gameId: string,
+    sessionId: string,
+    scope: HostGameScopeDumpPreset
+  ): Promise<HostGameScopeDumpResult> {
+    const payload = {
+      context: this.buildContext("webportal-game-scope-dump-request", credentialHandle, sessionId),
+      gameId,
+      scope
+    };
+    const data = await this.postJson<Record<string, unknown>>(
+      "/api/v1/session/game-scope-dump/capture",
+      payload
+    );
+    const rawOutcome = this.readString(data, ["outcome", "Outcome"]);
+    const outcome: HostGameScopeDumpResult["outcome"] = rawOutcome === "Truncated"
+      || rawOutcome === "Failed"
+      || rawOutcome === "Rejected"
+      ? rawOutcome
+      : "Completed";
+    const rawScope = this.readString(data, ["scope", "Scope"]);
+    const resolvedScope = this.readGameScopeDumpPreset(rawScope) ?? scope;
+    return {
+      result: this.readResult(data),
+      dumpId: this.readString(data, ["dumpId", "DumpId"]),
+      gameId: this.readString(data, ["gameId", "GameId"]),
+      sessionId: this.readString(data, ["sessionId", "SessionId"]),
+      scope: resolvedScope,
+      outcome,
+      startedUtc: this.readOptionalString(data, ["startedUtc", "StartedUtc"]) ?? null,
+      completedUtc: this.readString(data, ["completedUtc", "CompletedUtc"]),
+      itemCount: this.readNumber(data, ["itemCount", "ItemCount"]),
+      errorCode: this.readOptionalString(data, ["errorCode", "ErrorCode"]) ?? null,
+      message: this.readOptionalString(data, ["message", "Message"]) ?? null
+    };
   }
 
   async getRecordPlaybackCapabilities(
@@ -1838,6 +1905,20 @@ export class HostApiClient {
     }
 
     return "Failure";
+  }
+
+  private readGameScopeDumpPreset(raw: string): HostGameScopeDumpPreset | undefined {
+    switch (raw) {
+      case "All":
+      case "RoomAndAncestors":
+      case "RoomAndDecendents":
+      case "RoomAndRelatives":
+      case "PhaseAndAncestors":
+      case "PhaseAll":
+        return raw;
+      default:
+        return undefined;
+    }
   }
 
   private buildSessionDeltaPath(path: string, watermark: string, batchProfile: HostSessionDeltaBatchProfile): string {

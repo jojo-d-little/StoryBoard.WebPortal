@@ -43,6 +43,14 @@ export type {
   HostPlaybackStepOutcome
 } from "./HostRecordPlaybackContracts";
 export type { HostRequestContext } from "./HostRequestContext";
+export type {
+  HostGameScopeDumpPreset,
+  HostGetGameScopeDumpCapabilitiesRequest,
+  HostGameScopeDumpCapabilities,
+  HostGetGameScopeDumpCapabilitiesResult,
+  HostGameScopeDumpRequest,
+  HostGameScopeDumpResult
+} from "./HostGameScopeDumpContracts";
 export type { HostClarificationAnswer } from "./HostClarificationAnswer";
 export type { HostClarificationCandidate } from "./HostClarificationCandidate";
 export type { HostPendingClarificationRequest } from "./HostPendingClarificationRequest";

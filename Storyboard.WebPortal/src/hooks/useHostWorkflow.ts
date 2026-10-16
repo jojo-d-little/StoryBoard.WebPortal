@@ -32,6 +32,7 @@ import {
 } from "./usePresentationCueWorkflow";
 import { usePresentationCueCatalogWorkflow } from "./usePresentationCueCatalogWorkflow";
 import { useSessionRecordingWorkflow } from "./useSessionRecordingWorkflow";
+import { useGameScopeDumpWorkflow } from "./useGameScopeDumpWorkflow";
 import { resolveHostTextPresentationCue } from "../gameRenderer/presentationCue/presentationCueCatalog";
 import {
   useSessionPhasePresentationWorkflow,
@@ -271,6 +272,7 @@ export interface HostWorkflowState {
   setSelectedRoomTransitionCueEffectKey: (effectKey: string) => void;
   roomTransitionCatalogStatus: RoomTransitionCatalogStatus;
   sessionRecording: ReturnType<typeof useSessionRecordingWorkflow>;
+  gameScopeDump: ReturnType<typeof useGameScopeDumpWorkflow>;
   waypointPointPlacementCueEffectKey: string;
   waypointPointPlacementCueStyle: ResolvedStyledPointEffect | null;
   gameplayInteractionSubstate: GameplayInteractionSubstate;
@@ -445,6 +447,14 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
   }, [options.addDiagnostic, options.baseUrlOverride]);
 
   const sessionRecording = useSessionRecordingWorkflow({
+    credentialHandle,
+    gameId: selectedGameId,
+    sessionId: activeSessionId,
+    hostApiClient,
+    addDiagnostic: options.addDiagnostic
+  });
+
+  const gameScopeDump = useGameScopeDumpWorkflow({
     credentialHandle,
     gameId: selectedGameId,
     sessionId: activeSessionId,
@@ -1191,6 +1201,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     setSelectedRoomTransitionCueEffectKey,
     roomTransitionCatalogStatus,
     sessionRecording,
+    gameScopeDump,
     waypointPointPlacementCueEffectKey,
     waypointPointPlacementCueStyle,
     gameplayInteractionSubstate,

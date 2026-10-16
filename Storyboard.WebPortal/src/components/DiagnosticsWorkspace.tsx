@@ -7,6 +7,7 @@ import {
   type PortalTraceExportMetadata
 } from "../diagnostics/portalTraceExport";
 import type { DiagnosticsProfileKey } from "../diagnostics/traceProfiles";
+import { GAME_SCOPE_DUMP_PRESETS, type GameScopeDumpWorkflow } from "../hooks/useGameScopeDumpWorkflow";
 
 export type DiagnosticsProfile = "Off" | DiagnosticsProfileKey | "Custom";
 
@@ -23,6 +24,8 @@ export interface DiagnosticsWorkspaceCategoryOption {
 }
 
 export interface DiagnosticsWorkspaceProps {
+  gameScopeDump?: GameScopeDumpWorkflow;
+  hasActiveGameSession?: boolean;
   capturing: boolean;
   profile: DiagnosticsProfile;
   profileOptions: Array<{ key: string; label: string }>;
@@ -67,6 +70,7 @@ function formatTimestampForFileName(date: Date): string {
 
 export function DiagnosticsWorkspace(props: DiagnosticsWorkspaceProps): JSX.Element {
   const [exportStatus, setExportStatus] = useState<ExportStatus>(null);
+  const gameScopeDump = props.gameScopeDump;
   const captureState = props.capturing
     ? props.droppedCount > 0 ? "Truncated" : "Capturing"
     : props.captureStoppedUtc ? "Stopped" : "Off";
@@ -138,6 +142,44 @@ export function DiagnosticsWorkspace(props: DiagnosticsWorkspaceProps): JSX.Elem
     <section className="diagnostics-workspace" aria-label="Diagnostics workspace">
       <h3>Diagnostics</h3>
       <p className="subtitle">Capture and inspect Portal client trace without changing backend diagnostics behavior.</p>
+
+      {gameScopeDump ? (
+        <section className="diagnostics-engine-dump" aria-label="Engine scope dump capture">
+          <strong className="diagnostics-engine-dump-label">Engine dump</strong>
+          <div className="diagnostics-engine-dump-actions" role="group" aria-label="Capture game scope preset">
+            {GAME_SCOPE_DUMP_PRESETS.map((preset) => (
+              <button
+                key={preset.value}
+                type="button"
+                title={`Capture ${preset.label}`}
+                aria-label={`Capture ${preset.label}`}
+                onClick={() => void gameScopeDump.capture(preset.value)}
+                disabled={!props.hasActiveGameSession || !gameScopeDump.capabilities?.available || gameScopeDump.busy}
+              >{preset.label}</button>
+            ))}
+            <button
+              type="button"
+              onClick={() => void gameScopeDump.refreshCapabilities()}
+              disabled={!props.hasActiveGameSession || gameScopeDump.capabilityLoading || gameScopeDump.busy}
+              aria-label="Refresh game scope dump capability"
+            >Refresh</button>
+          </div>
+          {!props.hasActiveGameSession ? <span role="status" className="diagnostics-engine-dump-status">Attach a development session</span> : null}
+          {props.hasActiveGameSession && gameScopeDump.capabilityLoading ? <span role="status" className="diagnostics-engine-dump-status">Checking…</span> : null}
+          {gameScopeDump.capabilityError ? <span role="alert" className="diagnostics-engine-dump-status status-error">{gameScopeDump.capabilityError}</span> : null}
+          {props.hasActiveGameSession && !gameScopeDump.capabilityLoading && !gameScopeDump.capabilityError && !gameScopeDump.capabilities?.available ? (
+            <span role="status" className="diagnostics-engine-dump-status">Unavailable</span>
+          ) : null}
+          {gameScopeDump.busy ? <span role="status" className="diagnostics-engine-dump-status">Capturing…</span> : null}
+          {gameScopeDump.error ? <span role="alert" className="diagnostics-engine-dump-status status-error">{gameScopeDump.error}</span> : null}
+          {gameScopeDump.lastCapture && !gameScopeDump.error ? (
+            <span className="diagnostics-engine-dump-status" role="status" aria-label="Engine scope dump result">
+              {gameScopeDump.lastCapture.outcome} · dumpId={gameScopeDump.lastCapture.dumpId || "unavailable"} · {gameScopeDump.lastCapture.completedUtc || "time unavailable"} · {gameScopeDump.lastCapture.itemCount} items · inspect this ID in the Engine flow trace
+              {gameScopeDump.lastCapture.errorCode ? ` · ${gameScopeDump.lastCapture.errorCode}` : ""}
+            </span>
+          ) : null}
+        </section>
+      ) : null}
 
       <div className="diagnostics-workspace-status" data-testid="diagnostics-capture-status">
         <strong>{captureState}</strong>

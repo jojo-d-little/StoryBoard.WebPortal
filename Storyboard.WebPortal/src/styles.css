@@ -548,16 +548,17 @@ input:disabled {
 
 .devtools-layout {
   display: grid;
-  grid-template-columns: minmax(170px, 220px) minmax(0, 1fr);
-  gap: 0.85rem;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  gap: 0.65rem;
   align-items: start;
 }
 
 .devtools-nav {
   display: grid;
-  gap: 0.45rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
   border-right: 1px solid var(--theme-color-border-primary);
-  padding-right: 0.75rem;
+  padding-right: 0.55rem;
 }
 
 .devtools-nav button {
@@ -565,6 +566,9 @@ input:disabled {
   background: var(--theme-color-control-background);
   border: var(--theme-size-border-thickness) solid var(--theme-color-border-primary);
   color: var(--theme-color-chrome-primary);
+  padding: 0.4rem 0.5rem;
+  font-size: 0.84rem;
+  line-height: 1.15;
 }
 
 .devtools-nav button.active {
@@ -575,9 +579,9 @@ input:disabled {
 }
 
 .devtools-section {
-  min-height: 10rem;
+  min-height: 8rem;
   min-width: 0;
-  max-height: min(68vh, 48rem);
+  max-height: min(52vh, 38rem);
   overflow-x: hidden;
   overflow-y: auto;
   padding-right: 0.3rem;
@@ -891,14 +895,14 @@ input:disabled {
   }
 
   .devtools-nav {
-    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     border-right: 0;
     border-bottom: 1px solid var(--theme-color-border-primary);
     padding: 0 0 0.6rem;
   }
 
   .devtools-section {
-    max-height: min(62vh, 42rem);
+    max-height: min(46vh, 34rem);
   }
 }
 
@@ -1024,6 +1028,39 @@ input:disabled {
 
 .diagnostics-workspace-actions {
   margin-top: 0.15rem;
+}
+
+.diagnostics-engine-dump {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  border: var(--theme-size-border-thickness) solid var(--theme-color-border-primary);
+  border-radius: var(--theme-shape-radius-base);
+  padding: 0.35rem 0.45rem;
+  background: var(--theme-color-control-background);
+}
+
+.diagnostics-engine-dump-label,
+.diagnostics-engine-dump-status {
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+}
+
+.diagnostics-engine-dump-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 0.3rem;
+}
+
+.diagnostics-engine-dump-actions button {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.76rem;
+  white-space: nowrap;
 }
 
 .diagnostics-workspace details {

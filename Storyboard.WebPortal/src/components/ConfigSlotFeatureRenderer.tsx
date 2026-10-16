@@ -235,6 +235,7 @@ export function ConfigSlotFeatureRenderer(props: ConfigSlotFeatureRendererProps)
     return (
       <DevToolsPanelComponent
         sessionRecording={hostWorkflow.sessionRecording}
+        gameScopeDump={hostWorkflow.gameScopeDump}
         activeSessionId={hostWorkflow.activeSessionId}
         selectedGameId={hostWorkflow.selectedGameId}
         submitCommand={hostWorkflow.submitCommand}
