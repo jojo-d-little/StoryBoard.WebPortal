@@ -1,7 +1,7 @@
 {
   "name": "storyboard-webportal",
   "private": true,
-  "version": "0.1.9",
+  "version": "1.0.16",
   "type": "module",
   "scripts": {
     "dev": "vite",
