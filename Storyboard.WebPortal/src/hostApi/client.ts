@@ -1369,6 +1369,7 @@ export class HostApiClient {
       name: this.readString(source, ["name", "Name"]),
       renderableImage: this.readRenderableImage(renderableImage),
       renderZOrder: this.readNumber(source, ["renderZOrder", "RenderZOrder"]),
+      imageTransparency: this.readOptionalFiniteNumber(source, ["imageTransparency", "ImageTransparency"]),
       pointLight: pointLight === null ? null : pointLight ? this.readPointLight(pointLight) : undefined,
       spatialFootprint: spatialFootprint === null ? null : spatialFootprint ? this.readSpatialFootprint(spatialFootprint) : undefined,
       lightOcclusion: lightOcclusion === null ? null : lightOcclusion ? this.readLightOcclusion(lightOcclusion) : undefined,
