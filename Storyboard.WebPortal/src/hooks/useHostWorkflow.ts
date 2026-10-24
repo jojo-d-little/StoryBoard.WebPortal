@@ -72,6 +72,7 @@ type AddDiagnostic = (level: DiagnosticsLevel, category: string, message: string
 
 interface UseHostWorkflowOptions {
   baseUrlOverride: string;
+  launchMode: "normal" | "devsimulator";
   developmentBootstrap: {
     username: string;
     autoStartSession: boolean;
@@ -212,6 +213,7 @@ export interface HostWorkflowState {
   reportRendererDiagnostic: (event: GameRendererDiagnosticsEvent) => void;
   reportRendererRoomTransitionState: (state: GameRendererRoomTransitionState) => void;
   roomTransitionPreparationEpoch: number;
+  loadParticleEffectImage: (relativeLocator: string) => Promise<string | null>;
   sessionDeltaRevision: number;
   sessionOutputLines: string[];
   pendingCommandClarification: HostPendingClarificationRequest | null;
@@ -265,12 +267,15 @@ export interface HostWorkflowState {
   presentationIsolationCategoryOptions: PresentationIsolationCategoryOption[];
   setPresentationIsolationEnabled: (value: boolean) => void;
   setLightingEnabled: (value: boolean) => void;
+  setParticleEffectsEnabled: (value: boolean) => void;
   setLightingGridEnabled: (value: boolean) => void;
   setPresentationIsolationCategoryEnabled: (category: PresentationIsolationCategory, value: boolean) => void;
   roomTransitionCueOptions: RoomTransitionCueOption[];
   selectedRoomTransitionCueEffectKey: string;
   setSelectedRoomTransitionCueEffectKey: (effectKey: string) => void;
   roomTransitionCatalogStatus: RoomTransitionCatalogStatus;
+  particleAssetWarmupEnabled: boolean;
+  setParticleAssetWarmupEnabled: (enabled: boolean) => void;
   sessionRecording: ReturnType<typeof useSessionRecordingWorkflow>;
   gameScopeDump: ReturnType<typeof useGameScopeDumpWorkflow>;
   waypointPointPlacementCueEffectKey: string;
@@ -375,6 +380,10 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
   const [selectedSessionId, setSelectedSessionId] = useState<string>("");
   const [activeSessionId, setActiveSessionId] = useState<string>("");
   const [activeSessionIsOwner, setActiveSessionIsOwner] = useState<boolean>(false);
+  const [particleAssetWarmupEnabled, setParticleAssetWarmupEnabled] = useState<boolean>(options.launchMode === "normal");
+  useEffect(() => {
+    setParticleAssetWarmupEnabled(options.launchMode === "normal");
+  }, [activeSessionId, options.launchMode]);
   const [rendererSceneSnapshot, setRendererSceneSnapshot] = useState<GameRenderSceneSnapshot | null>(null);
   const [rendererScaleMetrics, setRendererScaleMetrics] = useState<RendererScaleMetrics | null>(null);
   const [rendererLastClickPoint, setRendererLastClickPoint] = useState<RendererLastClickPoint | null>(null);
@@ -391,6 +400,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
   const [presentationIsolationSettings, setPresentationIsolationSettings] = useState<PresentationIsolationSettings>(() => ({
     enabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.enabled,
     lightingEnabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.lightingEnabled,
+    particleEffectsEnabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.particleEffectsEnabled,
     lightingGridEnabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.lightingGridEnabled,
     categories: { ...DEFAULT_PRESENTATION_ISOLATION_SETTINGS.categories }
   }));
@@ -467,6 +477,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     presentationCueCatalogSource,
     presentationCueCatalogError,
     getCurrentPresentationCueCatalog,
+    ensurePresentationCueCatalogReady,
     clearPresentationCueCatalog
   } = usePresentationCueCatalogWorkflow({
     credentialHandle,
@@ -513,6 +524,16 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
       lightingEnabled: value
     }));
     options.addDiagnostic("info", "presentation-effects", "Updated Portal lighting presentation setting.", {
+      enabled: value
+    });
+  }, [options.addDiagnostic]);
+
+  const setParticleEffectsEnabled = useCallback((value: boolean): void => {
+    setPresentationIsolationSettings((previous) => ({
+      ...previous,
+      particleEffectsEnabled: value
+    }));
+    options.addDiagnostic("info", "presentation-effects", "Updated Portal particle effects presentation setting.", {
       enabled: value
     });
   }, [options.addDiagnostic]);
@@ -672,7 +693,8 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     reportRoomTransitionState: reportRendererRoomTransitionState,
     roomTransitionPreparationEpoch,
     roomTransitionActive,
-    sessionDeltaRevision
+    sessionDeltaRevision,
+    loadParticleEffectImage
   } = useHostRendererSessionWorkflow({
     hostApiClient,
     credentialHandle,
@@ -684,7 +706,9 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     setRendererSceneSnapshot,
     applyPresentationCues,
     getCurrentPresentationCueCatalog,
+    ensurePresentationCueCatalogReady,
     presentationCueCatalogSource,
+    particleAssetWarmupEnabled,
     getHudOverlayEntries: () => hudOverlayEntries.map((entry) => ({
       id: entry.id,
       text: entry.text,
@@ -1148,6 +1172,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     reportRendererLastClickPoint,
     reportRendererDiagnostic,
     reportRendererRoomTransitionState,
+    loadParticleEffectImage,
     roomTransitionPreparationEpoch,
     sessionDeltaRevision,
     sessionOutputLines,
@@ -1194,12 +1219,15 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     presentationIsolationCategoryOptions,
     setPresentationIsolationEnabled,
     setLightingEnabled,
+    setParticleEffectsEnabled,
     setLightingGridEnabled,
     setPresentationIsolationCategoryEnabled,
     roomTransitionCueOptions,
     selectedRoomTransitionCueEffectKey,
     setSelectedRoomTransitionCueEffectKey,
     roomTransitionCatalogStatus,
+    particleAssetWarmupEnabled,
+    setParticleAssetWarmupEnabled,
     sessionRecording,
     gameScopeDump,
     waypointPointPlacementCueEffectKey,

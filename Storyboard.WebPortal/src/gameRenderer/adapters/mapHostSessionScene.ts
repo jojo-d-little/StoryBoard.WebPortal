@@ -1,7 +1,8 @@
-import type { HostCommandMoveLegTelemetry, HostCommandRenderableRoomObject, HostRoomDisplayMode, HostSessionPresentationData, HostSessionPresentationSettings } from "../../hostApi/HostContracts";
+import type { HostCommandMoveLegTelemetry, HostCommandRenderableRoomObject, HostRoomDisplayMode, HostSessionPresentationData, HostSessionPresentationSettings, HostEnvironmentalParticleEffectInstance, HostObjectParticleEffectInstance, HostParticleEffectBurst } from "../../hostApi/HostContracts";
 import type { GameRenderDisplayMode, GameRenderMoveLegTelemetry, GameRenderObjectLighting, GameRenderRoomObject, GameRenderSceneObject, GameRenderSceneSnapshot } from "../contracts/sceneTypes";
 import { buildDirectionalOverlayScene } from "../scene";
 import { toSpriteComponent } from "../scene/sceneObjects";
+import type { GameRenderParticleEffect, GameRenderParticleBurst } from "../contracts/presentationEffects";
 
 const FALLBACK_ROOM_WIDTH = 800;
 const FALLBACK_ROOM_HEIGHT = 600;
@@ -141,8 +142,66 @@ function mapHostObject(
     objectName: roomObject.name,
     ...(spriteObject ? { sprite: toSpriteComponent(spriteObject) } : {}),
     ...(lighting ? { lighting } : {}),
+    ...(roomObject.particleEffect ? { particleEffect: mapObjectParticleEffect(roomObject.objectId, roomObject.particleEffect, roomObject.renderZOrder) } : {}),
     activePresentationCues,
     ...resolveMovementTimingFromCues(activePresentationCues)
+  };
+}
+
+function mapParticleControls(targetControls: HostObjectParticleEffectInstance["targetControls"]): GameRenderParticleEffect["tuning"] {
+  const tuning: GameRenderParticleEffect["tuning"] = {};
+  for (const [name, value] of Object.entries(targetControls ?? {})) {
+    if (value.valueType === "Numeric" && Number.isFinite(value.numericValue)) {
+      (tuning as Record<string, unknown>)[name] = value.numericValue;
+    } else if (value.valueType === "String" && typeof value.stringValue === "string") {
+      if (name === "Colors") {
+        try {
+          const colors = JSON.parse(value.stringValue) as { primary?: unknown; secondary?: unknown };
+          if (typeof colors.primary === "string" && typeof colors.secondary === "string") {
+            tuning.Colors = { primary: colors.primary, secondary: colors.secondary };
+          }
+        } catch { /* Invalid colors are ignored; the packaged recipe palette remains active. */ }
+      } else if (name === "Tint") {
+        tuning.Tint = value.stringValue;
+      }
+    }
+  }
+  return tuning;
+}
+
+function mapObjectParticleEffect(objectId: string, effect: HostObjectParticleEffectInstance, order: number): GameRenderParticleEffect {
+  return {
+    id: objectId,
+    effectKey: effect.effectKey,
+    x: effect.x,
+    y: effect.y,
+    enabled: effect.isProducing,
+    order,
+    tuning: mapParticleControls(effect.targetControls)
+  };
+}
+
+function mapEnvironmentalParticleEffect(effect: HostEnvironmentalParticleEffectInstance): GameRenderParticleEffect {
+  return {
+    id: effect.instanceId,
+    effectKey: effect.effectKey,
+    enabled: effect.isProducing,
+    order: effect.renderOrder,
+    tuning: mapParticleControls(effect.targetControls)
+  };
+}
+
+function mapParticleBurst(burst: HostParticleEffectBurst): GameRenderParticleBurst {
+  return {
+    id: burst.burstId,
+    sourceObjectId: burst.sourceObjectId,
+    roomId: burst.roomId,
+    effectKey: burst.effectKey,
+    x: burst.x,
+    y: burst.y,
+    enabled: true,
+    order: 0,
+    tuning: mapParticleControls(burst.targetControls)
   };
 }
 
@@ -195,8 +254,11 @@ function applyObjectChanges(
     if (change.changeKind === "Shown" && !renderableRoomObject) {
       continue;
     }
+    const previous = objectsById[change.objectId];
     const activePresentationCues = renderableRoomObject
-      ? mapActivePresentationCues(renderableRoomObject)
+      ? (change.changeKind === "Updated" && renderableRoomObject.activePresentationCues == null
+          ? previous?.activePresentationCues ?? []
+          : mapActivePresentationCues(renderableRoomObject))
       : [];
     const mapped = renderableRoomObject
       ? mapHostObject(renderableRoomObject, activePresentationCues)
@@ -349,6 +411,8 @@ export function mapHostPresentationToSceneSnapshot(source: HostPresentationScene
     bounds: resolveRoomBounds(source),
     directionalOverlays,
     objectsById: mapRoomObjectsFromNewRoom(source),
+    environmentalParticleEffects: (Array.isArray(newRoom.environmentalParticleEffects) ? newRoom.environmentalParticleEffects : []).map(mapEnvironmentalParticleEffect),
+    particleEffectImageMappings: newRoom.particleEffectImageMappings ?? [],
     lighting: mapLightingState(source),
     moveLegTelemetry: [],
     roomTransition: source.roomChange?.travelDirection
@@ -383,7 +447,9 @@ export function mapHostSessionDataToSceneSnapshot(
       objectsById: applyObjectChanges(baselineObjects, sessionData.roomObjectChanges),
       lighting: {
         ...applyLightingSessionSettings(roomLightingWithRetainedSessionSettings, sessionData.sessionPresentationSettings),
-      }
+      },
+      ...(sessionData.particleEffectBursts === undefined ? {} : { particleEffectBursts: sessionData.particleEffectBursts.map(mapParticleBurst) }),
+      particleEffectImageMappings: mergeParticleEffectImageMappings(previousSnapshot?.particleEffectImageMappings, baselineSnapshot.particleEffectImageMappings)
     };
   }
 
@@ -393,6 +459,11 @@ export function mapHostSessionDataToSceneSnapshot(
 
   const previousLighting = previousSnapshot.lighting ?? {};
   const lightingWithSettings = applyLightingSessionSettings(previousLighting, sessionData.sessionPresentationSettings);
+  const currentRoomUpdate = sessionData.roomChange?.currentRoom;
+  const currentRoomEnvironment = currentRoomUpdate?.environmentalParticleEffects;
+  const imageMappings = currentRoomUpdate && currentRoomUpdate.roomId === previousSnapshot.roomId
+    ? currentRoomUpdate.particleEffectImageMappings
+    : undefined;
 
   return {
     ...previousSnapshot,
@@ -403,6 +474,23 @@ export function mapHostSessionDataToSceneSnapshot(
       ...(sessionData.roomChange?.newRoom?.ambientLighting !== undefined
         ? { ambientLighting: sessionData.roomChange.newRoom.ambientLighting }
         : {}),
-    }
+    },
+    ...(currentRoomUpdate?.roomId === previousSnapshot.roomId
+      && Array.isArray(currentRoomEnvironment)
+      ? { environmentalParticleEffects: currentRoomEnvironment.map(mapEnvironmentalParticleEffect) }
+      : {}),
+    ...(sessionData.particleEffectBursts === undefined ? { particleEffectBursts: [] } : { particleEffectBursts: sessionData.particleEffectBursts.map(mapParticleBurst) }),
+    ...(imageMappings === undefined ? {} : { particleEffectImageMappings: mergeParticleEffectImageMappings(previousSnapshot.particleEffectImageMappings, imageMappings) })
   };
+}
+
+function mergeParticleEffectImageMappings(
+  previous: GameRenderSceneSnapshot["particleEffectImageMappings"],
+  additions: GameRenderSceneSnapshot["particleEffectImageMappings"]
+): GameRenderSceneSnapshot["particleEffectImageMappings"] {
+  const merged = new Map<string, NonNullable<GameRenderSceneSnapshot["particleEffectImageMappings"]>[number]>();
+  for (const mapping of [...(previous ?? []), ...(additions ?? [])]) {
+    merged.set(`${mapping.effectKey}\u0000${mapping.imageSlot}`, mapping);
+  }
+  return [...merged.values()];
 }

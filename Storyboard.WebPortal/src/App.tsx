@@ -112,6 +112,7 @@ const DEFAULT_THEME_TYPOGRAPHY: ThemeTypographyTokens = {
 };
 
 const RESERVED_QUERY_PARAM_NAMES = new Set(["ff", "cp", "sk", "mode", "username", "autoStartSession"]);
+const MAX_DIAGNOSTICS_ENTRIES = 500;
 
 type DiagnosticCategoryOption = {
   category: string;
@@ -323,7 +324,8 @@ export default function App(props: AppProps): JSX.Element {
       );
   });
   const [hostApiBaseUrlOverride, setHostApiBaseUrlOverride] = useState<string>(() => readPersistedOverride(DEV_TOOLS_STORAGE_KEYS.hostApiBaseUrlOverride));
-  const [maxDiagnosticsEntries, setMaxDiagnosticsEntries] = useState<number>(() => readNumberSetting(DEV_TOOLS_STORAGE_KEYS.maxDiagnosticsEntries, 150));
+  const [maxDiagnosticsEntries, setMaxDiagnosticsEntries] = useState<number>(() =>
+    Math.max(MAX_DIAGNOSTICS_ENTRIES, readNumberSetting(DEV_TOOLS_STORAGE_KEYS.maxDiagnosticsEntries, MAX_DIAGNOSTICS_ENTRIES)));
   const [diagnosticsProfile, setDiagnosticsProfile] = useState<DiagnosticsProfile>(() => {
     return readDiagnosticsProfileSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsProfile, settings.diagnosticsProfiles.defaultProfile, settings.diagnosticsProfiles.profiles);
   });
@@ -424,7 +426,7 @@ export default function App(props: AppProps): JSX.Element {
       const retention = appendPortalTraceEvent(
         previous,
         entry,
-        Math.max(10, Math.min(500, maxDiagnosticsEntries))
+        Math.max(10, Math.min(MAX_DIAGNOSTICS_ENTRIES, maxDiagnosticsEntries))
       );
       diagnosticsDroppedCountRef.current += retention.droppedCount;
       if (retention.droppedCount > 0) {
@@ -1066,6 +1068,7 @@ export default function App(props: AppProps): JSX.Element {
 
   const hostWorkflow = useHostWorkflow({
     baseUrlOverride: hostApiBaseUrlOverride,
+    launchMode: launchContext.mode,
     developmentBootstrap,
     startupAudioStatus: startupAudioGate.status,
     pollIntervalMs,

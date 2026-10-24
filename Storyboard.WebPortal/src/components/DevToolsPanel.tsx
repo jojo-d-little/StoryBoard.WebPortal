@@ -168,6 +168,8 @@ interface DevToolsPanelProps {
   onThemeTypographyReset: () => void;
   previewContext?: PreviewContext;
   cacheStats: WebPortalAssetCacheStats;
+  particleAssetWarmupEnabled: boolean;
+  onParticleAssetWarmupEnabledChange: (enabled: boolean) => void;
   onResetCacheStats: () => void;
   onClearMemoryCache: () => void;
   onClearPersistentCache: () => Promise<void>;
@@ -191,6 +193,7 @@ interface DevToolsPanelProps {
   presentationIsolationCategoryOptions: PresentationIsolationCategoryOption[];
   onPresentationIsolationEnabledChange: (value: boolean) => void;
   onLightingEnabledChange: (value: boolean) => void;
+  onParticleEffectsEnabledChange: (value: boolean) => void;
   onLightingGridEnabledChange: (value: boolean) => void;
   onPresentationIsolationCategoryEnabledChange: (category: PresentationIsolationCategory, value: boolean) => void;
   roomTransitionCueOptions: Array<{
@@ -961,6 +964,16 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
           {activeSection === "cache" ? (
             <>
               <h3>Cache</h3>
+              <div className="grid">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={props.particleAssetWarmupEnabled}
+                    onChange={(event) => props.onParticleAssetWarmupEnabledChange(event.target.checked)}
+                  />
+                  Warm discovered particle art (session only)
+                </label>
+              </div>
               <p className="subtitle">Read-through cache effectiveness and pressure across memory and IndexedDB tiers.</p>
 
               <div className="events">
@@ -1025,6 +1038,15 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                     type="checkbox"
                     checked={props.presentationIsolationSettings.lightingEnabled}
                     onChange={(e) => props.onLightingEnabledChange(e.target.checked)}
+                  />
+                </label>
+
+                <label>
+                  <span>Particle Effects</span>
+                  <input
+                    type="checkbox"
+                    checked={props.presentationIsolationSettings.particleEffectsEnabled}
+                    onChange={(e) => props.onParticleEffectsEnabledChange(e.target.checked)}
                   />
                 </label>
 

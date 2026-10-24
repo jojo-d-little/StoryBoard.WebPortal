@@ -25,6 +25,8 @@ import type {
   HostGameDescriptor,
   HostGameDetailsDescriptor,
   HostGetGameDetailsResult,
+  HostDiscoverAssetsRequest,
+  HostDiscoverAssetsResult,
   HostGetCurrentPrincipalRequest,
   HostJoinSessionRequest,
   HostJoinSessionResult,
@@ -34,6 +36,11 @@ import type {
   HostListSessionsResult,
   HostCommandRenderableImage,
   HostCommandRenderableRoomObject,
+  HostObjectParticleEffectInstance,
+  HostEnvironmentalParticleEffectInstance,
+  HostParticleEffectImageMapping,
+  HostParticleEffectBurst,
+  HostParticleEffectControlValue,
   HostObjectLightOcclusion,
   HostObjectPointLight,
   HostObjectSpatialFootprint,
@@ -209,6 +216,42 @@ export class HostApiClient {
     }
 
     return `data:${contentType};base64,${payloadBytes}`;
+  }
+
+  async discoverAssets(
+    credentialHandle: string,
+    sessionId: string,
+    scopeDepth: HostDiscoverAssetsRequest["scopeDepth"] = "Ancestors"
+  ): Promise<HostDiscoverAssetsResult> {
+    const payload: HostDiscoverAssetsRequest = {
+      context: this.buildContext("webportal-discover-assets", credentialHandle, sessionId),
+      policyProfile: "Balanced",
+      scopeDepth,
+      continuationToken: ""
+    };
+    const data = await this.postJson<Record<string, unknown>>("/api/v1/assets/discover", payload);
+    const resultCode = this.readString(data, ["resultCode", "ResultCode"]);
+    return {
+      result: this.readResult(data),
+      resultCode: (resultCode || "Failure") as HostDiscoverAssetsResult["resultCode"],
+      candidates: this.readArray(data, ["candidates", "Candidates"]).map((candidate) => {
+        const item = this.asRecord(candidate);
+        const assetType = this.readString(item, ["assetType", "AssetType"]);
+        const priorityTier = this.readString(item, ["priorityTier", "PriorityTier"]);
+        return {
+          assetType: (assetType || "Other") as HostDiscoverAssetsResult["candidates"][number]["assetType"],
+          relativeLocator: this.readString(item, ["relativeLocator", "RelativeLocator"]),
+          contentHashHint: this.readString(item, ["contentHashHint", "ContentHashHint"]) || null,
+          eTagHint: this.readString(item, ["eTagHint", "ETagHint", "ETag"]),
+          byteSizeHint: this.readNumber(item, ["byteSizeHint", "ByteSizeHint"]),
+          priorityTier: (priorityTier || "CurrentRoom") as HostDiscoverAssetsResult["candidates"][number]["priorityTier"],
+          reasonTags: this.readArray(item, ["reasonTags", "ReasonTags"]).map((tag) => String(tag)),
+          missing: this.readBoolean(item, ["missing", "Missing"])
+        };
+      }),
+      truncated: this.readBoolean(data, ["truncated", "Truncated"]),
+      continuationToken: this.readString(data, ["continuationToken", "ContinuationToken"])
+    };
   }
 
   async getAssetText(
@@ -1107,6 +1150,7 @@ export class HostApiClient {
       authoredRenderWidth: this.readOptionalPositiveInt(source, ["authoredRenderWidth", "AuthoredRenderWidth"]) ?? null,
       authoredRenderHeight: this.readOptionalPositiveInt(source, ["authoredRenderHeight", "AuthoredRenderHeight"]) ?? null,
       soundCues: this.readSoundCues(source),
+      particleEffectBursts: this.readParticleEffectBursts(source),
       remoteRoomObjects: this.readOptionalRemoteRoomObjects(source),
       outputLines: this.readArray(source, ["outputLines", "OutputLines"]).map(String),
       diagnostics: this.readArray(source, ["diagnostics", "Diagnostics"]).map(String),
@@ -1357,6 +1401,88 @@ export class HostApiClient {
       : this.readRoomAmbientLighting(ambientLighting);
   }
 
+  private readParticleEffectControls(source: Record<string, unknown>): Record<string, HostParticleEffectControlValue> {
+    const targetControls = this.readObject(source, ["targetControls", "TargetControls"]);
+    const parsedControls: Record<string, HostParticleEffectControlValue> = {};
+    for (const [name, rawValue] of Object.entries(targetControls)) {
+      const value = this.asRecord(rawValue);
+      const rawType = this.readString(value, ["valueType", "ValueType"]);
+      if (rawType === "Numeric") {
+        parsedControls[name] = {
+          valueType: "Numeric" as const,
+          numericValue: this.readOptionalFiniteNumber(value, ["numericValue", "NumericValue"]) ?? null
+        };
+      } else if (rawType === "String") {
+        parsedControls[name] = {
+          valueType: "String" as const,
+          stringValue: this.readOptionalString(value, ["stringValue", "StringValue"]) ?? null
+        };
+      } else if (rawType === "Boolean") {
+        const booleanValue = value.booleanValue ?? value.BooleanValue;
+        parsedControls[name] = {
+          valueType: "Boolean" as const,
+          booleanValue: typeof booleanValue === "boolean" ? booleanValue : null
+        };
+      }
+    }
+    return parsedControls;
+  }
+
+  private readOptionalParticleEffectInstance(
+    source: Record<string, unknown>,
+    keys: string[]
+  ): HostObjectParticleEffectInstance | null | undefined {
+    const effect = this.readNullableRecord(source, keys);
+    return effect === null || effect === undefined
+      ? effect
+      : {
+          effectKey: this.readString(effect, ["effectKey", "EffectKey"]),
+          x: this.readNumber(effect, ["x", "X"]),
+          y: this.readNumber(effect, ["y", "Y"]),
+          isProducing: this.readBoolean(effect, ["isProducing", "IsProducing"]),
+          targetControls: this.readParticleEffectControls(effect)
+        };
+  }
+
+  private readEnvironmentalParticleEffects(source: Record<string, unknown>): HostEnvironmentalParticleEffectInstance[] {
+    return this.readArray(source, ["environmentalParticleEffects", "EnvironmentalParticleEffects"]).map((entry) => {
+      const effect = this.asRecord(entry);
+      return {
+        instanceId: this.readString(effect, ["instanceId", "InstanceId"]),
+        effectKey: this.readString(effect, ["effectKey", "EffectKey"]),
+        isProducing: this.readBoolean(effect, ["isProducing", "IsProducing"]),
+        renderOrder: this.readNumber(effect, ["renderOrder", "RenderOrder"]),
+        targetControls: this.readParticleEffectControls(effect)
+      };
+    });
+  }
+
+  private readParticleEffectImageMappings(source: Record<string, unknown>): HostParticleEffectImageMapping[] {
+    return this.readArray(source, ["particleEffectImageMappings", "ParticleEffectImageMappings"]).map((entry) => {
+      const mapping = this.asRecord(entry);
+      return {
+        effectKey: this.readString(mapping, ["effectKey", "EffectKey"]),
+        imageSlot: this.readString(mapping, ["imageSlot", "ImageSlot"]),
+        relativeLocator: this.readString(mapping, ["relativeLocator", "RelativeLocator"])
+      };
+    });
+  }
+
+  private readParticleEffectBursts(source: Record<string, unknown>): HostParticleEffectBurst[] {
+    return this.readArray(source, ["particleEffectBursts", "ParticleEffectBursts"]).map((entry) => {
+      const burst = this.asRecord(entry);
+      return {
+        burstId: this.readString(burst, ["burstId", "BurstId"]),
+        sourceObjectId: this.readString(burst, ["sourceObjectId", "SourceObjectId"]),
+        roomId: this.readString(burst, ["roomId", "RoomId"]),
+        effectKey: this.readString(burst, ["effectKey", "EffectKey"]),
+        x: this.readNumber(burst, ["x", "X"]),
+        y: this.readNumber(burst, ["y", "Y"]),
+        targetControls: this.readParticleEffectControls(burst)
+      };
+    });
+  }
+
   private readRenderableRoomObject(source: Record<string, unknown>): HostCommandRenderableRoomObject {
     const renderableImage = this.readObject(source, ["renderableImage", "RenderableImage"]);
     const pointLight = this.readNullableRecord(source, ["pointLight", "PointLight"]);
@@ -1373,6 +1499,7 @@ export class HostApiClient {
       pointLight: pointLight === null ? null : pointLight ? this.readPointLight(pointLight) : undefined,
       spatialFootprint: spatialFootprint === null ? null : spatialFootprint ? this.readSpatialFootprint(spatialFootprint) : undefined,
       lightOcclusion: lightOcclusion === null ? null : lightOcclusion ? this.readLightOcclusion(lightOcclusion) : undefined,
+      particleEffect: this.readOptionalParticleEffectInstance(source, ["particleEffect", "ParticleEffect"]),
       activePresentationCues: Array.isArray(activePresentationCues)
         ? activePresentationCues.map((entry) => {
             const cue = this.asRecord(entry);
@@ -1432,6 +1559,8 @@ export class HostApiClient {
             roomImageCanvasHeight: this.readOptionalPositiveInt(newRoom, ["roomImageCanvasHeight", "RoomImageCanvasHeight"]),
             ambientLighting: this.readOptionalRoomAmbientLighting(newRoom),
             renderableRoomObjects: renderableRoomObjects.map((entry) => this.readRenderableRoomObject(this.asRecord(entry))),
+            environmentalParticleEffects: this.readEnvironmentalParticleEffects(newRoom),
+            particleEffectImageMappings: this.readParticleEffectImageMappings(newRoom),
             directionalRenderableImages: directionalRenderableImages.map((entry) => {
               const directional = this.asRecord(entry);
               const renderableImage = this.readObject(directional, ["renderableImage", "RenderableImage"]);

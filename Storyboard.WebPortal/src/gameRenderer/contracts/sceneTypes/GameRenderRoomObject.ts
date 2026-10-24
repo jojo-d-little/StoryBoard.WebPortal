@@ -3,6 +3,7 @@ import type { GameRenderAppearanceSilhouetteStyle } from "../presentationEffects
 import type { GameRenderAssetReference } from "./GameRenderAssetReference";
 import type { GameRenderPresentationCue } from "../presentationEffects/GameRenderPresentationCue";
 import type { GameRenderResolvedObjectEffect } from "../presentationEffects/GameRenderResolvedObjectEffect";
+import type { GameRenderParticleEffect } from "../presentationEffects/GameRenderParticleEffect";
 
 export interface GameRenderRoomObject {
   objectId: string;
@@ -17,6 +18,7 @@ export interface GameRenderRoomObject {
   zOrder: number;
   activePresentationCues: GameRenderPresentationCue[];
   resolvedObjectEffects?: GameRenderResolvedObjectEffect[];
+  particleEffect?: GameRenderParticleEffect;
   movementDurationMs?: number;
   movementFrames?: number;
   /** @deprecated Direct scene callers only. Host cues resolve into resolvedObjectEffects. */

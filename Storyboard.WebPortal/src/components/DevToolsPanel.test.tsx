@@ -8,6 +8,7 @@ import type { ComponentProps } from "react";
 describe("DevToolsPanel lighting control", () => {
   it("shows the default-on lighting setting and reports when the user turns it off", () => {
     const onLightingEnabledChange = vi.fn();
+    const onParticleEffectsEnabledChange = vi.fn();
     const props = {
       effectiveSlotModes: {},
       cacheStats: {
@@ -32,7 +33,8 @@ describe("DevToolsPanel lighting control", () => {
       presentationIsolationSettings: DEFAULT_PRESENTATION_ISOLATION_SETTINGS,
       presentationIsolationCategoryOptions: [],
       sessionRecording: { playbackStatus: null },
-      onLightingEnabledChange
+      onLightingEnabledChange,
+      onParticleEffectsEnabledChange
     } as unknown as ComponentProps<typeof DevToolsPanel>;
 
     render(<DevToolsPanel {...props} />);

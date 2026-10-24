@@ -92,6 +92,40 @@ function buildSessionData(overrides: Partial<HostSessionPresentationData> = {}):
 }
 
 describe("mapHostSessionDataToSceneSnapshot", () => {
+  it("retains sparse effect image mappings across room changes and merges current-room additions by slot", () => {
+    const first = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      roomChange: { ...buildSessionData().roomChange!, newRoom: {
+        ...buildSessionData().roomChange!.newRoom!,
+        particleEffectImageMappings: [
+          { effectKey: "effect.fire", imageSlot: "flame", relativeLocator: "art/flame.png" },
+          { effectKey: "effect.fire", imageSlot: "smoke", relativeLocator: "art/shared.png" }
+        ]
+      } }
+    }));
+    expect(first?.particleEffectImageMappings).toHaveLength(2);
+
+    const nextRoom = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      roomChange: { ...buildSessionData().roomChange!, newRoom: {
+        ...buildSessionData().roomChange!.newRoom!, roomId: "room-2", name: "Gallery",
+        particleEffectImageMappings: [{ effectKey: "effect.ash", imageSlot: "embers", relativeLocator: "art/embers.png" }]
+      } }
+    }), first);
+    expect(nextRoom?.particleEffectImageMappings).toEqual([
+      { effectKey: "effect.fire", imageSlot: "flame", relativeLocator: "art/flame.png" },
+      { effectKey: "effect.fire", imageSlot: "smoke", relativeLocator: "art/shared.png" },
+      { effectKey: "effect.ash", imageSlot: "embers", relativeLocator: "art/embers.png" }
+    ]);
+
+    const update = buildSessionData({ roomChange: { currentRoom: {
+      roomId: "room-2",
+      particleEffectImageMappings: [{ effectKey: "effect.fire", imageSlot: "flame", relativeLocator: "art/new-flame.png" }]
+    } } });
+    const merged = mapHostSessionDataToSceneSnapshot(update, nextRoom);
+    expect(merged?.particleEffectImageMappings?.find((mapping) => mapping.effectKey === "effect.fire" && mapping.imageSlot === "flame")?.relativeLocator)
+      .toBe("art/new-flame.png");
+    expect(merged?.particleEffectImageMappings).toHaveLength(3);
+  });
+
   it("keeps point lights in the lighting frame at every image transparency", () => {
     const transparencyValues = [undefined, 0, 0.5, 1];
     const pointLights = transparencyValues.map((imageTransparency) => {
@@ -1397,5 +1431,54 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
 
     const clearedObject = renderedRoomObjects(clearedSnapshot).find((entry) => entry.objectId === "obj-1");
     expect(clearedObject?.activePresentationCues).toHaveLength(0);
+  });
+
+  it("preserves active cues when an Updated object omits the cue field", () => {
+    const baseline = buildSessionData();
+    baseline.roomChange!.newRoom!.renderableRoomObjects[0]!.activePresentationCues = [
+      { category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "cue-1" }
+    ];
+    const previous = mapHostPresentationToSceneSnapshot(baseline)!;
+    const roomObject = baseline.roomChange!.newRoom!.renderableRoomObjects[0]!;
+    const updated = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      roomChange: undefined,
+      roomObjectChanges: [{
+        changeKind: "Updated",
+        objectId: "obj-1",
+        objectName: "Lantern",
+        renderableRoomObject: {
+          ...roomObject,
+          renderableImage: { ...roomObject.renderableImage, x: 160 },
+          activePresentationCues: undefined
+        }
+      }]
+    }), previous)!;
+
+    expect(updated.objectsById["obj-1"]?.activePresentationCues.map((cue) => cue.activationId)).toEqual(["cue-1"]);
+    expect(updated.objectsById["obj-1"]?.sprite?.x).toBe(160);
+  });
+
+  it("applies environmental effects as room-scoped replacement snapshots", () => {
+    const baseline = buildSessionData();
+    baseline.roomChange!.newRoom!.environmentalParticleEffects = [{
+      instanceId: "rain-1",
+      effectKey: "room.weather.rain",
+      isProducing: true,
+      renderOrder: 5,
+      targetControls: { EmissionRateMultiplier: { valueType: "Numeric", numericValue: 2 } }
+    }];
+    const previous = mapHostPresentationToSceneSnapshot(baseline)!;
+    const omitted = mapHostSessionDataToSceneSnapshot(buildSessionData({ roomChange: undefined }), previous)!;
+    expect(omitted.environmentalParticleEffects?.map((effect) => effect.id)).toEqual(["rain-1"]);
+
+    const cleared = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      roomChange: { currentRoom: { roomId: "room-1", environmentalParticleEffects: [] } }
+    }), previous)!;
+    expect(cleared.environmentalParticleEffects).toEqual([]);
+
+    const otherRoom = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      roomChange: { currentRoom: { roomId: "room-other", environmentalParticleEffects: [] } }
+    }), previous)!;
+    expect(otherRoom.environmentalParticleEffects?.map((effect) => effect.id)).toEqual(["rain-1"]);
   });
 });

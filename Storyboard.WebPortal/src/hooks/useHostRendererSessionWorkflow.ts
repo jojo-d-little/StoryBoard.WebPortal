@@ -17,6 +17,7 @@ export interface HostRendererSessionWorkflowResult {
   roomTransitionPreparationEpoch: number;
   roomTransitionActive: boolean;
   sessionDeltaRevision: number;
+  loadParticleEffectImage: (relativeLocator: string) => Promise<string | null>;
 }
 
 function isMovementCueCategory(value: string): boolean {
@@ -74,7 +75,9 @@ interface UseHostRendererSessionWorkflowOptions {
   setRendererSceneSnapshot: (snapshot: GameRenderSceneSnapshot | null) => void;
   applyPresentationCues: (scene: GameRenderSceneSnapshot) => GameRenderSceneSnapshot;
   getCurrentPresentationCueCatalog: () => PresentationCueCatalogDocument | null;
+  ensurePresentationCueCatalogReady: () => Promise<PresentationCueCatalogDocument>;
   presentationCueCatalogSource: "none" | "cache" | "network";
+  particleAssetWarmupEnabled?: boolean;
   getHudOverlayEntries: () => GameRenderSceneSnapshot["hudOverlayEntries"];
   pollIntervalMs: number;
   heartbeatEveryNPolls: number;
@@ -92,6 +95,74 @@ function extractContentTypeFromDataUrl(dataUrl: string): string {
   return match?.[1] ?? "application/octet-stream";
 }
 
+function buildParticleEffectCatalog(catalog: PresentationCueCatalogDocument | null): GameRenderSceneSnapshot["particleEffectCatalog"] {
+  return (catalog?.effects ?? [])
+    .filter((effect) => effect.category === "ParticleEffect" && effect.particleEffect)
+    .map((effect) => ({
+      category: "ParticleEffect" as const,
+      effectKey: effect.effectKey ?? "",
+      displayName: effect.displayName ?? effect.effectKey ?? "",
+      particleEffect: effect.particleEffect!
+    }));
+}
+
+function summarizeParticleInstances(scene: GameRenderSceneSnapshot): {
+  objectInstanceCount: number;
+  enabledObjectInstanceCount: number;
+  roomInstanceCount: number;
+  enabledRoomInstanceCount: number;
+  effectKeys: string[];
+} {
+  const objectEffects = Object.values(scene.objectsById)
+    .map((object) => object.particleEffect)
+    .filter((effect): effect is NonNullable<typeof effect> => Boolean(effect));
+  const roomEffects = scene.environmentalParticleEffects ?? [];
+  return {
+    objectInstanceCount: objectEffects.length,
+    enabledObjectInstanceCount: objectEffects.filter((effect) => effect.enabled).length,
+    roomInstanceCount: roomEffects.length,
+    enabledRoomInstanceCount: roomEffects.filter((effect) => effect.enabled).length,
+    effectKeys: [...new Set([...objectEffects, ...roomEffects].map((effect) => effect.effectKey))].sort()
+  };
+}
+
+function summarizeHostParticleInstances(baseline: HostSessionPresentationData): {
+  roomId: string | null;
+  renderableRoomObjectCount: number;
+  objectInstanceCount: number;
+  enabledObjectInstanceCount: number;
+  objectEffects: Array<{ objectId: string; effectKey: string; isProducing: boolean; x: number; y: number }>;
+  roomInstanceCount: number;
+  enabledRoomInstanceCount: number;
+  roomEffects: Array<{ instanceId: string; effectKey: string; isProducing: boolean; renderOrder: number }>;
+} {
+  const room = baseline.roomChange?.newRoom;
+  const objects = room?.renderableRoomObjects ?? [];
+  const objectEffects = objects.flatMap((object) => object.particleEffect ? [{
+    objectId: object.objectId,
+    effectKey: object.particleEffect.effectKey,
+    isProducing: object.particleEffect.isProducing,
+    x: object.particleEffect.x,
+    y: object.particleEffect.y
+  }] : []);
+  const roomEffects = room?.environmentalParticleEffects ?? [];
+  return {
+    roomId: room?.roomId ?? null,
+    renderableRoomObjectCount: objects.length,
+    objectInstanceCount: objectEffects.length,
+    enabledObjectInstanceCount: objectEffects.filter((effect) => effect.isProducing).length,
+    objectEffects,
+    roomInstanceCount: roomEffects.length,
+    enabledRoomInstanceCount: roomEffects.filter((effect) => effect.isProducing).length,
+    roomEffects: roomEffects.map((effect) => ({
+      instanceId: effect.instanceId,
+      effectKey: effect.effectKey,
+      isProducing: effect.isProducing,
+      renderOrder: effect.renderOrder
+    }))
+  };
+}
+
 export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWorkflowOptions): HostRendererSessionWorkflowResult {
   const [baselineSyncReady, setBaselineSyncReady] = useState<boolean>(false);
   const [baselineWatermark, setBaselineWatermark] = useState<string>("");
@@ -100,6 +171,8 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   const [sessionDeltaRevision, setSessionDeltaRevision] = useState<number>(0);
   const sceneHydrationGenerationRef = useRef<number>(0);
   const rendererSceneSnapshotRef = useRef<GameRenderSceneSnapshot | null>(options.rendererSceneSnapshot);
+  const setRendererSceneSnapshotRef = useRef(options.setRendererSceneSnapshot);
+  setRendererSceneSnapshotRef.current = options.setRendererSceneSnapshot;
   const applyPresentationCuesRef = useRef(options.applyPresentationCues);
   const getCurrentPresentationCueCatalogRef = useRef(options.getCurrentPresentationCueCatalog);
   const presentationCueCatalogSourceRef = useRef(options.presentationCueCatalogSource);
@@ -108,10 +181,133 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   const consumeSessionDeltaEchoRef = useRef(options.consumeSessionDeltaEcho);
   const consumeSessionDeltaSoundCuesRef = useRef(options.consumeSessionDeltaSoundCues);
   const addDiagnosticRef = useRef(options.addDiagnostic);
+  const ensurePresentationCueCatalogReadyRef = useRef(options.ensurePresentationCueCatalogReady);
   const presentationCueCatalogRevisionRef = useRef<number>(options.presentationCueCatalogRevision);
   const pollingPausedForRoomTransitionRef = useRef<boolean>(false);
   const pollingPauseWatchdogRef = useRef<number | null>(null);
   const deferredPhasePresentationRef = useRef<HostSessionPresentationData[]>([]);
+  const particleAssetWarmupJobsRef = useRef<Map<string, Promise<void>>>(new Map());
+
+  const waitForSessionGlobalAssets = useCallback(async (): Promise<PresentationCueCatalogDocument> => {
+    addDiagnosticRef.current("info", "session-startup", "Waiting for required session global assets.", {
+      sessionId: options.activeSessionId,
+      assets: ["presentation-cue-catalog"]
+    });
+    const catalog = await ensurePresentationCueCatalogReadyRef.current();
+    addDiagnosticRef.current("info", "session-startup", "Required session global assets are ready.", {
+      sessionId: options.activeSessionId,
+      assets: ["presentation-cue-catalog"]
+    });
+    return catalog;
+  }, [options.activeSessionId]);
+
+  const warmDiscoveredParticleAssets = useCallback(async (scene: GameRenderSceneSnapshot): Promise<void> => {
+    if (!options.credentialHandle || !options.activeSessionId) return;
+    const roomId = scene.roomId ?? "";
+    if (!roomId) return;
+    const warmupKey = `${options.activeSessionId}:${roomId}`;
+    const existingJob = particleAssetWarmupJobsRef.current.get(warmupKey);
+    if (existingJob) return existingJob;
+
+    const job = (async (): Promise<void> => {
+      webPortalAssetCache.recordNetworkFetch();
+      options.refreshCacheStats();
+      const discovery = await options.hostApiClient.discoverAssets(options.credentialHandle, options.activeSessionId, "Ancestors");
+      if (!discovery.result.success) {
+        throw new Error(`Asset discovery failed (${discovery.resultCode}).`);
+      }
+      const mappedSlots = new Set((scene.particleEffectImageMappings ?? []).map((mapping) =>
+        `${mapping.effectKey.toLowerCase()}\u0000${mapping.imageSlot.toLowerCase()}`));
+      const customImageCandidates = discovery.candidates.filter((candidate) => {
+        const association = candidate.particleEffectAssociation;
+        return candidate.assetType === "Image" && !!association
+          && mappedSlots.has(`${association.effectKey.toLowerCase()}\u0000${association.imageSlot.toLowerCase()}`);
+      });
+      let cachedCount = 0;
+      let fetchedCount = 0;
+      for (const candidate of customImageCandidates) {
+        const locator = candidate.relativeLocator.trim();
+        if (!locator) continue;
+        if (candidate.missing) {
+          addDiagnosticRef.current("warn", "asset-discovery", "Discovered custom particle art is missing from the game assets.", {
+            roomId,
+            relativeLocator: locator,
+            particleEffectAssociation: candidate.particleEffectAssociation
+          });
+          continue;
+        }
+        const cacheKey = buildAssetCacheKey({
+          gameId: options.selectedGameId,
+          gameKey: options.selectedGameKey,
+          relativeLocator: locator,
+          kind: "image-data-url"
+        });
+        const cached = await webPortalAssetCache.get(cacheKey);
+        if (cached.entry?.value) {
+          cachedCount += 1;
+          continue;
+        }
+        const dataUrl = await options.hostApiClient.getAssetPreviewDataUrl(
+          options.credentialHandle,
+          locator,
+          options.selectedGameId,
+          options.selectedGameKey
+        );
+        if (!dataUrl) {
+          addDiagnosticRef.current("warn", "asset-discovery", "Could not load discovered custom particle art; packaged defaults remain available.", {
+            roomId,
+            relativeLocator: locator
+          });
+          continue;
+        }
+        webPortalAssetCache.recordNetworkFetch();
+        options.refreshCacheStats();
+        await webPortalAssetCache.set({
+          cacheKey,
+          gameId: options.selectedGameId,
+          gameKey: options.selectedGameKey,
+          relativeLocator: locator,
+          kind: "image-data-url",
+          contentType: extractContentTypeFromDataUrl(dataUrl),
+          value: dataUrl
+        });
+        fetchedCount += 1;
+      }
+      options.refreshCacheStats();
+      addDiagnosticRef.current("info", "asset-discovery", "Warmed discovered custom particle art in the Portal asset cache.", {
+        roomId,
+        candidateCount: customImageCandidates.length,
+        cachedCount,
+        fetchedCount,
+        truncated: discovery.truncated
+      });
+    })();
+    particleAssetWarmupJobsRef.current.set(warmupKey, job);
+    try {
+      await job;
+    } catch (error) {
+      particleAssetWarmupJobsRef.current.delete(warmupKey);
+      addDiagnosticRef.current("warn", "asset-discovery", "Could not warm discovered particle art; demand loading remains available.", {
+        roomId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }, [options.activeSessionId, options.credentialHandle, options.hostApiClient, options.refreshCacheStats, options.selectedGameId, options.selectedGameKey]);
+
+  const loadParticleEffectImage = useCallback(async (relativeLocator: string): Promise<string | null> => {
+    const locator = relativeLocator.trim();
+    if (!locator || !options.credentialHandle || !options.activeSessionId) return null;
+    const cacheKey = buildAssetCacheKey({ gameId: options.selectedGameId, gameKey: options.selectedGameKey, relativeLocator: locator, kind: "image-data-url" });
+    const cached = await webPortalAssetCache.get(cacheKey);
+    if (cached.entry?.value) return cached.entry.value;
+    const dataUrl = await options.hostApiClient.getAssetPreviewDataUrl(options.credentialHandle, locator, options.selectedGameId, options.selectedGameKey);
+    if (!dataUrl) return null;
+    webPortalAssetCache.recordNetworkFetch();
+    options.refreshCacheStats();
+    await webPortalAssetCache.set({ cacheKey, gameId: options.selectedGameId, gameKey: options.selectedGameKey, relativeLocator: locator,
+      kind: "image-data-url", contentType: extractContentTypeFromDataUrl(dataUrl), value: dataUrl });
+    return dataUrl;
+  }, [options.activeSessionId, options.credentialHandle, options.hostApiClient, options.refreshCacheStats, options.selectedGameId, options.selectedGameKey]);
 
   const releaseRoomTransitionPollingPause = useCallback((reason: string): void => {
     if (pollingPauseWatchdogRef.current !== null) {
@@ -201,6 +397,9 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   useEffect(() => {
     addDiagnosticRef.current = options.addDiagnostic;
   }, [options.addDiagnostic]);
+  useEffect(() => {
+    ensurePresentationCueCatalogReadyRef.current = options.ensurePresentationCueCatalogReady;
+  }, [options.ensurePresentationCueCatalogReady]);
 
   useEffect(() => {
     return () => {
@@ -230,6 +429,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     const resolvedScene = applyPresentationCuesRef.current(currentScene);
     options.setRendererSceneSnapshot({
       ...resolvedScene,
+      particleEffectCatalog: buildParticleEffectCatalog(getCurrentPresentationCueCatalogRef.current()),
       hudOverlayEntries: getHudOverlayEntriesRef.current()
     });
 
@@ -542,17 +742,28 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     source: "baseline" | "delta"
   ): Promise<void> => {
     const generation = ++sceneHydrationGenerationRef.current;
+    if (options.particleAssetWarmupEnabled) {
+      void warmDiscoveredParticleAssets(scene).catch((error) => {
+        addDiagnosticRef.current("warn", "asset-discovery", "Particle asset warm-up failed; continuing with the room scene and packaged particle art.", {
+          roomId: scene.roomId || "(unknown)",
+          error: error instanceof Error ? error.message : String(error)
+        });
+      });
+    }
+    const particleEffectCatalog = scene.particleEffectCatalog
+      ?? buildParticleEffectCatalog(getCurrentPresentationCueCatalogRef.current());
+    const sceneWithCatalog = { ...scene, particleEffectCatalog };
     const uniqueAssetPaths = Array.from(new Set(
       [
-        ...scene.directionalOverlays.map((overlay) => overlay.asset.assetPath.trim()),
-        ...selectRenderableRoomObjects(scene).map((roomObject) => roomObject.asset.assetPath.trim())
+        ...sceneWithCatalog.directionalOverlays.map((overlay) => overlay.asset.assetPath.trim()),
+        ...selectRenderableRoomObjects(sceneWithCatalog).map((roomObject) => roomObject.asset.assetPath.trim())
       ]
         .filter((path) => path.length > 0 && !path.startsWith("data:") && !path.startsWith("blob:"))
     ));
 
     if (uniqueAssetPaths.length === 0) {
       options.setRendererSceneSnapshot({
-        ...scene,
+        ...sceneWithCatalog,
         hudOverlayEntries: getHudOverlayEntriesRef.current()
       });
       return;
@@ -560,7 +771,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
 
     if (!options.credentialHandle) {
       options.setRendererSceneSnapshot({
-        ...scene,
+        ...sceneWithCatalog,
         hudOverlayEntries: getHudOverlayEntriesRef.current()
       });
       addDiagnosticRef.current("warn", "session-render", "Skipping asset hydration because credential handle is missing.", {
@@ -573,7 +784,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
 
     if (!options.selectedGameId && !options.selectedGameKey) {
       options.setRendererSceneSnapshot({
-        ...scene,
+        ...sceneWithCatalog,
         hudOverlayEntries: getHudOverlayEntriesRef.current()
       });
       addDiagnosticRef.current("warn", "session-render", "Skipping asset hydration because selected game identity is missing.", {
@@ -677,8 +888,8 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     }
 
     const hydratedScene = mapRenderableRoomObjects({
-      ...scene,
-      directionalOverlays: scene.directionalOverlays.map((overlay) => {
+      ...sceneWithCatalog,
+      directionalOverlays: sceneWithCatalog.directionalOverlays.map((overlay) => {
         const resolved = resolvedByPath.get(overlay.asset.assetPath.trim());
         return {
           ...overlay,
@@ -719,7 +930,9 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       resolvedAssetCount: resolvedByPath.size,
       missingAssetCount: missingAssetPaths.length,
       overlayCount: hydratedScene.directionalOverlays.length,
-      roomObjectCount: selectRenderableRoomObjects(hydratedScene).length
+      roomObjectCount: selectRenderableRoomObjects(hydratedScene).length,
+      particleInstances: summarizeParticleInstances(hydratedScene),
+      particleCatalogEffectCount: hydratedScene.particleEffectCatalog?.length ?? 0
     });
   }, [
     options.credentialHandle,
@@ -727,19 +940,46 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     options.refreshCacheStats,
     options.selectedGameId,
     options.selectedGameKey,
-    options.setRendererSceneSnapshot
+    options.setRendererSceneSnapshot,
+    options.particleAssetWarmupEnabled,
+    warmDiscoveredParticleAssets
   ]);
+
+  useEffect(() => {
+    if (!options.particleAssetWarmupEnabled || !options.rendererSceneSnapshot) return;
+    void warmDiscoveredParticleAssets(options.rendererSceneSnapshot).catch((error) => {
+      addDiagnosticRef.current("warn", "asset-discovery", "Particle asset warm-up failed; the room scene remains available.", {
+        roomId: options.rendererSceneSnapshot?.roomId || "(unknown)",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    });
+  }, [options.particleAssetWarmupEnabled, options.rendererSceneSnapshot, warmDiscoveredParticleAssets]);
 
   const applySessionBaseline = useCallback(async (
     baseline: HostSessionPresentationData,
-    source: "startup" | "resync"
+    source: "startup" | "resync",
+    readyCatalog?: PresentationCueCatalogDocument
   ): Promise<void> => {
+    const startupCatalog = readyCatalog ?? await waitForSessionGlobalAssets();
     const baselineWatermark = (baseline.sessionDeltaWatermark ?? "").trim();
     setBaselineWatermark(baselineWatermark);
 
     const baselineSnapshot = mapHostPresentationToSceneSnapshot(baseline);
     const baselineTextStepCount = baseline.phaseChange?.orderedTextPresentationSteps?.length ?? 0;
     const baselineSessionData = baseline;
+
+    if (baselineSnapshot) {
+      const hostObjectEffects = (baseline.roomChange?.newRoom?.renderableRoomObjects ?? [])
+        .map((object) => object.particleEffect)
+        .filter((effect) => Boolean(effect));
+      addDiagnosticRef.current("info", "session-render", "Mapped particle effect instances from Host baseline.", {
+        source,
+        roomId: baselineSnapshot.roomId,
+        hostObjectInstanceCount: hostObjectEffects.length,
+        hostEnabledObjectInstanceCount: hostObjectEffects.filter((effect) => effect?.isProducing).length,
+        ...summarizeParticleInstances(baselineSnapshot)
+      });
+    }
 
     consumeSessionDeltaSoundCuesRef.current(baselineSessionData, true);
 
@@ -748,7 +988,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     }
 
     if (!baselineSnapshot) {
-      options.setRendererSceneSnapshot(null);
+      setRendererSceneSnapshotRef.current(null);
       addDiagnosticRef.current("warn", "session-render", "Session baseline did not include a room scene payload.", {
         source,
         sessionId: options.activeSessionId,
@@ -757,11 +997,20 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       return;
     }
 
-    const resolvedSnapshot = applyPresentationCuesRef.current(baselineSnapshot);
+    const resolvedSnapshot = {
+      ...applyPresentationCuesRef.current(baselineSnapshot),
+      particleEffectCatalog: buildParticleEffectCatalog(startupCatalog)
+    };
+    addDiagnosticRef.current("info", "session-render", "Prepared particle effect instances for baseline scene hydration.", {
+      source,
+      roomId: resolvedSnapshot.roomId,
+      ...summarizeParticleInstances(resolvedSnapshot),
+      catalogEffectCount: resolvedSnapshot.particleEffectCatalog?.length ?? 0
+    });
     emitMovementCueResolutionDiagnostics("baseline", null, resolvedSnapshot, null);
     emitAppearanceCueResolutionDiagnostics("baseline", resolvedSnapshot, null);
     emitRoomTransitionCueResolutionDiagnostics("baseline", resolvedSnapshot, baselineSessionData);
-    void hydrateSceneSnapshotAssets(resolvedSnapshot, "baseline");
+    await hydrateSceneSnapshotAssets(resolvedSnapshot, "baseline");
     addDiagnosticRef.current("info", "session-render", "Hydrated renderer scene from session baseline.", {
       source,
       sessionId: options.activeSessionId,
@@ -769,45 +1018,63 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       overlayCount: baselineSnapshot.directionalOverlays.length,
       roomObjectCount: selectRenderableRoomObjects(baselineSnapshot).length,
       baselineTextStepCount,
-      watermark: baseline.sessionDeltaWatermark || "(none)"
+      watermark: baseline.sessionDeltaWatermark || "(none)",
+      particleHandoff: {
+        hostPayload: summarizeHostParticleInstances(baseline),
+        mappedSnapshot: summarizeParticleInstances(baselineSnapshot),
+        cueProcessedSnapshot: summarizeParticleInstances(resolvedSnapshot)
+      }
     });
   }, [
     emitAppearanceCueResolutionDiagnostics,
     emitMovementCueResolutionDiagnostics,
     emitRoomTransitionCueResolutionDiagnostics,
     hydrateSceneSnapshotAssets,
+    waitForSessionGlobalAssets,
     options.activeSessionId,
     options.setRendererSceneSnapshot
   ]);
+  const applySessionBaselineRef = useRef(applySessionBaseline);
+  applySessionBaselineRef.current = applySessionBaseline;
 
   useEffect(() => {
     if (!options.credentialHandle || !options.activeSessionId) {
       setBaselineSyncReady(false);
       setBaselineWatermark("");
-      options.setRendererSceneSnapshot(null);
+      setRendererSceneSnapshotRef.current(null);
       return;
     }
 
     let cancelled = false;
     setBaselineSyncReady(false);
     setBaselineWatermark("");
-    options.setRendererSceneSnapshot(null);
+    setRendererSceneSnapshotRef.current(null);
 
     const hydrateFromBaseline = async (): Promise<void> => {
       try {
+        const startupCatalog = await waitForSessionGlobalAssets();
+        if (cancelled) return;
         const baseline = await options.hostApiClient.getSessionBaseline(options.credentialHandle, options.activeSessionId, "Low");
         if (cancelled) {
           return;
         }
 
-        await applySessionBaseline(baseline, "startup");
+        addDiagnosticRef.current("info", "session-render", "Received Host baseline particle payload before Portal scene mapping.", {
+          sessionId: options.activeSessionId,
+          baselineWatermark: baseline.sessionDeltaWatermark ?? "",
+          hasRoomChange: Boolean(baseline.roomChange),
+          hasNewRoom: Boolean(baseline.roomChange?.newRoom),
+          hostParticleInstances: summarizeHostParticleInstances(baseline)
+        });
+
+        await applySessionBaselineRef.current(baseline, "startup", startupCatalog);
         setBaselineSyncReady(true);
       } catch (err) {
         if (cancelled) {
           return;
         }
 
-        setBaselineSyncReady(true);
+        setBaselineSyncReady(false);
 
         addDiagnosticRef.current("warn", "session-render", "Failed to hydrate renderer scene from session baseline.", {
           sessionId: options.activeSessionId,
@@ -821,7 +1088,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     return () => {
       cancelled = true;
     };
-  }, [options.credentialHandle, options.activeSessionId, options.hostApiClient, options.setRendererSceneSnapshot, applySessionBaseline]);
+  }, [options.credentialHandle, options.activeSessionId, options.hostApiClient, waitForSessionGlobalAssets]);
 
   const handleSessionDataUpdate = useCallback((sessionData: HostSessionPresentationData): void => {
     setSessionDeltaRevision((revision) => revision + 1);
@@ -918,6 +1185,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     reportRoomTransitionState,
     roomTransitionPreparationEpoch,
     roomTransitionActive,
-    sessionDeltaRevision
+    sessionDeltaRevision,
+    loadParticleEffectImage
   };
 }

@@ -6,6 +6,14 @@ import type { GameRenderMoveLegTelemetry } from "./GameRenderMoveLegTelemetry";
 import type { GameRenderRoomBounds } from "./GameRenderRoomBounds";
 import type { GameRenderSceneObject } from "./GameRenderSceneObject";
 import type { GameRenderRoomTransition } from "./GameRenderRoomTransition";
+import type { GameRenderParticleEffect, GameRenderParticleBurst } from "../presentationEffects/GameRenderParticleEffect";
+import type { CatalogParticleEffect } from "@jojo-d-little/storyboard-particles";
+
+export interface GameRenderParticleEffectImageMapping {
+  effectKey: string;
+  imageSlot: string;
+  relativeLocator: string;
+}
 
 export interface GameRenderSceneSnapshot {
   roomId?: string;
@@ -18,4 +26,8 @@ export interface GameRenderSceneSnapshot {
   moveLegTelemetry?: GameRenderMoveLegTelemetry[];
   hudOverlayEntries?: GameRenderHudOverlayEntry[];
   roomTransition?: GameRenderRoomTransition;
+  environmentalParticleEffects?: GameRenderParticleEffect[];
+  particleEffectBursts?: GameRenderParticleBurst[];
+  particleEffectCatalog?: CatalogParticleEffect[];
+  particleEffectImageMappings?: GameRenderParticleEffectImageMapping[];
 }

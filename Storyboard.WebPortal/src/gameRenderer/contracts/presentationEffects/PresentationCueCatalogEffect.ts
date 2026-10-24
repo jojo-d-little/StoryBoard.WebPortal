@@ -1,3 +1,6 @@
+
+import type { CatalogParticleEffect } from "@jojo-d-little/storyboard-particles";
+
 // Catalog input shapes mirror the properties in effect.schema.json. Values remain
 // optional here because the renderer validates each style before using it.
 export interface CatalogTextPresentation {
@@ -135,6 +138,7 @@ export interface PresentationCueCatalogEffect {
   scaleStyle?: CatalogScaleStyle;
   appearanceColorOverlayTimelineStyle?: CatalogAppearanceColorOverlayTimelineStyle;
   pointLightTimelineStyle?: CatalogPointLightTimelineStyle;
+  particleEffect?: CatalogParticleEffect["particleEffect"];
 }
 
 export interface PresentationCueCatalogDocument {

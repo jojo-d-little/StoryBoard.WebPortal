@@ -15,6 +15,9 @@ import { createShakeEffectController, type ShakeEffectController } from "./effec
 import { createScaleEffectController, type ScaleEffectController } from "./effects/scaleStyle/ScaleEffectController";
 import { captureRoomTexture, type CapturedRoomTexture } from "./RoomSnapshotRenderer";
 import { RoomLightingController } from "./lighting/RoomLightingController";
+import { TopDownEffects } from "@jojo-d-little/storyboard-particles";
+import { ParticleEffectSceneController } from "./effects/ParticleEffectSceneController";
+import { reconcileInitializedParticleControllers } from "./effects/reconcileInitializedParticleControllers";
 import { buildRoomGridLines } from "./roomGridGeometry";
 import {
   advanceLightingMovementTweens,
@@ -42,6 +45,7 @@ import { Application, Assets, Container, Graphics, Sprite } from "pixi.js";
 export type GameRendererRoomTransitionState = "preparing" | "running" | "complete" | "failed";
 
 export interface CreateGameRendererOptions {
+  loadParticleEffectImage?: (relativeLocator: string) => Promise<string | null>;
   diagnosticsSink?: GameRendererDiagnosticsSink;
   intentSink?: GameRendererIntentSink;
   onRoomTransitionStateChanged?: (state: GameRendererRoomTransitionState) => void;
@@ -88,6 +92,18 @@ interface MovementTween {
   toZOrder: number;
 }
 
+interface ParticleEffectAnchorTween {
+  activationId?: string;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  elapsedMs: number;
+  durationMs: number;
+  currentX: number;
+  currentY: number;
+}
+
 interface RoomObjectSpriteState {
   root: Container;
   shakeStyleContainer: Container;
@@ -108,6 +124,11 @@ interface RoomSurfaceState {
   directionalOverlayLayer: Container;
   roomObjectLayer: Container;
   styledPointLayer: Container;
+  preLightMount: Container;
+  postLightLayer: Container;
+  postLightClipMask: Graphics;
+  particleEffectSceneController: ParticleEffectSceneController | null;
+  particleEffectAnchorTweensByObjectId: Map<string, ParticleEffectAnchorTween>;
   activeMovementTweensByObjectId: Map<string, MovementTween>;
   roomObjectSpritesById: Map<string, RoomObjectSpriteState>;
   appearanceOutlineEffectController: AppearanceOutlineEffectController;
@@ -249,17 +270,44 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     ? {
         enabled: options.presentationIsolationSettings.enabled,
         lightingEnabled: options.presentationIsolationSettings.lightingEnabled ?? DEFAULT_PRESENTATION_ISOLATION_SETTINGS.lightingEnabled,
+        particleEffectsEnabled: options.presentationIsolationSettings.particleEffectsEnabled ?? DEFAULT_PRESENTATION_ISOLATION_SETTINGS.particleEffectsEnabled,
         lightingGridEnabled: options.presentationIsolationSettings.lightingGridEnabled ?? false,
         categories: { ...options.presentationIsolationSettings.categories }
       }
     : {
         enabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.enabled,
         lightingEnabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.lightingEnabled,
+        particleEffectsEnabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.particleEffectsEnabled,
         lightingGridEnabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.lightingGridEnabled,
         categories: { ...DEFAULT_PRESENTATION_ISOLATION_SETTINGS.categories }
       };
 
   const app = new Application();
+  const onWebGLContextLost = (event: Event): void => {
+    diagnostics?.({
+      category: "lifecycle",
+      level: "warning",
+      message: "WebGL context lost for the Portal renderer canvas.",
+      details: {
+        defaultPrevented: event.defaultPrevented,
+        activeRoomId: activeSurfaceScene?.roomId ?? "(none)",
+        currentRoomId: currentScene?.roomId ?? "(none)",
+        rendererReady: isReady
+      }
+    });
+  };
+  const onWebGLContextRestored = (): void => {
+    diagnostics?.({
+      category: "lifecycle",
+      level: "info",
+      message: "WebGL context restored for the Portal renderer canvas.",
+      details: {
+        activeRoomId: activeSurfaceScene?.roomId ?? "(none)",
+        currentRoomId: currentScene?.roomId ?? "(none)",
+        rendererReady: isReady
+      }
+    });
+  };
   const stageRoot = new Container();
   stageRoot.sortableChildren = true;
 
@@ -288,9 +336,15 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
 
     const styledPointLayer = new Container();
     styledPointLayer.sortableChildren = true;
+    const preLightMount = new Container();
+    const postLightLayer = new Container();
+    const postLightClipMask = new Graphics();
+    postLightLayer.zIndex = 6;
+    postLightLayer.mask = postLightClipMask;
 
     content.addChild(directionalOverlayLayer);
     content.addChild(roomObjectLayer);
+    content.addChild(preLightMount);
     content.addChild(styledPointLayer);
     root.addChild(content);
     root.addChild(surfaceClipMask);
@@ -302,6 +356,11 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       directionalOverlayLayer,
       roomObjectLayer,
       styledPointLayer,
+      preLightMount,
+      postLightLayer,
+      postLightClipMask,
+      particleEffectSceneController: null,
+      particleEffectAnchorTweensByObjectId: new Map<string, ParticleEffectAnchorTween>(),
       activeMovementTweensByObjectId: new Map<string, MovementTween>(),
       roomObjectSpritesById: new Map<string, RoomObjectSpriteState>(),
       appearanceOutlineEffectController: createAppearanceOutlineEffectController({
@@ -330,6 +389,10 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
 
   stageRoot.addChild(activeRoomSurface.root);
   stageRoot.addChild(stagingRoomSurface.root);
+  stageRoot.addChild(activeRoomSurface.postLightClipMask);
+  stageRoot.addChild(activeRoomSurface.postLightLayer);
+  stageRoot.addChild(stagingRoomSurface.postLightClipMask);
+  stageRoot.addChild(stagingRoomSurface.postLightLayer);
   stageRoot.addChild(blackoutOverlay);
   stageRoot.addChild(lightingGridOverlay);
 
@@ -532,31 +595,52 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       viewportHeight
     );
     let temporaryCaptureSurface: Container | null = null;
+    const previousRootParent = surface.root.parent;
+    const previousRootState = {
+      x: surface.root.position.x,
+      y: surface.root.position.y,
+      alpha: surface.root.alpha,
+      visible: surface.root.visible,
+      mask: surface.root.mask
+    };
+    const postLightLayer = surface.postLightLayer;
+    const previousPostLightParent = postLightLayer.parent;
+    const previousPostLightMaskParent = surface.postLightClipMask.parent;
+    const previousPostMaskPosition = { x: surface.postLightClipMask.position.x, y: surface.postLightClipMask.position.y };
+    const previousPostLightPosition = { x: postLightLayer.position.x, y: postLightLayer.position.y };
+    const previousPostLightAlpha = postLightLayer.alpha;
+    const previousPostLightVisible = postLightLayer.visible;
     try {
-      let captureSurface: Container = surface.root;
+      let composedTexture: import("pixi.js").Texture | null = null;
       if (isLightingPresentationEnabled(presentationIsolationSettings) && roomLightingController) {
         const finalScene = surface === activeRoomSurface
           ? getLightingFrameScene(scene)
           : projectLightingMovement(scene, lightingMovementTweensByObjectId);
-        const composedTexture = roomLightingController.renderForCapture(
+        composedTexture = roomLightingController.renderForCapture(
           surface.root,
           finalScene,
           app.ticker.lastTime / 1000
         );
-        if (composedTexture) {
-          temporaryCaptureSurface = new Container();
-          temporaryCaptureSurface.addChild(new Sprite(composedTexture));
-          captureSurface = temporaryCaptureSurface;
-        }
       }
-      const captured = captureRoomTexture(app.renderer, captureSurface, {
+      temporaryCaptureSurface = new Container();
+      if (composedTexture) temporaryCaptureSurface.addChild(new Sprite(composedTexture));
+      else temporaryCaptureSurface.addChild(surface.root);
+      surface.root.position.set(0, 0);
+      surface.root.alpha = 1;
+      surface.root.visible = true;
+      surface.root.mask = null;
+      postLightLayer.position.set(0, 0);
+      surface.postLightClipMask.position.set(0, 0);
+      postLightLayer.alpha = 1;
+      postLightLayer.visible = true;
+      temporaryCaptureSurface.addChild(postLightLayer);
+      temporaryCaptureSurface.addChild(surface.postLightClipMask);
+      const captured = captureRoomTexture(app.renderer, temporaryCaptureSurface, {
         roomId,
         width: scene.bounds.width,
         height: scene.bounds.height,
         resolutionScale: transform.scale * app.renderer.resolution
       });
-      temporaryCaptureSurface?.destroy({ children: true });
-      temporaryCaptureSurface = null;
       emit("info", "Completed room snapshot capture.", {
         roomId: roomId || "(unknown)",
         surface: surface.label,
@@ -567,7 +651,6 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       });
       return captured;
     } catch (error) {
-      temporaryCaptureSurface?.destroy({ children: true });
       emit("warning", "Room snapshot capture failed.", {
         roomId: roomId || "(unknown)",
         surface: surface.label,
@@ -577,6 +660,20 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         error: error instanceof Error ? error.message : String(error)
       });
       throw error;
+    } finally {
+      if (previousRootParent && surface.root.parent !== previousRootParent) previousRootParent.addChild(surface.root);
+      if (previousPostLightParent && postLightLayer.parent !== previousPostLightParent) previousPostLightParent.addChild(postLightLayer);
+      if (previousPostLightMaskParent && surface.postLightClipMask.parent !== previousPostLightMaskParent) previousPostLightMaskParent.addChild(surface.postLightClipMask);
+      postLightLayer.position.set(previousPostLightPosition.x, previousPostLightPosition.y);
+      postLightLayer.alpha = previousPostLightAlpha;
+      postLightLayer.visible = previousPostLightVisible;
+      surface.postLightClipMask.position.set(previousPostMaskPosition.x, previousPostMaskPosition.y);
+      surface.root.position.set(previousRootState.x, previousRootState.y);
+      surface.root.alpha = previousRootState.alpha;
+      surface.root.visible = previousRootState.visible;
+      surface.root.mask = previousRootState.mask;
+      temporaryCaptureSurface?.removeChildren().forEach((child) => child.destroy());
+      temporaryCaptureSurface?.destroy({ children: false });
     }
   }
 
@@ -779,6 +876,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     surface.appearanceColorOverlayTimelineController.clear();
     surface.pointLightTimelineController.clear();
     surface.styledPointEffectController.clear();
+    surface.particleEffectSceneController?.clearRoom();
   }
 
   function clearAllSceneSprites(): void {
@@ -1477,6 +1575,112 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       .clear()
       .rect(0, 0, Math.max(1, width), Math.max(1, height))
       .fill(0xffffff);
+    surface.postLightClipMask
+      .clear()
+      .rect(0, 0, Math.max(1, width), Math.max(1, height))
+      .fill(0xffffff);
+  }
+
+  function syncParticleEffectAnchorTweens(
+    previousScene: GameRenderSceneSnapshot | null,
+    scene: GameRenderSceneSnapshot,
+    surface: RoomSurfaceState
+  ): void {
+    const tweens = surface.particleEffectAnchorTweensByObjectId;
+    if (!previousScene || previousScene.roomId !== scene.roomId) {
+      tweens.clear();
+      return;
+    }
+
+    const nextEffectObjectIds = new Set<string>();
+    for (const [objectId, object] of Object.entries(scene.objectsById)) {
+      const target = object.particleEffect;
+      if (!target || target.x === undefined || target.y === undefined) continue;
+      nextEffectObjectIds.add(objectId);
+      const previousEffect = previousScene.objectsById[objectId]?.particleEffect;
+      const movementCue = object.activePresentationCues.find((cue) => cue.category.toLowerCase() === "movement");
+      const durationMs = isPresentationCategoryEnabled(presentationIsolationSettings, "movement")
+        ? Math.max(0, Math.round(object.movementDurationMs ?? 0))
+        : 0;
+      const existing = tweens.get(objectId);
+      if (existing && existing.activationId === movementCue?.activationId
+        && existing.toX === target.x && existing.toY === target.y) {
+        continue;
+      }
+      if (!previousEffect || previousEffect.effectKey !== target.effectKey
+        || previousEffect.x === undefined || previousEffect.y === undefined
+        || durationMs <= 0 || (previousEffect.x === target.x && previousEffect.y === target.y)) {
+        tweens.delete(objectId);
+        continue;
+      }
+      tweens.set(objectId, {
+        ...(movementCue?.activationId ? { activationId: movementCue.activationId } : {}),
+        fromX: existing?.currentX ?? previousEffect.x,
+        fromY: existing?.currentY ?? previousEffect.y,
+        toX: target.x,
+        toY: target.y,
+        elapsedMs: 0,
+        durationMs,
+        currentX: existing?.currentX ?? previousEffect.x,
+        currentY: existing?.currentY ?? previousEffect.y
+      });
+    }
+    for (const objectId of tweens.keys()) {
+      if (!nextEffectObjectIds.has(objectId)) tweens.delete(objectId);
+    }
+  }
+
+  function updateParticleEffects(ticker: Ticker): void {
+    if (!presentationIsolationSettings.enabled || !presentationIsolationSettings.particleEffectsEnabled) return;
+    const timeSeconds = ticker.lastTime / 1000;
+    for (const surface of [activeRoomSurface, stagingRoomSurface]) {
+      const scene = surface === activeRoomSurface
+        ? activeSurfaceScene
+        : currentScene?.roomId !== activeSurfaceScene?.roomId ? currentScene : null;
+      const anchors = new Map<string, { x: number; y: number }>();
+      if (scene) {
+        for (const object of Object.values(scene.objectsById)) {
+          const effect = object.particleEffect;
+          const sprite = object.sprite;
+          const state = surface.roomObjectSpritesById.get(object.objectId);
+          const anchorTween = surface.particleEffectAnchorTweensByObjectId.get(object.objectId);
+          if (!effect || effect.x === undefined || effect.y === undefined) continue;
+          if (anchorTween) {
+            anchorTween.elapsedMs = Math.min(anchorTween.durationMs, anchorTween.elapsedMs + Math.max(0, ticker.deltaMS));
+            const progress = anchorTween.durationMs <= 0 ? 1 : anchorTween.elapsedMs / anchorTween.durationMs;
+            const easedProgress = progress * (2 - progress);
+            anchorTween.currentX = anchorTween.fromX + ((anchorTween.toX - anchorTween.fromX) * easedProgress);
+            anchorTween.currentY = anchorTween.fromY + ((anchorTween.toY - anchorTween.fromY) * easedProgress);
+            anchors.set(object.objectId, { x: anchorTween.currentX, y: anchorTween.currentY });
+            if (progress >= 1) surface.particleEffectAnchorTweensByObjectId.delete(object.objectId);
+            continue;
+          }
+          if (!sprite || !state) continue;
+          anchors.set(object.objectId, {
+            x: state.root.position.x + (effect.x - sprite.x),
+            y: state.root.position.y + (effect.y - sprite.y)
+          });
+        }
+      }
+      surface.particleEffectSceneController?.setObjectAnchorOverrides(anchors);
+      surface.particleEffectSceneController?.update(timeSeconds);
+    }
+  }
+
+  function syncParticleEffectLayers(): void {
+    for (const surface of [activeRoomSurface, stagingRoomSurface]) {
+      const root = surface.root;
+      surface.postLightLayer.position.set(root.position.x, root.position.y);
+      surface.postLightLayer.scale.set(root.scale.x, root.scale.y);
+      surface.postLightLayer.rotation = root.rotation;
+      surface.postLightLayer.alpha = root.alpha;
+      const hasVisibleLightingComposite = surface === activeRoomSurface
+        && roomLightingController?.presentationSprite.visible === true;
+      surface.postLightLayer.visible = root.visible || hasVisibleLightingComposite;
+      surface.postLightClipMask.position.set(root.position.x, root.position.y);
+      surface.postLightClipMask.scale.set(root.scale.x, root.scale.y);
+      surface.postLightClipMask.rotation = root.rotation;
+    }
   }
 
   function updateLightingGridDiagnostic(): void {
@@ -1551,6 +1755,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     presentationIsolationSettings = {
       enabled: settings.enabled,
       lightingEnabled: settings.lightingEnabled,
+      particleEffectsEnabled: settings.particleEffectsEnabled ?? DEFAULT_PRESENTATION_ISOLATION_SETTINGS.particleEffectsEnabled,
       lightingGridEnabled: settings.lightingGridEnabled ?? false,
       categories: { ...settings.categories }
     };
@@ -1563,6 +1768,24 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       && !isPresentationCategoryEnabled(presentationIsolationSettings, "appearance");
     const styledPointDisabled = previousSettings.enabled
       && !isPresentationCategoryEnabled(presentationIsolationSettings, "styledPointEffect");
+    const particleEffectsWereEnabled = previousSettings.enabled && previousSettings.particleEffectsEnabled;
+    const particleEffectsAreEnabled = presentationIsolationSettings.enabled && presentationIsolationSettings.particleEffectsEnabled;
+
+    if (particleEffectsWereEnabled && !particleEffectsAreEnabled) {
+      for (const surface of [activeRoomSurface, stagingRoomSurface]) {
+        surface.particleEffectSceneController?.setEnabled(false);
+        surface.particleEffectAnchorTweensByObjectId.clear();
+      }
+    } else if (!particleEffectsWereEnabled && particleEffectsAreEnabled) {
+      activeRoomSurface.particleEffectSceneController?.setEnabled(true);
+      stagingRoomSurface.particleEffectSceneController?.setEnabled(true);
+      reconcileInitializedParticleControllers(
+        activeRoomSurface.particleEffectSceneController,
+        stagingRoomSurface.particleEffectSceneController,
+        activeSurfaceScene,
+        currentScene
+      );
+    }
 
     if (movementDisabled || !presentationIsolationSettings.enabled) {
       completeMovementTweens(activeRoomSurface, "movement-category-disabled");
@@ -1598,6 +1821,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
 
     emit("info", "Updated Portal presentation isolation settings.", {
       enabled: presentationIsolationSettings.enabled,
+      particleEffectsEnabled: presentationIsolationSettings.particleEffectsEnabled,
       categories: presentationIsolationSettings.categories,
       movementEffectsCompleted: movementDisabled || !presentationIsolationSettings.enabled,
       roomTransitionCompleted: roomTransitionDisabled || !presentationIsolationSettings.enabled,
@@ -1644,6 +1868,9 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       || left.bounds.width !== right.bounds.width
       || left.bounds.height !== right.bounds.height
       || left.directionalOverlays.length !== right.directionalOverlays.length
+      || JSON.stringify(left.environmentalParticleEffects ?? []) !== JSON.stringify(right.environmentalParticleEffects ?? [])
+      || JSON.stringify(left.particleEffectBursts ?? []) !== JSON.stringify(right.particleEffectBursts ?? [])
+      || JSON.stringify(left.particleEffectCatalog ?? []) !== JSON.stringify(right.particleEffectCatalog ?? [])
       || leftRoomObjects.length !== rightRoomObjects.length
       || (left.hudOverlayEntries?.length ?? 0) !== (right.hudOverlayEntries?.length ?? 0)) {
       return false;
@@ -1678,6 +1905,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         || normalizeSituationalScale(leftObject.additionalSituationalScale) !== normalizeSituationalScale(rightObject.additionalSituationalScale)
         || leftObject.zOrder !== rightObject.zOrder
         || leftObject.movementDurationMs !== rightObject.movementDurationMs
+        || JSON.stringify(leftObject.particleEffect ?? null) !== JSON.stringify(rightObject.particleEffect ?? null)
         || left.objectsById[leftObject.objectId]?.lighting?.spatialFootprint?.footprintCenterXpx
           !== right.objectsById[rightObject.objectId]?.lighting?.spatialFootprint?.footprintCenterXpx
         || left.objectsById[leftObject.objectId]?.lighting?.spatialFootprint?.footprintCenterYpx
@@ -2336,6 +2564,11 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       return;
     }
 
+    if (presentationIsolationSettings.enabled && presentationIsolationSettings.particleEffectsEnabled) {
+      syncParticleEffectAnchorTweens(previousScene, scene, surface);
+      surface.particleEffectSceneController?.reconcile(scene);
+    }
+
     if (reconcileHud) {
       hudOverlayController.reconcile(scene, viewportWidth, viewportHeight);
     }
@@ -2385,6 +2618,56 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     activeRoomSurface.root.visible = !composed;
   }
 
+  async function initializeParticleEffects(): Promise<void> {
+    try {
+      const [activeEffects, stagingEffects] = await Promise.all([
+        TopDownEffects.create(),
+        TopDownEffects.create()
+      ]);
+      if (isDisposed) {
+        activeEffects.dispose();
+        stagingEffects.dispose();
+        return;
+      }
+      for (const [surface, effects] of [[activeRoomSurface, activeEffects], [stagingRoomSurface, stagingEffects]] as const) {
+        surface.preLightMount.addChild(effects.preLight);
+        surface.postLightLayer.addChild(effects.postLight);
+        surface.particleEffectSceneController = new ParticleEffectSceneController(effects, (level, message, details) => {
+          diagnostics?.({ category: "scene", level, message, details });
+        }, options.loadParticleEffectImage);
+        surface.particleEffectSceneController.setEnabled(
+          presentationIsolationSettings.enabled && presentationIsolationSettings.particleEffectsEnabled
+        );
+      }
+      if (presentationIsolationSettings.enabled && presentationIsolationSettings.particleEffectsEnabled) {
+        reconcileInitializedParticleControllers(
+          activeRoomSurface.particleEffectSceneController,
+          stagingRoomSurface.particleEffectSceneController,
+          activeSurfaceScene,
+          currentScene
+        );
+      }
+      diagnostics?.({
+        category: "scene",
+        level: "info",
+        message: "Particle effect controllers initialized.",
+        details: {
+          activeSurfaceRoomId: activeSurfaceScene?.roomId ?? "(none)",
+          currentSceneRoomId: currentScene?.roomId ?? "(none)",
+          activeControllerReady: Boolean(activeRoomSurface.particleEffectSceneController),
+          stagingControllerReady: Boolean(stagingRoomSurface.particleEffectSceneController)
+        }
+      });
+    } catch (error) {
+      diagnostics?.({
+        category: "lifecycle",
+        level: "warning",
+        message: "Failed to initialize particle effects; continuing without particle rendering.",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
   async function initialize(): Promise<void> {
     await app.init({
       backgroundColor: 0x0f172a,
@@ -2401,12 +2684,15 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     }
 
     mountElement.appendChild(app.canvas);
+    app.canvas.addEventListener("webglcontextlost", onWebGLContextLost);
+    app.canvas.addEventListener("webglcontextrestored", onWebGLContextRestored);
     app.canvas.style.width = "100%";
     app.canvas.style.height = "100%";
     app.stage.addChild(stageRoot);
     app.stage.addChild(snapshotTransitionLayer);
     app.stage.addChild(snapshotTransitionMask);
     app.stage.addChild(hudOverlayController.layer);
+    void initializeParticleEffects();
     try {
       roomLightingController = new RoomLightingController({
         renderer: app.renderer,
@@ -2426,6 +2712,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     app.ticker.add(updateRoomSwapTween);
     app.ticker.add(hudOverlayController.update);
     app.ticker.add(updateLightingPresentation);
+    app.ticker.add(updateParticleEffects);
+    app.ticker.add(syncParticleEffectLayers);
     isReady = true;
     updateSnapshotTransitionMask();
 
@@ -2820,6 +3108,10 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         reportRoomTransitionState("failed");
         activeRoomSurface.styledPointEffectController.dispose();
         stagingRoomSurface.styledPointEffectController.dispose();
+        activeRoomSurface.particleEffectSceneController?.dispose();
+        stagingRoomSurface.particleEffectSceneController?.dispose();
+        canvas?.removeEventListener("webglcontextlost", onWebGLContextLost);
+        canvas?.removeEventListener("webglcontextrestored", onWebGLContextRestored);
         if (canvas && canvas.parentElement === mountElement) {
           mountElement.removeChild(canvas);
         }

@@ -65,6 +65,11 @@ export type { HostGameDescriptor } from "./HostGameDescriptor";
 export type { HostDiscoverGamesResult } from "./HostDiscoverGamesResult";
 export type { HostGameAccessDescriptor } from "./HostGameAccessDescriptor";
 export type { HostGameDetailsDescriptor } from "./HostGameDetailsDescriptor";
+export type { HostDiscoverAssetsRequest } from "./HostDiscoverAssetsRequest";
+export type { HostDiscoverAssetsResult } from "./HostDiscoverAssetsResult";
+export type { HostAssetDiscoveryCandidate } from "./HostAssetDiscoveryCandidate";
+export type { HostParticleEffectImageMapping } from "./HostParticleEffectImageMapping";
+export type { HostParticleEffectAssetAssociation } from "./HostParticleEffectAssetAssociation";
 export type { HostGetGameDetailsResult } from "./HostGetGameDetailsResult";
 
 export type { HostSessionDescriptor } from "./HostSessionDescriptor";
@@ -110,6 +115,11 @@ export type { HostCommandRenderableRoomObject } from "./HostCommandRenderableRoo
 export type { HostObjectPointLight } from "./HostObjectPointLight";
 export type { HostObjectSpatialFootprint } from "./HostObjectSpatialFootprint";
 export type { HostObjectLightOcclusion } from "./HostObjectLightOcclusion";
+export type { HostObjectParticleEffectInstance } from "./HostObjectParticleEffectInstance";
+export type { HostEnvironmentalParticleEffectInstance } from "./HostEnvironmentalParticleEffectInstance";
+export type { HostParticleEffectControlValue } from "./HostParticleEffectControlValue";
+export type { HostParticleEffectBurst } from "./HostParticleEffectBurst";
+export type { HostCommandCurrentRoomUpdate } from "./HostCommandCurrentRoomUpdate";
 export type { HostPointLightDefaults } from "./HostPointLightDefaults";
 export type { HostRoomAmbientLighting } from "./HostRoomAmbientLighting";
 export type { HostSessionPresentationSettings } from "./HostSessionPresentationSettings";

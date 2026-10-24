@@ -26,6 +26,7 @@ interface WaypointInteractionRendererBridge {
 interface SessionPlaySurfaceRendererV1Props {
   activeSessionId: string;
   sceneSnapshot: GameRenderSceneSnapshot | null;
+  loadParticleEffectImage: (relativeLocator: string) => Promise<string | null>;
   presentationIsolationSettings: PresentationIsolationSettings;
   roomTransitionPreparationEpoch: number;
   gameplayInteractionSubstate: GameplayInteractionSubstate;
@@ -100,6 +101,7 @@ export function SessionPlaySurfaceRendererV1(props: SessionPlaySurfaceRendererV1
 
     rendererRef.current = createGameRenderer(mountRef.current, {
       presentationIsolationSettings: props.presentationIsolationSettings,
+      loadParticleEffectImage: props.loadParticleEffectImage,
       diagnosticsSink: (event: GameRendererDiagnosticsEvent) => {
         props.onReportRendererDiagnostic(event);
       },

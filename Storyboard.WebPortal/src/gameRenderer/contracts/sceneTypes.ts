@@ -10,6 +10,8 @@ export type {
   GameRenderCueReference,
   GameRenderPresentationCue,
   GameRenderMovementCueMetadata,
+  GameRenderParticleEffect,
+  GameRenderParticleBurst,
   GameRenderResolvedObjectEffect,
   GameRenderResolvedObjectEffectIdentity,
   GameRenderAppearanceOutlineEffect,

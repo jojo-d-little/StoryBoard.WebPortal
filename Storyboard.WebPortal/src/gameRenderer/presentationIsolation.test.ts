@@ -11,6 +11,7 @@ describe("presentation isolation settings", () => {
     expect(DEFAULT_PRESENTATION_ISOLATION_SETTINGS).toEqual({
       enabled: true,
       lightingEnabled: true,
+      particleEffectsEnabled: true,
       lightingGridEnabled: false,
       categories: {
         movement: true,
@@ -26,6 +27,7 @@ describe("presentation isolation settings", () => {
     const settings = {
       enabled: true,
       lightingEnabled: true,
+      particleEffectsEnabled: true,
       lightingGridEnabled: false,
       categories: {
         ...DEFAULT_PRESENTATION_ISOLATION_SETTINGS.categories,

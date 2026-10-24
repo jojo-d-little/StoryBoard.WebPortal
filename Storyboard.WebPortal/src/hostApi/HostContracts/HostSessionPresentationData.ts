@@ -3,6 +3,7 @@ import type { HostCommandRemoteRoomObject } from "./HostCommandRemoteRoomObject"
 import type { HostCommandRoomChangeData } from "./HostCommandRoomChangeData";
 import type { HostCommandRoomObjectChange } from "./HostCommandRoomObjectChange";
 import type { HostCommandSoundCue } from "./HostCommandSoundCue";
+import type { HostParticleEffectBurst } from "./HostParticleEffectBurst";
 import type { HostSessionPresentationSettings } from "./HostSessionPresentationSettings";
 
 export interface HostSessionPresentationData {
@@ -19,6 +20,7 @@ export interface HostSessionPresentationData {
   authoredRenderWidth?: number | null;
   authoredRenderHeight?: number | null;
   soundCues: HostCommandSoundCue[];
+  particleEffectBursts?: HostParticleEffectBurst[];
   remoteRoomObjects?: HostCommandRemoteRoomObject[];
   outputLines: string[];
   diagnostics: string[];

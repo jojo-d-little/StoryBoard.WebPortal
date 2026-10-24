@@ -338,6 +338,44 @@ describe("HostApiClient", () => {
     vi.unstubAllGlobals();
   });
 
+  it("discovers current-session assets with an ancestor warm-up request", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        result: { success: true, code: "Asset.Discover.Success", diagnosticsMessages: [] },
+        resultCode: "Success",
+        candidates: [{
+          assetType: "Image",
+          relativeLocator: "assets/custom/smoke.webp",
+          eTagHint: "etag-1",
+          priorityTier: "CurrentRoom",
+          reasonTags: ["ParticleEffectCustomImage"],
+          missing: false
+        }],
+        truncated: false,
+        continuationToken: ""
+      })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const client = new HostApiClient({ baseUrl: "http://127.0.0.1:5199" });
+      const response = await client.discoverAssets("cred-1", "session-1");
+      expect(response.candidates[0]).toMatchObject({
+        assetType: "Image",
+        relativeLocator: "assets/custom/smoke.webp",
+        reasonTags: ["ParticleEffectCustomImage"]
+      });
+      expect(fetchMock).toHaveBeenCalledWith("http://127.0.0.1:5199/api/v1/assets/discover", expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining('"scopeDepth":"Ancestors"')
+      }));
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("retrieves asset payload as JSON", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -636,8 +674,30 @@ describe("HostApiClient", () => {
                   rotationDegrees: 0,
                   scale: 1
                 },
-                renderZOrder: 1002
+                renderZOrder: 1002,
+                particleEffect: {
+                  effectKey: "particle.torch",
+                  x: 120.5,
+                  y: 80.25,
+                  isProducing: true,
+                  targetControls: {
+                    Tint: { valueType: "String", stringValue: "#ff9900" },
+                    Rate: { valueType: "Numeric", numericValue: 12 }
+                  }
+                }
               }
+            ],
+            environmentalParticleEffects: [
+              {
+                instanceId: "room-effect-1",
+                effectKey: "particle.drifting-motes",
+                isProducing: false,
+                renderOrder: 3,
+                targetControls: { WindSpeedMultiplier: { valueType: "Numeric", numericValue: 0 } }
+              }
+            ],
+            particleEffectImageMappings: [
+              { effectKey: "particle.torch", imageSlot: "flame", relativeLocator: "assets/images/custom/flame.png" }
             ],
             directionalRenderableImages: [
               {
@@ -686,6 +746,17 @@ describe("HostApiClient", () => {
             replayPolicy: "IgnoreIfAlreadyPlaying"
           }
         ],
+        particleEffectBursts: [
+          {
+            burstId: "burst-1",
+            sourceObjectId: "obj-1",
+            roomId: "room-9",
+            effectKey: "particle.electrical-sparks",
+            x: 120,
+            y: 80,
+            targetControls: { Count: { valueType: "Numeric", numericValue: 5 } }
+          }
+        ],
         authoredRenderWidth: 800,
         authoredRenderHeight: 600
       })
@@ -703,6 +774,26 @@ describe("HostApiClient", () => {
     expect(baseline.roomChange?.newRoom?.roomImageCanvasHeight).toBe(800);
     expect(baseline.roomChange?.newRoom?.directionalRenderableImages[0].slot).toBe("Down");
     expect(baseline.roomChange?.newRoom?.renderableRoomObjects[0].name).toBe("Lantern");
+    expect(baseline.roomChange?.newRoom?.renderableRoomObjects[0].particleEffect).toEqual({
+      effectKey: "particle.torch",
+      x: 120.5,
+      y: 80.25,
+      isProducing: true,
+      targetControls: {
+        Tint: { valueType: "String", stringValue: "#ff9900" },
+        Rate: { valueType: "Numeric", numericValue: 12 }
+      }
+    });
+    expect(baseline.roomChange?.newRoom?.environmentalParticleEffects).toEqual([{
+      instanceId: "room-effect-1",
+      effectKey: "particle.drifting-motes",
+      isProducing: false,
+      renderOrder: 3,
+      targetControls: { WindSpeedMultiplier: { valueType: "Numeric", numericValue: 0 } }
+    }]);
+    expect(baseline.roomChange?.newRoom?.particleEffectImageMappings).toEqual([
+      { effectKey: "particle.torch", imageSlot: "flame", relativeLocator: "assets/images/custom/flame.png" }
+    ]);
     expect(baseline.phaseChange?.orderedTextPresentationSteps).toHaveLength(1);
     expect(baseline.phaseChange?.orderedTextPresentationSteps?.[0].presentationCueEffectKey).toBe("text.hudoverlay.autoscroll.manualdismiss");
     expect(baseline.phaseChange?.orderedTextPresentationSteps?.[0].where).toBe("HudEdgeCard");
@@ -711,6 +802,15 @@ describe("HostApiClient", () => {
     expect(baseline.soundCues).toHaveLength(1);
     expect(baseline.soundCues[0].soundEffectLane).toBe("Ambient");
     expect(baseline.soundCues[0].resultCode).toBe("SessionBaseline.PhaseAmbient");
+    expect(baseline.particleEffectBursts).toEqual([{
+      burstId: "burst-1",
+      sourceObjectId: "obj-1",
+      roomId: "room-9",
+      effectKey: "particle.electrical-sparks",
+      x: 120,
+      y: 80,
+      targetControls: { Count: { valueType: "Numeric", numericValue: 5 } }
+    }]);
     expect(baseline.authoredRenderWidth).toBe(800);
     expect(baseline.authoredRenderHeight).toBe(600);
 

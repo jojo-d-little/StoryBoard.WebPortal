@@ -7,6 +7,7 @@ function toSceneObject(roomObject: GameRenderRoomObject): GameRenderSceneObject 
     objectName,
     activePresentationCues,
     resolvedObjectEffects,
+    particleEffect,
     movementDurationMs,
     movementFrames,
     ...sprite
@@ -18,6 +19,7 @@ function toSceneObject(roomObject: GameRenderRoomObject): GameRenderSceneObject 
     sprite,
     activePresentationCues,
     ...(resolvedObjectEffects === undefined ? {} : { resolvedObjectEffects }),
+    ...(particleEffect === undefined ? {} : { particleEffect }),
     ...(movementDurationMs === undefined ? {} : { movementDurationMs }),
     ...(movementFrames === undefined ? {} : { movementFrames })
   };
@@ -34,6 +36,7 @@ function toRenderableRoomObject(object: GameRenderSceneObject): GameRenderRoomOb
     ...object.sprite,
     activePresentationCues: object.activePresentationCues,
     ...(object.resolvedObjectEffects === undefined ? {} : { resolvedObjectEffects: object.resolvedObjectEffects }),
+    ...(object.particleEffect === undefined ? {} : { particleEffect: object.particleEffect }),
     ...(object.movementDurationMs === undefined ? {} : { movementDurationMs: object.movementDurationMs }),
     ...(object.movementFrames === undefined ? {} : { movementFrames: object.movementFrames })
   };
@@ -67,7 +70,7 @@ export function replaceRenderableRoomObjects(
     }
 
     const { sprite: _sprite, ...withoutSprite } = object;
-    if (object.lighting || object.activePresentationCues.length > 0 || (object.resolvedObjectEffects?.length ?? 0) > 0) {
+    if (object.lighting || object.activePresentationCues.length > 0 || (object.resolvedObjectEffects?.length ?? 0) > 0 || object.particleEffect) {
       objectsById[objectId] = withoutSprite;
     }
   }
@@ -93,6 +96,6 @@ export function mapRenderableRoomObjects(
 }
 
 export function toSpriteComponent(roomObject: GameRenderRoomObject): GameRenderSpriteComponent {
-  const { objectId: _objectId, objectName: _objectName, activePresentationCues: _cues, resolvedObjectEffects: _effects, movementDurationMs: _duration, movementFrames: _frames, ...sprite } = roomObject;
+  const { objectId: _objectId, objectName: _objectName, activePresentationCues: _cues, resolvedObjectEffects: _effects, particleEffect: _particleEffect, movementDurationMs: _duration, movementFrames: _frames, ...sprite } = roomObject;
   return sprite;
 }

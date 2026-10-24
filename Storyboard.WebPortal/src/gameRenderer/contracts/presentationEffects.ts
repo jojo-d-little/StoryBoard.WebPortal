@@ -15,6 +15,7 @@ export type {
 
 export type { GameRenderCueReference, GameRenderPresentationCue } from "./presentationEffects/GameRenderPresentationCue";
 export type { GameRenderMovementCueMetadata } from "./presentationEffects/GameRenderMovementCueMetadata";
+export type { GameRenderParticleEffect, GameRenderParticleBurst } from "./presentationEffects/GameRenderParticleEffect";
 export type {
   GameRenderResolvedObjectEffect,
   GameRenderResolvedObjectEffectIdentity,

@@ -274,6 +274,8 @@ export function ConfigSlotFeatureRenderer(props: ConfigSlotFeatureRendererProps)
         onThemeTypographyReset={onThemeTypographyReset}
         previewContext={previewContext}
         cacheStats={hostWorkflow.cacheStats}
+        particleAssetWarmupEnabled={hostWorkflow.particleAssetWarmupEnabled}
+        onParticleAssetWarmupEnabledChange={hostWorkflow.setParticleAssetWarmupEnabled}
         onResetCacheStats={hostWorkflow.resetCacheStats}
         onClearMemoryCache={hostWorkflow.clearMemoryCache}
         onClearPersistentCache={hostWorkflow.clearPersistentCache}
@@ -293,6 +295,7 @@ export function ConfigSlotFeatureRenderer(props: ConfigSlotFeatureRendererProps)
         presentationIsolationCategoryOptions={hostWorkflow.presentationIsolationCategoryOptions}
         onPresentationIsolationEnabledChange={hostWorkflow.setPresentationIsolationEnabled}
         onLightingEnabledChange={hostWorkflow.setLightingEnabled}
+        onParticleEffectsEnabledChange={hostWorkflow.setParticleEffectsEnabled}
         onLightingGridEnabledChange={hostWorkflow.setLightingGridEnabled}
         onPresentationIsolationCategoryEnabledChange={(category: PresentationIsolationCategory, enabled: boolean) => {
           hostWorkflow.setPresentationIsolationCategoryEnabled(category, enabled);

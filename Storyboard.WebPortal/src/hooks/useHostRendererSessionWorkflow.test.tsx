@@ -49,6 +49,40 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
     });
   }
 
+  it("waits for required global catalog assets before requesting the session baseline", async () => {
+    let releaseCatalog!: (catalog: { effects: [] }) => void;
+    const catalogReady = new Promise<{ effects: [] }>((resolve) => { releaseCatalog = resolve; });
+    const ensurePresentationCueCatalogReady = vi.fn(() => catalogReady);
+    const getSessionBaseline = vi.fn().mockResolvedValue({
+      sessionDeltaWatermark: "1", soundCues: [], roomObjectChanges: [],
+      activeRoomObjectName: "", activeRoomObjectSelectionCueEffectKey: "",
+      secondaryActiveRoomObjectName: "", secondaryActiveRoomObjectSelectionCueEffectKey: "",
+      outputLines: [], diagnostics: [], roomChange: { newRoom: {
+        roomId: "room-1", name: "Atrium", roomDisplayMode: "Overlay", renderableRoomObjects: [], directionalRenderableImages: []
+      } }
+    });
+    const hostApiClient = { getSessionBaseline, getSessionDeltas: vi.fn() } as unknown as HostApiClient;
+    const { result } = renderHook(() => {
+      const [scene, setScene] = useState<GameRenderSceneSnapshot | null>(null);
+      useHostRendererSessionWorkflow({
+        hostApiClient, credentialHandle: "cred-1", activeSessionId: "session-1", selectedGameId: "game-1", selectedGameKey: "game-key",
+        presentationCueCatalogRevision: 0, rendererSceneSnapshot: scene, setRendererSceneSnapshot: setScene,
+        applyPresentationCues: (snapshot) => snapshot, getCurrentPresentationCueCatalog: () => null,
+        ensurePresentationCueCatalogReady, presentationCueCatalogSource: "none", getHudOverlayEntries: () => [],
+        pollIntervalMs: 100, heartbeatEveryNPolls: 100, sessionDeltaResetEpoch: 0,
+        consumeSessionDeltaPhasePresentation: vi.fn(), consumeSessionDeltaEcho: vi.fn(), consumeSessionDeltaSoundCues: vi.fn(),
+        refreshCacheStats: vi.fn(), addDiagnostic: vi.fn()
+      });
+      return scene;
+    });
+
+    expect(ensurePresentationCueCatalogReady).toHaveBeenCalledTimes(1);
+    expect(getSessionBaseline).not.toHaveBeenCalled();
+    act(() => { releaseCatalog({ effects: [] }); });
+    await waitFor(() => expect(getSessionBaseline).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current?.roomId).toBe("room-1"));
+  });
+
   it("renders Shown objects without reporting movement and clears Hidden objects and cues", async () => {
     const hostApiClient = {
       getSessionBaseline: vi.fn().mockResolvedValue({
@@ -82,6 +116,7 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
         setRendererSceneSnapshot: setScene,
         applyPresentationCues: (snapshot) => snapshot,
         getCurrentPresentationCueCatalog: () => null,
+        ensurePresentationCueCatalogReady: async () => ({ effects: [] }),
         presentationCueCatalogSource: "none",
         getHudOverlayEntries: () => [],
         pollIntervalMs: 100,
@@ -150,6 +185,82 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
     expect(addDiagnostic.mock.calls.some(([, , message]) => message === "Movement cue resolution summary for session delta.")).toBe(false);
   });
 
+  it("warms discovered custom particle images when the session warm-up switch is enabled", async () => {
+    const discoverAssets = vi.fn().mockResolvedValue({
+      result: { success: true },
+      resultCode: "Success",
+      candidates: [{
+        assetType: "Image",
+        relativeLocator: "assets/particle/warmup-probe.webp",
+        eTagHint: "etag-probe",
+        priorityTier: "CurrentRoom",
+        particleEffectAssociation: { effectKey: "particle.warmup-probe", imageSlot: "spark" },
+        missing: false
+      }],
+      truncated: false,
+      continuationToken: ""
+    });
+    const getAssetPreviewDataUrl = vi.fn().mockResolvedValue("data:image/webp;base64,AAAA");
+    const hostApiClient = {
+      getSessionBaseline: vi.fn().mockResolvedValue({
+        sessionDeltaWatermark: "warmup-1",
+        soundCues: [],
+        roomChange: {
+          newRoom: {
+            roomId: "room-warmup-probe",
+            name: "Warm-up probe",
+            roomDisplayMode: "Overlay",
+            renderableRoomObjects: [],
+            directionalRenderableImages: [],
+            particleEffectImageMappings: [{
+              effectKey: "particle.warmup-probe",
+              imageSlot: "spark",
+              relativeLocator: "assets/particle/warmup-probe.webp"
+            }]
+          }
+        }
+      }),
+      getSessionDeltas: vi.fn(),
+      discoverAssets,
+      getAssetPreviewDataUrl
+    } as unknown as HostApiClient;
+    const { result } = renderHook(() => {
+      const [scene, setScene] = useState<GameRenderSceneSnapshot | null>(null);
+      useHostRendererSessionWorkflow({
+        hostApiClient,
+        credentialHandle: "cred-warmup",
+        activeSessionId: "session-warmup",
+        selectedGameId: "game-warmup",
+        selectedGameKey: "game-warmup-key",
+        presentationCueCatalogRevision: 0,
+        rendererSceneSnapshot: scene,
+        setRendererSceneSnapshot: setScene,
+        applyPresentationCues: (snapshot) => snapshot,
+        getCurrentPresentationCueCatalog: () => null,
+        ensurePresentationCueCatalogReady: async () => ({ effects: [] }),
+        presentationCueCatalogSource: "none",
+        particleAssetWarmupEnabled: true,
+        getHudOverlayEntries: () => [],
+        pollIntervalMs: 100,
+        heartbeatEveryNPolls: 100,
+        sessionDeltaResetEpoch: 0,
+        consumeSessionDeltaPhasePresentation: vi.fn(),
+        consumeSessionDeltaEcho: vi.fn(),
+        consumeSessionDeltaSoundCues: vi.fn(),
+        refreshCacheStats: vi.fn(),
+        addDiagnostic: vi.fn()
+      });
+      return scene;
+    });
+
+    await waitForBaselineSyncReady();
+    await waitFor(() => expect(getAssetPreviewDataUrl).toHaveBeenCalledWith(
+      "cred-warmup", "assets/particle/warmup-probe.webp", "game-warmup", "game-warmup-key"
+    ));
+    expect(discoverAssets).toHaveBeenCalledWith("cred-warmup", "session-warmup", "Ancestors");
+      await waitFor(() => expect(result.current?.roomId).toBe("room-warmup-probe"));
+  });
+
   it("waits for baseline and starts delta polling from baseline watermark", async () => {
     const getSessionBaseline = vi.fn().mockResolvedValue({
       sessionDeltaWatermark: "42",
@@ -176,6 +287,7 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
         setRendererSceneSnapshot: vi.fn(),
         applyPresentationCues: (scene) => scene,
         getCurrentPresentationCueCatalog: () => null,
+        ensurePresentationCueCatalogReady: async () => ({ effects: [] }),
         presentationCueCatalogSource: "none",
         getHudOverlayEntries: () => [],
         pollIntervalMs: 100,
@@ -262,6 +374,7 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
       setRendererSceneSnapshot,
       applyPresentationCues: (scene) => scene,
       getCurrentPresentationCueCatalog: () => null,
+      ensurePresentationCueCatalogReady: async () => ({ effects: [] }),
       presentationCueCatalogSource: "none",
       getHudOverlayEntries: () => [],
       pollIntervalMs: 100,
@@ -322,6 +435,7 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
         setRendererSceneSnapshot: vi.fn(),
         applyPresentationCues: (scene) => scene,
         getCurrentPresentationCueCatalog: () => null,
+        ensurePresentationCueCatalogReady: async () => ({ effects: [] }),
         presentationCueCatalogSource: "none",
         getHudOverlayEntries: () => [],
         pollIntervalMs: 100,
@@ -366,6 +480,7 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
         setRendererSceneSnapshot: vi.fn(),
         applyPresentationCues: (scene) => scene,
         getCurrentPresentationCueCatalog: () => null,
+        ensurePresentationCueCatalogReady: async () => ({ effects: [] }),
         presentationCueCatalogSource: "none",
         getHudOverlayEntries: () => [],
         pollIntervalMs: 100,
