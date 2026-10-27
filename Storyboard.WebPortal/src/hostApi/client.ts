@@ -88,7 +88,7 @@ export interface HostApiClientOptions {
 }
 
 export interface HostApiTraceEvent {
-  phase: "completed" | "failed";
+  phase: "started" | "completed" | "failed";
   method: "POST";
   path: string;
   durationMs: number;
@@ -850,10 +850,12 @@ export class HostApiClient {
     const context = this.readTraceContext(payload);
     const payloadRecord = this.asRecord(payload);
     const startedAtMs = Date.now();
-    let traceEmitted = false;
+    let terminalTraceEmitted = false;
 
     const emitTrace = (phase: HostApiTraceEvent["phase"], status?: number, details?: Record<string, unknown>): void => {
-      traceEmitted = true;
+      if (phase !== "started") {
+        terminalTraceEmitted = true;
+      }
       this.onTraceEvent?.({
         phase,
         method: "POST",
@@ -869,6 +871,7 @@ export class HostApiClient {
     };
 
     try {
+      emitTrace("started", undefined, traceDetails);
       const response = await fetch(new URL(path, this.baseUrl).toString(), {
         method: "POST",
         headers: {
@@ -888,7 +891,7 @@ export class HostApiClient {
       emitTrace("completed", response.status, traceDetails);
       return data;
     } catch (error) {
-      if (!traceEmitted) {
+      if (!terminalTraceEmitted) {
         emitTrace("failed", undefined, {
           ...traceDetails,
           message: error instanceof Error ? error.message : String(error)
@@ -1535,9 +1538,15 @@ export class HostApiClient {
   private readRoomChangeData(source: Record<string, unknown>): HostSessionPresentationData["roomChange"] {
     const roomChange = this.readObject(source, ["roomChange", "RoomChange"]);
     const newRoom = this.readNullableRecord(roomChange, ["newRoom", "NewRoom"]);
+    const currentRoom = this.readNullableRecord(roomChange, ["currentRoom", "CurrentRoom"]);
     const directionalRenderableImages = this.readArray(newRoom, ["directionalRenderableImages", "DirectionalRenderableImages"]);
     const renderableRoomObjects = this.readArray(newRoom, ["renderableRoomObjects", "RenderableRoomObjects"]);
     const presentationCues = this.readArray(roomChange, ["presentationCues", "PresentationCues"]);
+    const currentRoomEnvironment = currentRoom?.environmentalParticleEffects ?? currentRoom?.EnvironmentalParticleEffects;
+    const currentRoomImageMappings = currentRoom?.particleEffectImageMappings ?? currentRoom?.ParticleEffectImageMappings;
+    const currentRoomAmbientLighting = currentRoom
+      ? this.readOptionalRoomAmbientLighting(currentRoom)
+      : undefined;
 
     if (Object.keys(roomChange).length === 0) {
       return undefined;
@@ -1570,7 +1579,21 @@ export class HostApiClient {
                 renderableImage: this.readRenderableImage(renderableImage)
               };
             })
+          },
+      currentRoom: currentRoom
+        ? {
+            roomId: this.readString(currentRoom, ["roomId", "RoomId"]),
+            ...(currentRoomAmbientLighting === undefined || currentRoomAmbientLighting === null
+              ? {}
+              : { ambientLighting: currentRoomAmbientLighting }),
+            ...(Array.isArray(currentRoomEnvironment)
+              ? { environmentalParticleEffects: this.readEnvironmentalParticleEffects(currentRoom) }
+              : {}),
+            ...(Array.isArray(currentRoomImageMappings)
+              ? { particleEffectImageMappings: this.readParticleEffectImageMappings(currentRoom) }
+              : {})
           }
+        : undefined
     };
   }
 

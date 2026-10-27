@@ -458,50 +458,100 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
     await waitForBaselineSyncReady();
   });
 
-  it("pauses polling for a room-change delta and defers phase presentation until renderer completion", async () => {
+  it("only pauses polling for a destination room that differs from the displayed room", async () => {
     const hostApiClient = {
       getSessionBaseline: vi.fn().mockResolvedValue({
         sessionDeltaWatermark: "1",
         soundCues: [],
+        roomChange: {
+          newRoom: {
+            roomId: "room-1",
+            name: "First Room",
+            roomDisplayMode: 1,
+            renderableRoomObjects: [],
+            directionalRenderableImages: []
+          }
+        }
       }),
       getSessionDeltas: vi.fn(),
       getAssetPreviewDataUrl: vi.fn()
     } as unknown as HostApiClient;
     const consumeSessionDeltaPhasePresentation = vi.fn();
     const { result } = renderHook(() =>
-      useHostRendererSessionWorkflow({
-        hostApiClient,
-        credentialHandle: "cred-1",
-        activeSessionId: "session-1",
-        selectedGameId: "game-1",
-        selectedGameKey: "game-key",
-        presentationCueCatalogRevision: 0,
-        rendererSceneSnapshot: null,
-        setRendererSceneSnapshot: vi.fn(),
-        applyPresentationCues: (scene) => scene,
-        getCurrentPresentationCueCatalog: () => null,
-        ensurePresentationCueCatalogReady: async () => ({ effects: [] }),
-        presentationCueCatalogSource: "none",
-        getHudOverlayEntries: () => [],
-        pollIntervalMs: 100,
-        heartbeatEveryNPolls: 100,
-        sessionDeltaResetEpoch: 0,
-        consumeSessionDeltaPhasePresentation,
-        consumeSessionDeltaEcho: vi.fn(),
-        consumeSessionDeltaSoundCues: vi.fn(),
-        refreshCacheStats: vi.fn(),
-        addDiagnostic: vi.fn()
-      })
+      {
+        const [scene, setScene] = useState<GameRenderSceneSnapshot | null>(null);
+        const workflow = useHostRendererSessionWorkflow({
+          hostApiClient,
+          credentialHandle: "cred-1",
+          activeSessionId: "session-1",
+          selectedGameId: "game-1",
+          selectedGameKey: "game-key",
+          presentationCueCatalogRevision: 0,
+          rendererSceneSnapshot: scene,
+          setRendererSceneSnapshot: setScene,
+          applyPresentationCues: (snapshot) => snapshot,
+          getCurrentPresentationCueCatalog: () => null,
+          ensurePresentationCueCatalogReady: async () => ({ effects: [] }),
+          presentationCueCatalogSource: "none",
+          getHudOverlayEntries: () => [],
+          pollIntervalMs: 100,
+          heartbeatEveryNPolls: 100,
+          sessionDeltaResetEpoch: 0,
+          consumeSessionDeltaPhasePresentation,
+          consumeSessionDeltaEcho: vi.fn(),
+          consumeSessionDeltaSoundCues: vi.fn(),
+          refreshCacheStats: vi.fn(),
+          addDiagnostic: vi.fn()
+        });
+        return { scene, workflow };
+      }
     );
 
     await waitForBaselineSyncReady();
+    await waitFor(() => expect(result.current.scene?.roomId).toBe("room-1"));
 
     const pollingOptions = useSessionDeltaPollingMock.mock.calls[useSessionDeltaPollingMock.mock.calls.length - 1]?.[0] as {
       isPaused: () => boolean;
       onSessionData: (sessionData: unknown) => void;
     };
-    const roomChange = {
+    const currentRoomUpdate = {
       sessionDeltaWatermark: "2",
+      roomObjectChanges: [],
+      soundCues: [],
+      outputLines: [],
+      diagnostics: [],
+      roomChange: {
+        currentRoom: {
+          roomId: "room-1",
+          environmentalParticleEffects: []
+        }
+      }
+    };
+    act(() => pollingOptions.onSessionData(currentRoomUpdate));
+    expect(pollingOptions.isPaused()).toBe(false);
+    expect(consumeSessionDeltaPhasePresentation).toHaveBeenCalledWith(currentRoomUpdate);
+
+    consumeSessionDeltaPhasePresentation.mockClear();
+    const sameRoomNewRoomUpdate = {
+      ...currentRoomUpdate,
+      sessionDeltaWatermark: "3",
+      roomChange: {
+        newRoom: {
+          roomId: "room-1",
+          name: "First Room",
+          roomDisplayMode: 1,
+          renderableRoomObjects: [],
+          directionalRenderableImages: []
+        }
+      }
+    };
+    act(() => pollingOptions.onSessionData(sameRoomNewRoomUpdate));
+    expect(pollingOptions.isPaused()).toBe(false);
+    expect(consumeSessionDeltaPhasePresentation).toHaveBeenCalledWith(sameRoomNewRoomUpdate);
+    consumeSessionDeltaPhasePresentation.mockClear();
+
+    const roomChange = {
+      sessionDeltaWatermark: "4",
       roomObjectChanges: [],
       soundCues: [],
       outputLines: [],
@@ -527,11 +577,11 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
     expect(pollingOptions.isPaused()).toBe(true);
     expect(consumeSessionDeltaPhasePresentation).not.toHaveBeenCalled();
     await waitFor(() => {
-      expect(result.current.roomTransitionPreparationEpoch).toBe(1);
+      expect(result.current.workflow.roomTransitionPreparationEpoch).toBe(1);
     });
 
     act(() => {
-      result.current.reportRoomTransitionState("complete");
+      result.current.workflow.reportRoomTransitionState("complete");
     });
     expect(pollingOptions.isPaused()).toBe(false);
     expect(consumeSessionDeltaPhasePresentation).toHaveBeenCalledWith(roomChange);

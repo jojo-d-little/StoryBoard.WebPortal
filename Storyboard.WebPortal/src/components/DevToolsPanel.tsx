@@ -280,6 +280,10 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
       setCommandSequence(parsed);
       setCommandSequenceIndex(0);
       setCommandSequenceName(file.name);
+      const nextStep = parsed[0];
+      setCommandSequenceStatus(nextStep
+        ? `Ready. ${formatNextCommand(nextStep)}`
+        : "No commands loaded.");
     } catch (error) {
       setCommandSequence([]);
       setCommandSequenceIndex(0);
@@ -294,6 +298,16 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
     setCommandSequenceStatus("Playback stopped.");
   }
 
+  function formatNextCommand(step: CommandSequenceStep | undefined): string {
+    if (!step) return "No next command.";
+    const pause = commandSequenceMode === "manual" ? ` (recommended pause: ${step.pauseMs} ms)` : "";
+    return `Next command: ${step.command}${pause}`;
+  }
+
+  function formatCommandSequenceAction(action: string, nextIndex: number): string {
+    return `${action} ${formatNextCommand(commandSequence[nextIndex])}`;
+  }
+
   async function playNextCommand(): Promise<void> {
     if (!props.activeSessionId || commandSequenceIndex >= commandSequence.length || commandSequenceBusy) return;
     const runId = ++sequenceRunRef.current;
@@ -302,7 +316,10 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
     setCommandSequenceBusy(true);
     setCommandSequenceError("");
     try {
-      setCommandSequenceStatus(`Sending ${stepIndex + 1} of ${commandSequence.length}: ${step.command}`);
+      setCommandSequenceStatus(formatCommandSequenceAction(
+        `Sending ${stepIndex + 1} of ${commandSequence.length}: ${step.command}.`,
+        stepIndex + 1
+      ));
       const revisionBeforeCommand = deltaRevisionRef.current;
       const result = await props.submitCommand(step.command);
       if (sequenceRunRef.current !== runId) return;
@@ -310,7 +327,10 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
         throw new Error(`Command on line ${step.lineNumber} did not complete successfully${result ? ` (${result.resultCode})` : ""}.`);
       }
 
-      setCommandSequenceStatus(`Waiting for session delta (${stepIndex + 1} of ${commandSequence.length})`);
+      setCommandSequenceStatus(formatCommandSequenceAction(
+        `Waiting for session delta (${stepIndex + 1} of ${commandSequence.length}).`,
+        stepIndex + 1
+      ));
       const deltaDeadline = Date.now() + Math.max(200, props.pollIntervalMs * 2);
       while (deltaRevisionRef.current === revisionBeforeCommand && Date.now() < deltaDeadline) {
         await new Promise<void>((resolve) => window.setTimeout(resolve, Math.min(100, Math.max(1, deltaDeadline - Date.now()))));
@@ -318,7 +338,10 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
       }
 
       setCommandSequenceIndex(stepIndex + 1);
-      setCommandSequenceStatus(`Command ${stepIndex + 1} complete. ${stepIndex + 1 < commandSequence.length ? "Click Next Command when ready." : "Sequence complete."}`);
+      setCommandSequenceStatus(formatCommandSequenceAction(
+        `Command ${stepIndex + 1} complete. ${stepIndex + 1 < commandSequence.length ? "Click Next Command when ready." : "Sequence complete."}`,
+        stepIndex + 1
+      ));
     } catch (error) {
       setCommandSequenceError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -342,7 +365,10 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
       for (let index = 0; index < commandSequence.length; index += 1) {
         if (sequenceRunRef.current !== runId) return;
         const step = commandSequence[index];
-        setCommandSequenceStatus(`Sending ${index + 1} of ${commandSequence.length}: ${step.command}`);
+        setCommandSequenceStatus(formatCommandSequenceAction(
+          `Sending ${index + 1} of ${commandSequence.length}: ${step.command}.`,
+          index + 1
+        ));
         const revisionBeforeCommand = deltaRevisionRef.current;
         const result = await props.submitCommand(step.command);
         if (sequenceRunRef.current !== runId) return;
@@ -350,7 +376,10 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
           throw new Error(`Command on line ${step.lineNumber} did not complete successfully${result ? ` (${result.resultCode})` : ""}.`);
         }
 
-        setCommandSequenceStatus(`Waiting for session delta (${index + 1} of ${commandSequence.length})`);
+        setCommandSequenceStatus(formatCommandSequenceAction(
+          `Waiting for session delta (${index + 1} of ${commandSequence.length}).`,
+          index + 1
+        ));
         const deltaWaitMs = Math.max(200, props.pollIntervalMs * 2);
         const deltaDeadline = Date.now() + deltaWaitMs;
         while (deltaRevisionRef.current === revisionBeforeCommand && Date.now() < deltaDeadline) {
@@ -358,13 +387,16 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
           if (sequenceRunRef.current !== runId) return;
         }
 
-        setCommandSequenceStatus(`Pausing ${step.pauseMs} ms (${index + 1} of ${commandSequence.length})`);
+        setCommandSequenceStatus(formatCommandSequenceAction(
+          `Pausing ${step.pauseMs} ms (${index + 1} of ${commandSequence.length}).`,
+          index + 1
+        ));
         if (step.pauseMs > 0) {
           await new Promise<void>((resolve) => window.setTimeout(resolve, step.pauseMs));
           if (sequenceRunRef.current !== runId) return;
         }
       }
-      setCommandSequenceStatus(`Completed ${commandSequence.length} commands.`);
+      setCommandSequenceStatus(formatCommandSequenceAction(`Completed ${commandSequence.length} commands.`, commandSequence.length));
     } catch (error) {
       setCommandSequenceError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -755,32 +787,32 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
           {activeSection === "commandSequence" ? (
             <>
               <h3>Command Sequence</h3>
-              <p className="subtitle">Load a text file containing one <code>command | pause-ms</code> entry per line. Lines beginning with # and blank lines are ignored.</p>
               <div className="command-sequence-controls">
-                <label>
-                  Playback mode
-                  <select
-                    value={commandSequenceMode}
-                    onChange={(event) => setCommandSequenceMode(event.target.value as "automatic" | "manual")}
-                    disabled={commandSequenceBusy}
-                  >
-                    <option value="automatic">Automatic, use file pauses</option>
-                    <option value="manual">Manual, advance one command at a time</option>
-                  </select>
-                </label>
-                <label>
-                  Load command file
-                  <input
-                    type="file"
-                    accept=".txt,text/plain"
-                    onChange={(event) => void handleCommandSequenceFile(event.target.files?.[0])}
-                    disabled={commandSequenceBusy}
-                  />
-                </label>
+                <div className="command-sequence-inputs">
+                  <label>
+                    Playback mode
+                    <select
+                      value={commandSequenceMode}
+                      onChange={(event) => setCommandSequenceMode(event.target.value as "automatic" | "manual")}
+                      disabled={commandSequenceBusy}
+                    >
+                      <option value="automatic">Automatic, use file pauses</option>
+                      <option value="manual">Manual, advance one command at a time</option>
+                    </select>
+                  </label>
+                  <label>
+                    Load command file
+                    <input
+                      type="file"
+                      accept=".txt,text/plain"
+                      onChange={(event) => void handleCommandSequenceFile(event.target.files?.[0])}
+                      disabled={commandSequenceBusy}
+                    />
+                  </label>
+                </div>
                 {commandSequenceName ? <p>{commandSequenceName}: {commandSequence.length} commands loaded{commandSequenceMode === "manual" ? `; next step ${Math.min(commandSequenceIndex + 1, commandSequence.length)} of ${commandSequence.length}` : ""}</p> : null}
-                {commandSequenceMode === "manual" && commandSequence[commandSequenceIndex] ? (
-                  <p>Next command: <code>{commandSequence[commandSequenceIndex].command}</code>. Recommended pause: {commandSequence[commandSequenceIndex].pauseMs} ms.</p>
-                ) : null}
+                {commandSequenceStatus ? <p role="status">{commandSequenceStatus}</p> : null}
+                {commandSequenceError ? <p role="alert" className="status-error">{commandSequenceError}</p> : null}
                 <div className="events">
                   {commandSequenceMode === "automatic" ? (
                     <button type="button" onClick={() => void playCommandSequence()} disabled={!props.activeSessionId || commandSequence.length === 0 || commandSequenceBusy}>
@@ -801,8 +833,6 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                   </button>
                 </div>
               </div>
-              {commandSequenceStatus ? <p role="status">{commandSequenceStatus}</p> : null}
-              {commandSequenceError ? <p role="alert" className="status-error">{commandSequenceError}</p> : null}
               {!props.activeSessionId ? <p role="status">Attach a session before playing a command file.</p> : null}
             </>
           ) : null}

@@ -460,9 +460,10 @@ export function mapHostSessionDataToSceneSnapshot(
   const previousLighting = previousSnapshot.lighting ?? {};
   const lightingWithSettings = applyLightingSessionSettings(previousLighting, sessionData.sessionPresentationSettings);
   const currentRoomUpdate = sessionData.roomChange?.currentRoom;
+  const currentRoomMatchesDisplayedRoom = currentRoomUpdate?.roomId === previousSnapshot.roomId;
   const currentRoomEnvironment = currentRoomUpdate?.environmentalParticleEffects;
-  const imageMappings = currentRoomUpdate && currentRoomUpdate.roomId === previousSnapshot.roomId
-    ? currentRoomUpdate.particleEffectImageMappings
+  const imageMappings = currentRoomMatchesDisplayedRoom
+    ? currentRoomUpdate?.particleEffectImageMappings
     : undefined;
 
   return {
@@ -474,8 +475,11 @@ export function mapHostSessionDataToSceneSnapshot(
       ...(sessionData.roomChange?.newRoom?.ambientLighting !== undefined
         ? { ambientLighting: sessionData.roomChange.newRoom.ambientLighting }
         : {}),
+      ...(currentRoomMatchesDisplayedRoom && currentRoomUpdate?.ambientLighting !== undefined
+        ? { ambientLighting: currentRoomUpdate.ambientLighting }
+        : {}),
     },
-    ...(currentRoomUpdate?.roomId === previousSnapshot.roomId
+    ...(currentRoomMatchesDisplayedRoom
       && Array.isArray(currentRoomEnvironment)
       ? { environmentalParticleEffects: currentRoomEnvironment.map(mapEnvironmentalParticleEffect) }
       : {}),

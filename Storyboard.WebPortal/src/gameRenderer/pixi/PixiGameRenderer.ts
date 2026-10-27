@@ -42,7 +42,7 @@ import {
 import type { Ticker } from "pixi.js";
 import { Application, Assets, Container, Graphics, Sprite } from "pixi.js";
 
-export type GameRendererRoomTransitionState = "preparing" | "running" | "complete" | "failed";
+export type GameRendererRoomTransitionState = "preparing" | "running" | "complete" | "failed" | "cancelled";
 
 export interface CreateGameRendererOptions {
   loadParticleEffectImage?: (relativeLocator: string) => Promise<string | null>;
@@ -94,12 +94,9 @@ interface MovementTween {
 
 interface ParticleEffectAnchorTween {
   activationId?: string;
-  fromX: number;
-  fromY: number;
-  toX: number;
-  toY: number;
+  segments: MovementTweenSegment[];
+  segmentIndex: number;
   elapsedMs: number;
-  durationMs: number;
   currentX: number;
   currentY: number;
 }
@@ -409,6 +406,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   let viewportHeight = 600;
   let activeRoomSwapTween: RoomSwapTween | null = null;
   let snapshotTransitionState: SnapshotTransitionState | null = null;
+  let roomTransitionPending = false;
   let preparedOutgoingSnapshot: CapturedRoomTexture | null = null;
   let preparedOutgoingFrame: Container | null = null;
   let preparedOutgoingLightingEnabled: boolean | null = null;
@@ -522,6 +520,15 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   }
 
   function reportRoomTransitionState(state: GameRendererRoomTransitionState): void {
+    roomTransitionPending = state === "preparing" || state === "running";
+    emit(state === "failed" ? "warning" : "debug", "Room transition lifecycle state changed.", {
+      state,
+      roomId: currentScene?.roomId || "(unknown)",
+      activeSurfaceRoomId: activeSurfaceScene?.roomId || "(unknown)",
+      renderGeneration,
+      transitionGeneration: activeRoomSwapTween?.generation ?? null,
+      pending: roomTransitionPending
+    });
     options.onRoomTransitionStateChanged?.(state);
   }
 
@@ -972,6 +979,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     stagingRoomSurface.root.alpha = 1;
     stagingRoomSurface.root.visible = false;
     clearSnapshotTransition();
+
+    reportRoomTransitionState("cancelled");
 
     if (clearStaging) {
       clearSurfaceSprites(stagingRoomSurface);
@@ -1604,7 +1613,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         : 0;
       const existing = tweens.get(objectId);
       if (existing && existing.activationId === movementCue?.activationId
-        && existing.toX === target.x && existing.toY === target.y) {
+        && existing.segments[existing.segments.length - 1]?.toX === target.x
+        && existing.segments[existing.segments.length - 1]?.toY === target.y) {
         continue;
       }
       if (!previousEffect || previousEffect.effectKey !== target.effectKey
@@ -1613,16 +1623,34 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         tweens.delete(objectId);
         continue;
       }
+      const fromX = existing?.currentX ?? previousEffect.x;
+      const fromY = existing?.currentY ?? previousEffect.y;
+      const legByLegSegments = buildLegByLegSegments({
+        objectId,
+        objectName: object.objectName,
+        moveLegTelemetry: scene.moveLegTelemetry,
+        currentX: fromX,
+        currentY: fromY,
+        fallbackTargetX: target.x,
+        fallbackTargetY: target.y,
+        movementDurationMs: durationMs
+      });
+      const segments = legByLegSegments.length > 0
+        ? legByLegSegments
+        : [{
+            fromX,
+            fromY,
+            toX: target.x,
+            toY: target.y,
+            durationMs
+          }];
       tweens.set(objectId, {
         ...(movementCue?.activationId ? { activationId: movementCue.activationId } : {}),
-        fromX: existing?.currentX ?? previousEffect.x,
-        fromY: existing?.currentY ?? previousEffect.y,
-        toX: target.x,
-        toY: target.y,
+        segments,
+        segmentIndex: 0,
         elapsedMs: 0,
-        durationMs,
-        currentX: existing?.currentX ?? previousEffect.x,
-        currentY: existing?.currentY ?? previousEffect.y
+        currentX: fromX,
+        currentY: fromY
       });
     }
     for (const objectId of tweens.keys()) {
@@ -1646,13 +1674,27 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
           const anchorTween = surface.particleEffectAnchorTweensByObjectId.get(object.objectId);
           if (!effect || effect.x === undefined || effect.y === undefined) continue;
           if (anchorTween) {
-            anchorTween.elapsedMs = Math.min(anchorTween.durationMs, anchorTween.elapsedMs + Math.max(0, ticker.deltaMS));
-            const progress = anchorTween.durationMs <= 0 ? 1 : anchorTween.elapsedMs / anchorTween.durationMs;
+            const activeSegment = anchorTween.segments[anchorTween.segmentIndex];
+            if (!activeSegment) {
+              surface.particleEffectAnchorTweensByObjectId.delete(object.objectId);
+              continue;
+            }
+            anchorTween.elapsedMs = Math.min(activeSegment.durationMs, anchorTween.elapsedMs + Math.max(0, ticker.deltaMS));
+            const progress = activeSegment.durationMs <= 0 ? 1 : anchorTween.elapsedMs / activeSegment.durationMs;
             const easedProgress = progress * (2 - progress);
-            anchorTween.currentX = anchorTween.fromX + ((anchorTween.toX - anchorTween.fromX) * easedProgress);
-            anchorTween.currentY = anchorTween.fromY + ((anchorTween.toY - anchorTween.fromY) * easedProgress);
+            anchorTween.currentX = activeSegment.fromX + ((activeSegment.toX - activeSegment.fromX) * easedProgress);
+            anchorTween.currentY = activeSegment.fromY + ((activeSegment.toY - activeSegment.fromY) * easedProgress);
             anchors.set(object.objectId, { x: anchorTween.currentX, y: anchorTween.currentY });
-            if (progress >= 1) surface.particleEffectAnchorTweensByObjectId.delete(object.objectId);
+            if (progress >= 1) {
+              anchorTween.currentX = activeSegment.toX;
+              anchorTween.currentY = activeSegment.toY;
+              if (anchorTween.segmentIndex + 1 < anchorTween.segments.length) {
+                anchorTween.segmentIndex += 1;
+                anchorTween.elapsedMs = 0;
+              } else {
+                surface.particleEffectAnchorTweensByObjectId.delete(object.objectId);
+              }
+            }
             continue;
           }
           if (!sprite || !state) continue;
@@ -2797,6 +2839,13 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       if (currentScene && areScenesRenderEquivalent(currentScene, scene)) {
         currentScene = scene;
         activeSurfaceScene = scene;
+        if (roomTransitionPending && !activeRoomSwapTween) {
+          emit("info", "Completed pending room transition because the equivalent destination scene is already active.", {
+            roomId: scene.roomId || "(unknown)",
+            renderGeneration
+          });
+          reportRoomTransitionState("complete");
+        }
         return;
       }
 
@@ -2891,6 +2940,12 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         void renderScene(scene, generation, previousScene, stagingRoomSurface, false).then(() => {
           if (isDisposed || generation !== renderGeneration) {
             outgoingSnapshot?.dispose();
+            emit("debug", "Ignored completion from a superseded room render; the newer render owns transition state.", {
+              roomId: scene.roomId || "(unknown)",
+              generation,
+              currentGeneration: renderGeneration,
+              currentRoomId: currentScene?.roomId || "(unknown)"
+            });
             return;
           }
 
@@ -2950,6 +3005,13 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
           outgoingSnapshot?.dispose();
           clearSnapshotTransition();
           if (isDisposed || generation !== renderGeneration) {
+            emit("debug", "Ignored failure from a superseded room render; the newer render owns transition state.", {
+              roomId: scene.roomId || "(unknown)",
+              generation,
+              currentGeneration: renderGeneration,
+              currentRoomId: currentScene?.roomId || "(unknown)",
+              error: error instanceof Error ? error.message : String(error)
+            });
             return;
           }
 
@@ -2963,7 +3025,22 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         void renderScene(scene, generation, previousScene, activeRoomSurface).then(() => {
           if (!isDisposed && generation === renderGeneration) {
             activeSurfaceScene = scene;
+            if (roomTransitionPending && !activeRoomSwapTween) {
+              emit("info", "Completed pending room transition after the active destination scene rendered.", {
+                roomId: scene.roomId || "(unknown)",
+                generation
+              });
+              reportRoomTransitionState("complete");
+            }
           }
+        }).catch((error) => {
+          if (isDisposed || generation !== renderGeneration) return;
+          emit("error", "Failed to render active room scene.", {
+            roomId: scene.roomId || "(unknown)",
+            generation,
+            error: error instanceof Error ? error.message : String(error)
+          });
+          reportRoomTransitionState("failed");
         });
       }
 

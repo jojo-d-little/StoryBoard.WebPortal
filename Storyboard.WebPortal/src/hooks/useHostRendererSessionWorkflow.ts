@@ -354,6 +354,12 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   }, [releaseRoomTransitionPollingPause]);
 
   const reportRoomTransitionState = useCallback((state: GameRendererRoomTransitionState): void => {
+    addDiagnosticRef.current("info", "session-delta", "Renderer reported room-transition lifecycle state.", {
+      state,
+      pollingPauseActive: pollingPausedForRoomTransitionRef.current,
+      deferredPhasePresentationCount: deferredPhasePresentationRef.current.length,
+      destinationRoomId: rendererSceneSnapshotRef.current?.roomId || "(unknown)"
+    });
     if (state === "preparing" || state === "running") {
       assertRoomTransitionPollingPause(`renderer-${state}`);
       return;
@@ -1092,17 +1098,40 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
 
   const handleSessionDataUpdate = useCallback((sessionData: HostSessionPresentationData): void => {
     setSessionDeltaRevision((revision) => revision + 1);
-    const hasRoomChange = Boolean(sessionData.roomChange);
-    if (hasRoomChange) {
+    const hasRoomUpdate = Boolean(sessionData.roomChange);
+    const previousSnapshot = rendererSceneSnapshotRef.current;
+    const previousRoomId = previousSnapshot?.roomId?.trim() ?? "";
+    const reportedRoomId = sessionData.roomChange?.newRoom?.roomId?.trim()
+      || sessionData.roomChange?.currentRoom?.roomId?.trim()
+      || "";
+    const isRoomTransition = Boolean(previousRoomId && reportedRoomId && reportedRoomId !== previousRoomId);
+    if (isRoomTransition) {
       assertRoomTransitionPollingPause("accepted-room-change-delta");
       setRoomTransitionPreparationEpoch((value) => value + 1);
       deferredPhasePresentationRef.current.push(sessionData);
     } else {
+      if (hasRoomUpdate) {
+        addDiagnosticRef.current("info", "session-delta", "Applied room update without starting a room transition.", {
+          roomUpdateKind: sessionData.roomChange?.currentRoom ? "currentRoom" : "newRoom",
+          previousRoomId: previousRoomId || "(unknown)",
+          reportedRoomId: reportedRoomId || "(unknown)",
+          roomIdMatchesDisplayedRoom: Boolean(previousRoomId && reportedRoomId && previousRoomId === reportedRoomId)
+        });
+      }
       consumeSessionDeltaPhasePresentationRef.current(sessionData);
     }
     consumeSessionDeltaSoundCuesRef.current(sessionData);
-    const previousSnapshot = rendererSceneSnapshotRef.current;
     const nextSnapshot = mapHostSessionDataToSceneSnapshot(sessionData, previousSnapshot);
+    if (isRoomTransition) {
+      addDiagnosticRef.current("info", "session-delta", "Accepted room-change delta and mapped its destination scene.", {
+        watermark: sessionData.sessionDeltaWatermark,
+        previousRoomId: previousSnapshot?.roomId || "(unknown)",
+        destinationRoomId: nextSnapshot?.roomId || "(unavailable)",
+        roomChangeRoomId: sessionData.roomChange?.newRoom?.roomId || "(unspecified)",
+        roomObjectChangeCount: sessionData.roomObjectChanges.length,
+        hasDestinationScene: Boolean(nextSnapshot)
+      });
+    }
     const activeCueChanges = sessionData.roomObjectChanges.flatMap((change) => {
       if (change.changeKind === "Hidden" || change.changeKind === "Removed") {
         return [];
@@ -1143,11 +1172,11 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
           roomId: resolvedSnapshot.roomId || "(unknown)",
           message: error instanceof Error ? error.message : String(error)
         });
-        if (hasRoomChange) {
+        if (isRoomTransition) {
           releaseRoomTransitionPollingPause("room-change-hydration-failed");
         }
       });
-    } else if (hasRoomChange) {
+    } else if (isRoomTransition) {
       releaseRoomTransitionPollingPause("room-change-without-renderable-scene");
     }
     consumeSessionDeltaEchoRef.current(sessionData);

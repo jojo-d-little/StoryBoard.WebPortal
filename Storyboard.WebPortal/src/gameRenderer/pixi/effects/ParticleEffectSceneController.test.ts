@@ -52,13 +52,26 @@ function scene(overrides: Partial<GameRenderSceneSnapshot> = {}): GameRenderScen
 }
 
 function buildEffects() {
+  const stats = {
+    liveParticles: 0,
+    emittedParticles: 0,
+    droppedParticles: 0,
+    activeEmitters: 0,
+    atmosphereFields: 0,
+    stains: 0,
+    allocationFailures: { particleCapacity: 0, stainCapacity: 0, total: 0 }
+  };
   return {
     clear: vi.fn(),
     setRoomGeometry: vi.fn(),
     registerCatalogEffect: vi.fn(),
     upsertCatalogEffect: vi.fn(),
     remove: vi.fn(),
-    emitBurst: vi.fn(),
+    emitBurst: vi.fn(() => {
+      stats.liveParticles += 1;
+      stats.emittedParticles += 1;
+    }),
+    getStats: vi.fn(() => ({ ...stats, allocationFailures: { ...stats.allocationFailures } })),
     update: vi.fn(),
     dispose: vi.fn()
   } as unknown as TopDownEffects;
@@ -173,12 +186,86 @@ describe("ParticleEffectSceneController", () => {
     controller.reconcile(scene({ particleEffectBursts: [burst, burst] }));
     expect(effects.emitBurst).toHaveBeenCalledTimes(1);
     expect(effects.emitBurst).toHaveBeenCalledWith(expect.objectContaining({
-      id: "burst-1:spark", effectId: catalogEffect.effectKey, streamId: "spark", xPx: 25, yPx: 35
+      id: "burst-1:spark:0", effectId: catalogEffect.effectKey, streamId: "spark", xPx: 25, yPx: 35
     }));
 
     controller.reconcile(scene({ particleEffectBursts: [{ ...burst, id: "late-1", roomId: "room-old" }] }));
     expect(effects.emitBurst).toHaveBeenCalledTimes(1);
     expect(diagnostics).toHaveBeenCalledWith("warning", expect.stringContaining("late particle burst"), expect.anything());
+  });
+
+  it("reports per-stream emission statistics and accepts distinct sources at their current anchors", () => {
+    const effects = buildEffects();
+    const diagnostics = vi.fn();
+    const controller = new ParticleEffectSceneController(effects, diagnostics);
+    const bursts = [
+      { id: "burst-a", sourceObjectId: "source-a", roomId: "room-1", effectKey: catalogEffect.effectKey, x: 25, y: 35, enabled: true, order: 0, tuning: {} },
+      { id: "burst-b", sourceObjectId: "source-b", roomId: "room-1", effectKey: catalogEffect.effectKey, x: 120, y: 90, enabled: true, order: 0, tuning: {} }
+    ];
+
+    controller.reconcile(scene({ particleEffectBursts: bursts }));
+
+    expect(effects.emitBurst).toHaveBeenCalledTimes(2);
+    expect(effects.emitBurst).toHaveBeenNthCalledWith(1, expect.objectContaining({ id: "burst-a:spark:0", xPx: 25, yPx: 35 }));
+    expect(effects.emitBurst).toHaveBeenNthCalledWith(2, expect.objectContaining({ id: "burst-b:spark:0", xPx: 120, yPx: 90 }));
+    expect(diagnostics).toHaveBeenCalledWith("info", "Particle burst stream emission result.", expect.objectContaining({
+      burstId: "burst-a", streamId: "spark", requestedCount: 1, emittedParticleCount: 1, liveParticleCount: 1, outcome: "emitted"
+    }));
+    expect(diagnostics).toHaveBeenCalledWith("info", "Accepted particle burst occurrence.", expect.objectContaining({
+      burstId: "burst-b", sourceObjectId: "source-b", outcome: "all-streams-emitted"
+    }));
+  });
+
+  it("keeps a failed burst retryable and logs the exception", () => {
+    const effects = buildEffects();
+    const emitBurst = vi.mocked(effects.emitBurst);
+    emitBurst.mockImplementationOnce(() => { throw new Error("texture group failed"); });
+    const diagnostics = vi.fn();
+    const controller = new ParticleEffectSceneController(effects, diagnostics);
+    const burst = {
+      id: "retry-burst", sourceObjectId: "source-1", roomId: "room-1",
+      effectKey: catalogEffect.effectKey, x: 25, y: 35, enabled: true, order: 0, tuning: {}
+    };
+    const burstScene = scene({ particleEffectBursts: [burst] });
+
+    controller.reconcile(burstScene);
+    controller.reconcile(burstScene);
+
+    expect(emitBurst).toHaveBeenCalledTimes(2);
+    expect((emitBurst.mock.calls[0][0] as { id: string }).id).toBe("retry-burst:spark:0");
+    expect((emitBurst.mock.calls[1][0] as { id: string }).id).toBe("retry-burst:spark:1");
+    expect(diagnostics).toHaveBeenCalledWith("warning", expect.stringContaining("remains retryable"), expect.objectContaining({
+      burstId: "retry-burst", error: "texture group failed", outcome: "failed"
+    }));
+    expect(diagnostics).toHaveBeenCalledWith("info", "Accepted particle burst occurrence.", expect.objectContaining({ burstId: "retry-burst" }));
+  });
+
+  it("retains a burst across a custom-image load after a later scene snapshot omits it", async () => {
+    const effects = buildEffects();
+    const diagnostics = vi.fn();
+    let resolveImage!: (url: string | null) => void;
+    const loadImage = vi.fn(() => new Promise<string | null>((resolve) => { resolveImage = resolve; }));
+    const controller = new ParticleEffectSceneController(effects, diagnostics, loadImage);
+    const burst = {
+      id: "custom-burst", sourceObjectId: "source-1", roomId: "room-1",
+      effectKey: catalogEffect.effectKey, x: 25, y: 35, enabled: true, order: 0, tuning: {}
+    };
+    const mappedScene = scene({
+      particleEffectImageMappings: [{ effectKey: catalogEffect.effectKey, imageSlot: "spark", relativeLocator: "custom/spark.png" }],
+      particleEffectBursts: [burst]
+    });
+
+    controller.reconcile(mappedScene);
+    expect(effects.emitBurst).not.toHaveBeenCalled();
+    controller.reconcile(scene({
+      particleEffectImageMappings: mappedScene.particleEffectImageMappings,
+      particleEffectBursts: []
+    }));
+    resolveImage(null);
+    await vi.waitFor(() => expect(effects.emitBurst).toHaveBeenCalledTimes(1));
+    expect(diagnostics).toHaveBeenCalledWith("info", "Deferred particle burst while custom art loads.", expect.objectContaining({ burstId: "custom-burst" }));
+    expect(effects.emitBurst).toHaveBeenCalledWith(expect.objectContaining({ effectId: catalogEffect.effectKey, xPx: 25, yPx: 35 }));
+    controller.dispose();
   });
 
   it("interpolates changed controls from current values over the recipe transition duration", () => {

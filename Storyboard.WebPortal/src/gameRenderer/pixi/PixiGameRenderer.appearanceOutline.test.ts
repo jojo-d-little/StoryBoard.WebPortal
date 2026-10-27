@@ -293,6 +293,76 @@ async function waitFor(predicate: () => boolean, timeoutMs = 500): Promise<void>
 }
 
 describe("PixiGameRenderer appearance outline cues", () => {
+  it("releases the room-transition callback when the destination transition finishes", async () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const transitionStates: string[] = [];
+    const renderer = createGameRenderer(mount, {
+      onRoomTransitionStateChanged: (state) => transitionStates.push(state)
+    });
+    const scene = (roomId: string): GameRenderSceneSnapshot => ({
+      roomId,
+      roomLabel: roomId,
+      displayMode: "composed",
+      bounds: { width: 800, height: 600 },
+      directionalOverlays: [],
+      objectsById: {},
+      roomTransition: { mode: "fade", durationMs: 100 }
+    });
+
+    try {
+      renderer.updateScene(scene("transition-from"));
+      await waitFor(() => transitionStates.includes("complete"), 1000);
+      renderer.updateScene(scene("transition-to"));
+      await waitFor(() => transitionStates.includes("running"), 1000);
+
+      const app = pixiMocks.__appInstances[pixiMocks.__appInstances.length - 1];
+      app?.ticker.tick(150);
+
+      await waitFor(() => transitionStates[transitionStates.length - 1] === "complete", 1000);
+      expect(transitionStates).toContain("preparing");
+      expect(transitionStates).toContain("running");
+      expect(transitionStates[transitionStates.length - 1]).toBe("complete");
+    } finally {
+      renderer.dispose();
+      mount.remove();
+    }
+  });
+
+  it("reports cancellation as a terminal room-transition state", async () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const transitionStates: string[] = [];
+    const renderer = createGameRenderer(mount, {
+      onRoomTransitionStateChanged: (state) => transitionStates.push(state)
+    });
+    const scene = (roomId: string, durationMs: number): GameRenderSceneSnapshot => ({
+      roomId,
+      roomLabel: roomId,
+      displayMode: "composed",
+      bounds: { width: 800, height: 600 },
+      directionalOverlays: [],
+      objectsById: {},
+      roomTransition: { mode: "fade", durationMs }
+    });
+
+    try {
+      renderer.updateScene(scene("cancel-from", 100));
+      await waitFor(() => transitionStates.includes("complete"), 1000);
+      renderer.updateScene(scene("cancel-to", 1000));
+      await waitFor(() => transitionStates.includes("running"), 1000);
+      renderer.updateScene(scene("cancel-final", 0));
+
+      await waitFor(() => transitionStates.includes("cancelled"), 1000);
+      await waitFor(() => transitionStates[transitionStates.length - 1] === "complete", 1000);
+      expect(transitionStates).toContain("cancelled");
+      expect(transitionStates[transitionStates.length - 1]).toBe("complete");
+    } finally {
+      renderer.dispose();
+      mount.remove();
+    }
+  });
+
   it("maps image transparency to base sprite alpha, defaulting missing values to opaque", async () => {
     const mount = document.createElement("div");
     document.body.appendChild(mount);

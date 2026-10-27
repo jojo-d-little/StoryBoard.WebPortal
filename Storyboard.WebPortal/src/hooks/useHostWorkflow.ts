@@ -34,6 +34,7 @@ import { usePresentationCueCatalogWorkflow } from "./usePresentationCueCatalogWo
 import { useSessionRecordingWorkflow } from "./useSessionRecordingWorkflow";
 import { useGameScopeDumpWorkflow } from "./useGameScopeDumpWorkflow";
 import { resolveHostTextPresentationCue } from "../gameRenderer/presentationCue/presentationCueCatalog";
+import { submitCommandDuringRoomTransition } from "./roomTransitionCommandSubmission";
 import {
   useSessionPhasePresentationWorkflow,
   type HudOverlayEntry
@@ -366,6 +367,9 @@ function formatDiagnostics(messages: string[]): string {
 }
 
 export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowState {
+  const addDiagnosticRef = useRef(options.addDiagnostic);
+  addDiagnosticRef.current = options.addDiagnostic;
+
   const echoOutputRetentionLines = normalizeEchoOutputRetentionLines(options.echoOutputRetentionLines);
   const [authUsername, setAuthUsername] = useState<string>(() => options.developmentBootstrap?.username || "admin");
   const [authPassword, setAuthPassword] = useState<string>(() => options.developmentBootstrap ? "" : "admin");
@@ -439,7 +443,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
           ? event.status !== undefined && event.status >= 500 ? "error" : "warn"
           : "info";
 
-        options.addDiagnostic(level, "transport", `Host API request ${event.phase}.`, {
+        addDiagnosticRef.current(level, "transport", `Host API request ${event.phase}.`, {
           event: "host-api-request",
           phase: event.phase,
           method: event.method,
@@ -454,7 +458,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
         });
       }
     });
-  }, [options.addDiagnostic, options.baseUrlOverride]);
+  }, [options.baseUrlOverride]);
 
   const sessionRecording = useSessionRecordingWorkflow({
     credentialHandle,
@@ -744,15 +748,15 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     rawCommandText: string,
     submitOptions?: { suppressClientEcho?: boolean }
   ): Promise<HostProcessCommandResult | null> => {
-    if (roomTransitionActive) {
-      options.addDiagnostic("warn", "command", "Command submission was blocked by an active room transition.", {
-        commandText: rawCommandText,
+    return submitCommandDuringRoomTransition({
+      transitionActive: roomTransitionActive,
+      commandText: rawCommandText,
+      submit: (commandText) => submitCommand(commandText, submitOptions),
+      report: (message, details) => options.addDiagnostic("info", "command", message, {
+        ...details,
         activeSessionId: activeSessionId || "(none)"
-      });
-      return null;
-    }
-
-    return submitCommand(rawCommandText, submitOptions);
+      })
+    });
   }, [activeSessionId, options, roomTransitionActive, submitCommand]);
 
   const {

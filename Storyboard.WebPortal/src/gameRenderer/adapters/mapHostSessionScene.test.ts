@@ -1458,6 +1458,77 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     expect(updated.objectsById["obj-1"]?.sprite?.x).toBe(160);
   });
 
+  it("applies ambient lighting from a matching current-room update", () => {
+    const baseline = buildSessionData();
+    baseline.roomChange!.newRoom!.ambientLighting = {
+      ambient: 0.25,
+      ambientColor: "#112233",
+      transitionDurationMs: 0
+    };
+    const previous = mapHostPresentationToSceneSnapshot(baseline)!;
+
+    const updated = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      roomChange: {
+        currentRoom: {
+          roomId: "room-1",
+          ambientLighting: {
+            ambient: 0.85,
+            ambientColor: "#ddeeff",
+            transitionDurationMs: 750
+          }
+        }
+      }
+    }), previous)!;
+
+    expect(updated.lighting?.ambientLighting).toEqual({
+      ambient: 0.85,
+      ambientColor: "#ddeeff",
+      transitionDurationMs: 750
+    });
+  });
+
+  it("preserves ambient lighting when a matching current-room update omits it", () => {
+    const baseline = buildSessionData();
+    baseline.roomChange!.newRoom!.ambientLighting = {
+      ambient: 0.25,
+      ambientColor: "#112233",
+      transitionDurationMs: 500
+    };
+    const previous = mapHostPresentationToSceneSnapshot(baseline)!;
+
+    const updated = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      roomChange: { currentRoom: { roomId: "room-1" } }
+    }), previous)!;
+
+    expect(updated.lighting?.ambientLighting).toEqual(previous.lighting?.ambientLighting);
+  });
+
+  it("ignores ambient lighting updates for a different current room", () => {
+    const baseline = buildSessionData();
+    baseline.roomChange!.newRoom!.ambientLighting = {
+      ambient: 0.25,
+      ambientColor: "#112233",
+      transitionDurationMs: 500
+    };
+    const previous = mapHostPresentationToSceneSnapshot(baseline)!;
+
+    const updated = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      roomChange: {
+        currentRoom: {
+          roomId: "room-2",
+          ambientLighting: {
+            ambient: 0.85,
+            ambientColor: "#ddeeff",
+            transitionDurationMs: 750
+          }
+        }
+      }
+    }), previous)!;
+
+    expect(updated.roomId).toBe(previous.roomId);
+    expect(updated.lighting?.ambientLighting).toEqual(previous.lighting?.ambientLighting);
+  });
+
   it("applies environmental effects as room-scoped replacement snapshots", () => {
     const baseline = buildSessionData();
     baseline.roomChange!.newRoom!.environmentalParticleEffects = [{

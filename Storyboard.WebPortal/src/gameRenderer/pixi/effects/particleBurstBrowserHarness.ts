@@ -1,0 +1,222 @@
+import { Application, Graphics } from "pixi.js";
+import { TopDownEffects, type CatalogParticleEffect } from "@jojo-d-little/storyboard-particles";
+import { ParticleEffectSceneController } from "./ParticleEffectSceneController";
+
+type ExtractedPixelFrame = { pixels: Uint8Array; width: number; height: number };
+
+const sparkEffect: CatalogParticleEffect = {
+  category: "ParticleEffect",
+  effectKey: "particle.electrical-sparks",
+  displayName: "electrical-sparks",
+  particleEffect: {
+    imageSlots: { fragment: "fragment" },
+    recipe: {
+      renderingMode: "point",
+      family: "electrical-sparks",
+      lifecycle: { transitionTimeMs: 0, removalDurationMs: null },
+      streams: [{
+        id: "particles",
+        textureId: "fragment",
+        layer: "post-light",
+        blendMode: "add",
+        ratePerSecond: 0,
+        surgeOnly: true,
+        spawn: { kind: "point", radiusPx: 1 },
+        lifeMinSeconds: 0.12,
+        lifeMaxSeconds: 0.3,
+        velocityXMinPxPerSecond: -75,
+        velocityXMaxPxPerSecond: 75,
+        velocityYMinPxPerSecond: -75,
+        velocityYMaxPxPerSecond: 75,
+        startWidthPx: 4,
+        startHeightPx: 2,
+        endWidthPx: 1,
+        endHeightPx: 1,
+        startColor: "#fff7b0",
+        endColor: "#4feaff",
+        startAlpha: 1,
+        endAlpha: 0,
+        occludeByCells: true,
+        isWindBlown: true,
+        colorBinding: { control: "Colors", mode: "transition" }
+      }]
+    }
+  }
+};
+
+export async function runParticleBurstBrowserHarness(): Promise<{
+  changedPixelsNearBurst: number;
+  changedPixelsAtMovedAnchor: number;
+  changedPixelsAtSecondSource: number;
+  changedPixelsTotal: number;
+  statsAfterDuplicateDelivery: ReturnType<TopDownEffects["getStats"]>;
+  changedPixelsAfterNaturalDecay: number;
+  statsAfterEmit: ReturnType<TopDownEffects["getStats"]>;
+  statsAfterDecay: ReturnType<TopDownEffects["getStats"]>;
+  statsAfterLateRoomBurst: ReturnType<TopDownEffects["getStats"]>;
+  statsAfterCustomArtBurst: ReturnType<TopDownEffects["getStats"]>;
+  customArtChangedPixels: number;
+  pixelBufferLength: number;
+  rendererCanvasDimensions: { width: number; height: number };
+  extractedCenterRgba: number[];
+  effectLayerState: { preLightChildren: number; postLightChildren: number; postLightVisible: boolean };
+  burstFrameDataUrl: string;
+  diagnostics: Array<{ level: "warning" | "info"; message: string; details?: unknown }>;
+}> {
+  const app = new Application();
+  await app.init({
+    width: 640,
+    height: 400,
+    backgroundColor: 0x101820,
+    antialias: true,
+    preference: "webgl"
+  });
+  app.ticker.stop();
+  document.body.appendChild(app.canvas);
+
+  const effects = await TopDownEffects.create({ seed: 37 });
+  const background = new Graphics().rect(0, 0, 640, 400).fill(0x101820);
+  app.stage.addChild(background, effects.preLight, effects.postLight);
+  const diagnostics: Array<{ level: "warning" | "info"; message: string; details?: unknown }> = [];
+  const controller = new ParticleEffectSceneController(effects, (level, message, details) => {
+    diagnostics.push({ level, message, details });
+  });
+  const snapshot = (bursts: Array<{ id: string; sourceObjectId: string; roomId: string; effectKey: string; x: number; y: number; enabled: boolean; order: number; tuning: Record<string, never> }> = []) => ({
+    roomId: "burst-room",
+    displayMode: "composed" as const,
+    bounds: { width: 640, height: 400 },
+    directionalOverlays: [],
+    objectsById: {},
+    particleEffectCatalog: [sparkEffect],
+    particleEffectBursts: bursts
+  });
+
+  controller.reconcile(snapshot());
+  app.renderer.render(app.stage);
+  const before = app.renderer.extract.pixels({ target: app.stage }) as unknown as ExtractedPixelFrame;
+  const firstBurst = {
+    id: "browser-burst-1",
+    sourceObjectId: "sample-sparks-a",
+    roomId: "burst-room",
+    effectKey: sparkEffect.effectKey,
+    x: 180,
+    y: 180,
+    enabled: true,
+    order: 0,
+    tuning: {}
+  };
+  controller.reconcile(snapshot([firstBurst, {
+    ...firstBurst,
+    id: "browser-burst-moved-anchor",
+    x: 240
+  }, {
+    ...firstBurst,
+    id: "browser-burst-second-source",
+    sourceObjectId: "sample-sparks-b",
+    x: 500
+  }, firstBurst]));
+  controller.update(0);
+  controller.update(0.05);
+  app.renderer.render(app.stage);
+  const after = app.renderer.extract.pixels({ target: app.stage }) as unknown as ExtractedPixelFrame;
+  const statsAfterEmit = effects.getStats();
+
+  const countChangedPixelsNear = (pixels: ExtractedPixelFrame, centerX: number, centerY: number): number => {
+    let count = 0;
+    for (let y = centerY - 40; y <= centerY + 40; y += 1) {
+      for (let x = centerX - 40; x <= centerX + 40; x += 1) {
+        const index = (y * 640 + x) * 4;
+        const currentPixels = pixels.pixels;
+        const baselinePixels = before.pixels;
+        if (currentPixels[index] !== baselinePixels[index]
+          || currentPixels[index + 1] !== baselinePixels[index + 1]
+          || currentPixels[index + 2] !== baselinePixels[index + 2]
+          || currentPixels[index + 3] !== baselinePixels[index + 3]) {
+          count += 1;
+        }
+      }
+    }
+    return count;
+  };
+  const changedPixelsNearBurst = countChangedPixelsNear(after, 180, 180);
+  const changedPixelsAtMovedAnchor = countChangedPixelsNear(after, 240, 180);
+  const changedPixelsAtSecondSource = countChangedPixelsNear(after, 500, 180);
+  const frameCanvas = document.createElement("canvas");
+  frameCanvas.width = after.width;
+  frameCanvas.height = after.height;
+  const frameContext = frameCanvas.getContext("2d");
+  if (!frameContext) throw new Error("Could not create a 2D canvas for the extracted Pixi frame.");
+  frameContext.putImageData(new ImageData(new Uint8ClampedArray(after.pixels), after.width, after.height), 0, 0);
+  const burstFrameDataUrl = frameCanvas.toDataURL("image/png");
+  const statsAfterDuplicateDelivery = effects.getStats();
+
+  for (const timeSeconds of [0.25, 0.5, 0.75, 1, 1.25]) controller.update(timeSeconds);
+  app.renderer.render(app.stage);
+  const statsAfterDecay = effects.getStats();
+  const afterDecay = app.renderer.extract.pixels({ target: app.stage }) as unknown as ExtractedPixelFrame;
+  controller.reconcile(snapshot([{
+    ...firstBurst,
+    id: "browser-burst-late-room",
+    roomId: "previous-room"
+  }]));
+  const statsAfterLateRoomBurst = effects.getStats();
+
+  const customArtCanvas = document.createElement("canvas");
+  customArtCanvas.width = 4;
+  customArtCanvas.height = 4;
+  const customArtContext = customArtCanvas.getContext("2d");
+  if (!customArtContext) throw new Error("Could not create the custom particle art fixture.");
+  customArtContext.fillStyle = "#ff00ff";
+  customArtContext.fillRect(0, 0, 4, 4);
+  const customEffects = await TopDownEffects.create({ seed: 73 });
+  app.stage.addChild(customEffects.preLight, customEffects.postLight);
+  const customDiagnostics: typeof diagnostics = [];
+  const customController = new ParticleEffectSceneController(
+    customEffects,
+    (level, message, details) => customDiagnostics.push({ level, message, details }),
+    async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return customArtCanvas.toDataURL("image/png");
+    }
+  );
+  const customBurst = { ...firstBurst, id: "browser-custom-art-burst", x: 320, y: 200 };
+  customController.reconcile({
+    ...snapshot([customBurst]),
+    particleEffectImageMappings: [{
+      effectKey: sparkEffect.effectKey,
+      imageSlot: "fragment",
+      relativeLocator: "custom/spark.png"
+    }]
+  });
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  customController.update(0.05);
+  app.renderer.render(app.stage);
+  const customFrame = app.renderer.extract.pixels({ target: app.stage }) as unknown as ExtractedPixelFrame;
+  const customArtChangedPixels = countChangedPixelsNear(customFrame, 320, 200);
+  const statsAfterCustomArtBurst = customEffects.getStats();
+  diagnostics.push(...customDiagnostics);
+  return {
+    changedPixelsNearBurst,
+    changedPixelsAtMovedAnchor,
+    changedPixelsAtSecondSource,
+    changedPixelsTotal: after.pixels.reduce((count, value, index) => {
+      if (index % 4 === 3) return count;
+      return count + (value === before.pixels[index] ? 0 : 1);
+    }, 0),
+    statsAfterDuplicateDelivery,
+    changedPixelsAfterNaturalDecay: countChangedPixelsNear(afterDecay, 180, 180)
+      + countChangedPixelsNear(afterDecay, 240, 180)
+      + countChangedPixelsNear(afterDecay, 500, 180),
+    statsAfterEmit,
+    statsAfterDecay,
+    statsAfterLateRoomBurst,
+    statsAfterCustomArtBurst,
+    customArtChangedPixels,
+    pixelBufferLength: after.pixels.length,
+    rendererCanvasDimensions: { width: after.width, height: after.height },
+    extractedCenterRgba: Array.from(after.pixels.slice((180 * after.width + 180) * 4, (180 * after.width + 180) * 4 + 4)),
+    effectLayerState: { preLightChildren: effects.preLight.children.length, postLightChildren: effects.postLight.children.length, postLightVisible: effects.postLight.visible },
+    burstFrameDataUrl,
+    diagnostics
+  };
+}

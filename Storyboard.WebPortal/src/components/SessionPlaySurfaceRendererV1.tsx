@@ -58,11 +58,16 @@ function createFallbackScene(): GameRenderSceneSnapshot {
 export function SessionPlaySurfaceRendererV1(props: SessionPlaySurfaceRendererV1Props): JSX.Element {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<ReturnType<typeof createGameRenderer> | null>(null);
+  const onReportRendererDiagnosticRef = useRef(props.onReportRendererDiagnostic);
   const lastViewportSizeRef = useRef<{ width: number; height: number } | null>(null);
   const lastScaleMetricsRef = useRef<string>("");
   const waypointEffectHandleStackRef = useRef<string[]>([]);
   const waypointEffectSequenceRef = useRef<number>(0);
   const scene = useMemo(() => props.sceneSnapshot ?? createFallbackScene(), [props.sceneSnapshot]);
+
+  useEffect(() => {
+    onReportRendererDiagnosticRef.current = props.onReportRendererDiagnostic;
+  }, [props.onReportRendererDiagnostic]);
 
   function cancelWaypointDraftEffectHandle(handleKey: string): void {
     rendererRef.current?.applyStyledPointEffectIntent({
@@ -103,7 +108,7 @@ export function SessionPlaySurfaceRendererV1(props: SessionPlaySurfaceRendererV1
       presentationIsolationSettings: props.presentationIsolationSettings,
       loadParticleEffectImage: props.loadParticleEffectImage,
       diagnosticsSink: (event: GameRendererDiagnosticsEvent) => {
-        props.onReportRendererDiagnostic(event);
+        onReportRendererDiagnosticRef.current(event);
       },
       onRoomTransitionStateChanged: props.onReportRoomTransitionState
     });
