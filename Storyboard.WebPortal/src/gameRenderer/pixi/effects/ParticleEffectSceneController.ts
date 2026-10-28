@@ -2,6 +2,7 @@ import {
   mapCatalogStreamOverrides,
   adaptCatalogParticleEffect,
   resolveCatalogRecipe,
+  resolveBurstCount,
   resolveWindVector,
   TopDownEffects,
   type CatalogParticleEffect,
@@ -109,7 +110,7 @@ export class ParticleEffectSceneController {
   private readonly objectAnchorOverrides = new Map<string, { x: number; y: number }>();
   private readonly seenBurstIds = new Set<string>();
   private readonly pendingBursts = new Map<string, GameRenderParticleBurst>();
-  private readonly emittedBurstStreamIds = new Map<string, Set<string>>();
+  private readonly completedBurstStreamIds = new Map<string, Set<string>>();
   private readonly burstStreamAttemptCounts = new Map<string, number>();
   private currentRoomId = "";
   private geometryKey = "";
@@ -244,7 +245,7 @@ export class ParticleEffectSceneController {
     }
 
     this.flushPendingBursts();
-    this.consumeBursts(scene.particleEffectBursts ?? [], roomId, catalog);
+    this.consumeBursts(scene.particleEffectBursts ?? [], catalog);
   }
 
   update(timeSeconds: number): void {
@@ -344,7 +345,7 @@ export class ParticleEffectSceneController {
     this.registeredKeys.clear();
     this.seenBurstIds.clear();
     this.pendingBursts.clear();
-    this.emittedBurstStreamIds.clear();
+    this.completedBurstStreamIds.clear();
     this.burstStreamAttemptCounts.clear();
     this.readyImageMappings.clear();
     this.failedImageMappings.clear();
@@ -420,7 +421,6 @@ export class ParticleEffectSceneController {
 
   private consumeBursts(
     bursts: GameRenderParticleBurst[],
-    currentRoomId: string,
     catalog: Map<string, CatalogParticleEffect>
   ): void {
     for (const burst of bursts) {
@@ -434,14 +434,6 @@ export class ParticleEffectSceneController {
         continue;
       }
       if (this.pendingBursts.has(burst.id)) continue;
-      if (burst.roomId !== currentRoomId) {
-        this.diagnostics?.("warning", "Ignored a late particle burst for a different current room.", {
-          burstId: burst.id,
-          eventRoomId: burst.roomId,
-          currentRoomId
-        });
-        continue;
-      }
       const definition = catalog.get(burst.effectKey);
       const recipe = definition?.particleEffect.recipe;
       if (!recipe || (recipe.renderingMode !== "point" && recipe.renderingMode !== "room")) {
@@ -465,7 +457,6 @@ export class ParticleEffectSceneController {
           burstId: burst.id,
           effectKey: burst.effectKey,
           sourceObjectId: burst.sourceObjectId,
-          roomId: burst.roomId,
           streamIds: eligibleStreams.map((stream) => stream.id),
           reason: "custom-image-load-pending"
         });
@@ -483,23 +474,10 @@ export class ParticleEffectSceneController {
     const scene = this.latestScene;
     const catalog = new Map((scene.particleEffectCatalog ?? []).map((effect) => [effect.effectKey, effect]));
     for (const [burstId, burst] of [...this.pendingBursts]) {
-      if (burst.roomId !== (scene.roomId ?? "")) {
-        this.pendingBursts.delete(burstId);
-        this.emittedBurstStreamIds.delete(burstId);
-        this.diagnostics?.("warning", "Rejected deferred particle burst after the displayed room changed.", {
-          burstId,
-          effectKey: burst.effectKey,
-          sourceObjectId: burst.sourceObjectId,
-          eventRoomId: burst.roomId,
-          currentRoomId: scene.roomId ?? "",
-          reason: "room-changed-during-custom-image-load"
-        });
-        continue;
-      }
       const recipe = catalog.get(burst.effectKey)?.particleEffect.recipe;
       if (!recipe || (recipe.renderingMode !== "point" && recipe.renderingMode !== "room")) {
         this.pendingBursts.delete(burstId);
-        this.emittedBurstStreamIds.delete(burstId);
+        this.completedBurstStreamIds.delete(burstId);
         this.diagnostics?.("warning", "Rejected deferred particle burst because its recipe is unavailable.", {
           burstId,
           effectKey: burst.effectKey,
@@ -523,16 +501,50 @@ export class ParticleEffectSceneController {
     if (eligibleStreams.length === 0) return false;
     const tunedRecipe = resolveCatalogRecipe(recipe, burst.tuning);
     const overrides = mapCatalogStreamOverrides(recipe, tunedRecipe, burst.tuning);
-    let allStreamsEmitted = true;
-    let emittedStreams = this.emittedBurstStreamIds.get(burst.id);
-    if (!emittedStreams) {
-      emittedStreams = new Set<string>();
-      this.emittedBurstStreamIds.set(burst.id, emittedStreams);
+    let allStreamsCompleted = true;
+    let completedStreams = this.completedBurstStreamIds.get(burst.id);
+    if (!completedStreams) {
+      completedStreams = new Set<string>();
+      this.completedBurstStreamIds.set(burst.id, completedStreams);
     }
+    const resolvedCounts: Record<string, number | null> = {};
     for (const stream of eligibleStreams) {
-      if (emittedStreams.has(stream.id)) continue;
+      if (completedStreams.has(stream.id)) continue;
       const attemptKey = `${burst.id}:${stream.id}`;
       const attempt = this.burstStreamAttemptCounts.get(attemptKey) ?? 0;
+      let requestedCount: number;
+      try {
+        requestedCount = resolveBurstCount(stream.burstCount, burst.quantityMultiplier ?? 1);
+      } catch (error) {
+        resolvedCounts[stream.id] = null;
+        completedStreams.add(stream.id);
+        this.diagnostics?.("warning", "Particle burst stream has a terminal invalid count; it will not be retried.", {
+          burstId: burst.id,
+          sourceObjectId: burst.sourceObjectId,
+          effectKey: burst.effectKey,
+          streamId: stream.id,
+          baselineBurstCount: stream.burstCount ?? 1,
+          quantityMultiplier: burst.quantityMultiplier ?? 1,
+          error: error instanceof Error ? error.message : String(error),
+          outcome: "terminal-invalid-count"
+        });
+        continue;
+      }
+      resolvedCounts[stream.id] = requestedCount;
+      if (requestedCount === 0) {
+        completedStreams.add(stream.id);
+        this.diagnostics?.("info", "Particle burst stream resolved to zero particles.", {
+          burstId: burst.id,
+          sourceObjectId: burst.sourceObjectId,
+          effectKey: burst.effectKey,
+          streamId: stream.id,
+          baselineBurstCount: stream.burstCount ?? 1,
+          quantityMultiplier: burst.quantityMultiplier ?? 1,
+          requestedCount,
+          outcome: "zero-count-completed"
+        });
+        continue;
+      }
       let before: ReturnType<TopDownEffects["getStats"]> | undefined;
       try {
         before = this.effects.getStats();
@@ -541,53 +553,68 @@ export class ParticleEffectSceneController {
           effectId: burst.effectKey,
           xPx: burst.x ?? 0,
           yPx: burst.y ?? 0,
-          count: 1,
+          count: requestedCount,
           streamId: stream.id,
           streamOverrides: overrides
         });
         const after = this.effects.getStats();
         const emittedParticleCount = after.emittedParticles - before.emittedParticles;
+        const droppedParticleCount = after.droppedParticles - before.droppedParticles;
         const liveParticleCount = after.liveParticles - before.liveParticles;
-        const emitted = emittedParticleCount > 0;
-        allStreamsEmitted &&= emitted;
-        if (emitted) {
-          emittedStreams.add(stream.id);
+        const processedParticleCount = emittedParticleCount + droppedParticleCount;
+        const processed = processedParticleCount === requestedCount;
+        allStreamsCompleted &&= processed;
+        if (processed) {
+          completedStreams.add(stream.id);
           this.burstStreamAttemptCounts.delete(attemptKey);
         } else {
           this.burstStreamAttemptCounts.set(attemptKey, attempt + 1);
         }
-        this.diagnostics?.(emitted ? "info" : "warning", "Particle burst stream emission result.", {
+        this.diagnostics?.(processed ? "info" : "warning", "Particle burst stream emission result.", {
           burstId: burst.id,
           sourceObjectId: burst.sourceObjectId,
-          roomId: burst.roomId,
           effectKey: burst.effectKey,
           streamId: stream.id,
-          requestedCount: 1,
+          baselineBurstCount: stream.burstCount ?? 1,
+          quantityMultiplier: burst.quantityMultiplier ?? 1,
+          requestedCount,
           emittedParticleCount,
+          droppedParticleCount,
           liveParticleCount,
           runtimeStats: after,
-          outcome: emitted ? "emitted" : "no-particles-emitted"
+          outcome: !processed ? "incomplete" : droppedParticleCount > 0
+            ? emittedParticleCount > 0 ? "partially-capacity-dropped" : "capacity-dropped"
+            : "emitted"
         });
       } catch (error) {
-        allStreamsEmitted = false;
-        this.burstStreamAttemptCounts.set(attemptKey, attempt + 1);
-        this.diagnostics?.("warning", "Particle burst stream emission threw an exception; the burst remains retryable.", {
+        const terminal = error instanceof RangeError || error instanceof TypeError;
+        allStreamsCompleted &&= terminal;
+        if (terminal) {
+          completedStreams.add(stream.id);
+          this.burstStreamAttemptCounts.delete(attemptKey);
+        } else {
+          this.burstStreamAttemptCounts.set(attemptKey, attempt + 1);
+        }
+        this.diagnostics?.("warning", terminal
+          ? "Particle burst stream request was rejected terminally; it will not be retried."
+          : "Particle burst stream emission threw an exception; the burst remains retryable.", {
           burstId: burst.id,
           sourceObjectId: burst.sourceObjectId,
-          roomId: burst.roomId,
           effectKey: burst.effectKey,
           streamId: stream.id,
-          requestedCount: 1,
+          baselineBurstCount: stream.burstCount ?? 1,
+          quantityMultiplier: burst.quantityMultiplier ?? 1,
+          requestedCount,
           runtimeStatsBeforeEmission: before,
           error: error instanceof Error ? error.message : String(error),
-          outcome: "failed"
+          outcome: terminal ? "terminal-rejection" : "failed"
         });
       }
     }
-    if (allStreamsEmitted && emittedStreams.size === eligibleStreams.length) {
+    if (allStreamsCompleted && completedStreams.size === eligibleStreams.length) {
       this.seenBurstIds.add(burst.id);
       this.pendingBursts.delete(burst.id);
-      this.emittedBurstStreamIds.delete(burst.id);
+      this.completedBurstStreamIds.delete(burst.id);
       if (this.seenBurstIds.size > 4096) {
         const first = this.seenBurstIds.values().next().value;
         if (first) this.seenBurstIds.delete(first);
@@ -595,13 +622,13 @@ export class ParticleEffectSceneController {
       this.diagnostics?.("info", "Accepted particle burst occurrence.", {
         burstId: burst.id,
         sourceObjectId: burst.sourceObjectId,
-        roomId: burst.roomId,
         effectKey: burst.effectKey,
         streamIds: eligibleStreams.map((stream) => stream.id),
+        quantityMultiplier: burst.quantityMultiplier ?? 1,
+        requestedCounts: resolvedCounts,
         x: burst.x,
         y: burst.y,
-        requestedCountPerStream: 1,
-        outcome: "all-streams-emitted"
+        outcome: "all-streams-completed"
       });
       return true;
     }

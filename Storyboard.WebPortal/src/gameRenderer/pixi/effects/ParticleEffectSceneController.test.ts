@@ -4,13 +4,14 @@ import type { TopDownEffects, CatalogParticleEffect, CatalogParticleRecipe } fro
 import type { GameRenderSceneSnapshot } from "../../contracts/sceneTypes";
 import { ParticleEffectSceneController } from "./ParticleEffectSceneController";
 
-function stream(id: string, surgeOnly = false) {
+function stream(id: string, surgeOnly = false, burstCount?: number) {
   return {
     id,
     textureId: "smoke",
     layer: "pre-light" as const,
     ratePerSecond: 0,
     surgeOnly,
+    ...(burstCount === undefined ? {} : { burstCount }),
     spawn: { kind: "point" as const, radiusPx: 0 },
     lifeMinSeconds: 1,
     lifeMaxSeconds: 1,
@@ -33,7 +34,7 @@ const catalogEffect = {
       renderingMode: "point",
       family: "sparks",
       lifecycle: { transitionTimeMs: 0, removalDurationMs: null },
-      streams: [stream("spark", true), stream("continuous", false)]
+      streams: [stream("spark", true, 5), stream("continuous", false)]
     },
     imageSlots: { spark: "spark-glow" }
   }
@@ -51,7 +52,7 @@ function scene(overrides: Partial<GameRenderSceneSnapshot> = {}): GameRenderScen
   };
 }
 
-function buildEffects() {
+function buildEffects(onBurst?: (request: { count: number; streamId?: string }, emit: () => void) => void) {
   const stats = {
     liveParticles: 0,
     emittedParticles: 0,
@@ -67,9 +68,13 @@ function buildEffects() {
     registerCatalogEffect: vi.fn(),
     upsertCatalogEffect: vi.fn(),
     remove: vi.fn(),
-    emitBurst: vi.fn(() => {
-      stats.liveParticles += 1;
-      stats.emittedParticles += 1;
+    emitBurst: vi.fn((request: { count: number; streamId?: string }) => {
+      const emit = () => {
+        stats.liveParticles += request.count;
+        stats.emittedParticles += request.count;
+      };
+      if (onBurst) onBurst(request, emit);
+      else emit();
     }),
     getStats: vi.fn(() => ({ ...stats, allocationFailures: { ...stats.allocationFailures } })),
     update: vi.fn(),
@@ -175,13 +180,13 @@ describe("ParticleEffectSceneController", () => {
     loadTexture.mockRestore();
   });
 
-  it("deduplicates burst IDs, emits only surge-only streams, and diagnoses late room events", () => {
+  it("accepts RoomId-free bursts without room-membership filtering and deduplicates IDs", () => {
     const effects = buildEffects();
     const diagnostics = vi.fn();
     const controller = new ParticleEffectSceneController(effects, diagnostics);
     const burst = {
-      id: "burst-1", sourceObjectId: "source-1", roomId: "room-1",
-      effectKey: catalogEffect.effectKey, x: 25, y: 35, enabled: true, order: 0, tuning: {}
+      id: "burst-1", sourceObjectId: "source-1",
+      effectKey: catalogEffect.effectKey, x: 25, y: 35, quantityMultiplier: 1, enabled: true, order: 0, tuning: {}
     };
     controller.reconcile(scene({ particleEffectBursts: [burst, burst] }));
     expect(effects.emitBurst).toHaveBeenCalledTimes(1);
@@ -189,9 +194,9 @@ describe("ParticleEffectSceneController", () => {
       id: "burst-1:spark:0", effectId: catalogEffect.effectKey, streamId: "spark", xPx: 25, yPx: 35
     }));
 
-    controller.reconcile(scene({ particleEffectBursts: [{ ...burst, id: "late-1", roomId: "room-old" }] }));
-    expect(effects.emitBurst).toHaveBeenCalledTimes(1);
-    expect(diagnostics).toHaveBeenCalledWith("warning", expect.stringContaining("late particle burst"), expect.anything());
+    controller.reconcile(scene({ roomId: "room-2", particleEffectBursts: [{ ...burst, id: "delivered-after-room-swap" }] }));
+    expect(effects.emitBurst).toHaveBeenCalledTimes(2);
+    expect(diagnostics).not.toHaveBeenCalledWith("warning", expect.stringContaining("late particle burst"), expect.anything());
   });
 
   it("reports per-stream emission statistics and accepts distinct sources at their current anchors", () => {
@@ -199,8 +204,8 @@ describe("ParticleEffectSceneController", () => {
     const diagnostics = vi.fn();
     const controller = new ParticleEffectSceneController(effects, diagnostics);
     const bursts = [
-      { id: "burst-a", sourceObjectId: "source-a", roomId: "room-1", effectKey: catalogEffect.effectKey, x: 25, y: 35, enabled: true, order: 0, tuning: {} },
-      { id: "burst-b", sourceObjectId: "source-b", roomId: "room-1", effectKey: catalogEffect.effectKey, x: 120, y: 90, enabled: true, order: 0, tuning: {} }
+      { id: "burst-a", sourceObjectId: "source-a", effectKey: catalogEffect.effectKey, x: 25, y: 35, quantityMultiplier: 1, enabled: true, order: 0, tuning: {} },
+      { id: "burst-b", sourceObjectId: "source-b", effectKey: catalogEffect.effectKey, x: 120, y: 90, quantityMultiplier: 1, enabled: true, order: 0, tuning: {} }
     ];
 
     controller.reconcile(scene({ particleEffectBursts: bursts }));
@@ -209,10 +214,124 @@ describe("ParticleEffectSceneController", () => {
     expect(effects.emitBurst).toHaveBeenNthCalledWith(1, expect.objectContaining({ id: "burst-a:spark:0", xPx: 25, yPx: 35 }));
     expect(effects.emitBurst).toHaveBeenNthCalledWith(2, expect.objectContaining({ id: "burst-b:spark:0", xPx: 120, yPx: 90 }));
     expect(diagnostics).toHaveBeenCalledWith("info", "Particle burst stream emission result.", expect.objectContaining({
-      burstId: "burst-a", streamId: "spark", requestedCount: 1, emittedParticleCount: 1, liveParticleCount: 1, outcome: "emitted"
+      burstId: "burst-a", streamId: "spark", requestedCount: 5, emittedParticleCount: 5, liveParticleCount: 5, outcome: "emitted"
     }));
     expect(diagnostics).toHaveBeenCalledWith("info", "Accepted particle burst occurrence.", expect.objectContaining({
-      burstId: "burst-b", sourceObjectId: "source-b", outcome: "all-streams-emitted"
+      burstId: "burst-b", sourceObjectId: "source-b", outcome: "all-streams-completed"
+    }));
+  });
+
+  it("uses the canonical count resolver once per stream, including its rounding and zero rules", () => {
+    const effects = buildEffects();
+    const diagnostics = vi.fn();
+    const controller = new ParticleEffectSceneController(effects, diagnostics);
+    const burst = (id: string, quantityMultiplier: number) => ({
+      id, sourceObjectId: "source", effectKey: catalogEffect.effectKey,
+      quantityMultiplier, x: 20, y: 30, enabled: true, order: 0, tuning: {}
+    });
+
+    controller.reconcile(scene({ particleEffectBursts: [burst("half", 0.5), burst("normal", 1), burst("double", 2)] }));
+
+    expect(effects.emitBurst).toHaveBeenCalledTimes(3);
+    expect(effects.emitBurst).toHaveBeenNthCalledWith(1, expect.objectContaining({ id: "half:spark:0", count: 3 }));
+    expect(effects.emitBurst).toHaveBeenNthCalledWith(2, expect.objectContaining({ id: "normal:spark:0", count: 5 }));
+    expect(effects.emitBurst).toHaveBeenNthCalledWith(3, expect.objectContaining({ id: "double:spark:0", count: 10 }));
+    expect(diagnostics).toHaveBeenCalledWith("info", "Particle burst stream emission result.", expect.objectContaining({
+      burstId: "half", baselineBurstCount: 5, quantityMultiplier: 0.5, requestedCount: 3, emittedParticleCount: 3
+    }));
+
+    controller.reconcile(scene({ particleEffectBursts: [burst("zero", 0)] }));
+    controller.reconcile(scene({ particleEffectBursts: [burst("zero", 0)] }));
+    expect(effects.emitBurst).toHaveBeenCalledTimes(3);
+    expect(diagnostics).toHaveBeenCalledWith("info", "Particle burst stream resolved to zero particles.", expect.objectContaining({
+      burstId: "zero", requestedCount: 0, outcome: "zero-count-completed"
+    }));
+    expect(diagnostics).toHaveBeenCalledWith("info", "Accepted particle burst occurrence.", expect.objectContaining({
+      burstId: "zero", outcome: "all-streams-completed"
+    }));
+  });
+
+  it("completes independent surge streams with their own recipe counts", () => {
+    const effects = buildEffects();
+    const controller = new ParticleEffectSceneController(effects);
+    const multipleStreams = {
+      ...catalogEffect,
+      particleEffect: {
+        ...catalogEffect.particleEffect,
+        recipe: { ...(catalogEffect.particleEffect.recipe as CatalogParticleRecipe), streams: [
+          stream("spark", true, 2), stream("shard", true, 4), stream("continuous", false)
+        ] }
+      }
+    } as CatalogParticleEffect;
+
+    controller.reconcile(scene({
+      particleEffectCatalog: [multipleStreams],
+      particleEffectBursts: [{ id: "multi", sourceObjectId: "source", effectKey: multipleStreams.effectKey, quantityMultiplier: 0.5, x: 7, y: 9, enabled: true, order: 0, tuning: {} }]
+    }));
+
+    expect(effects.emitBurst).toHaveBeenCalledTimes(2);
+    expect(effects.emitBurst).toHaveBeenNthCalledWith(1, expect.objectContaining({ id: "multi:spark:0", count: 1 }));
+    expect(effects.emitBurst).toHaveBeenNthCalledWith(2, expect.objectContaining({ id: "multi:shard:0", count: 2 }));
+  });
+
+  it("does not re-emit a completed stream when another stream retries", () => {
+    let failShardOnce = true;
+    const effects = buildEffects((request, emit) => {
+      if (request.streamId === "shard" && failShardOnce) {
+        failShardOnce = false;
+        throw new Error("shard texture unavailable");
+      }
+      emit();
+    });
+    const diagnostics = vi.fn();
+    const controller = new ParticleEffectSceneController(effects, diagnostics);
+    const multipleStreams = {
+      ...catalogEffect,
+      particleEffect: {
+        ...catalogEffect.particleEffect,
+        recipe: { ...(catalogEffect.particleEffect.recipe as CatalogParticleRecipe), streams: [
+          stream("spark", true, 2), stream("shard", true, 3)
+        ] }
+      }
+    } as CatalogParticleEffect;
+    const burst = {
+      id: "independent-stream-retry", sourceObjectId: "source", effectKey: multipleStreams.effectKey,
+      quantityMultiplier: 1, x: 7, y: 9, enabled: true, order: 0, tuning: {}
+    };
+    const burstScene = scene({ particleEffectCatalog: [multipleStreams], particleEffectBursts: [burst] });
+
+    controller.reconcile(burstScene);
+    controller.reconcile(burstScene);
+
+    expect(effects.emitBurst).toHaveBeenCalledTimes(3);
+    expect(effects.emitBurst).toHaveBeenNthCalledWith(1, expect.objectContaining({ id: "independent-stream-retry:spark:0", count: 2 }));
+    expect(effects.emitBurst).toHaveBeenNthCalledWith(2, expect.objectContaining({ id: "independent-stream-retry:shard:0", count: 3 }));
+    expect(effects.emitBurst).toHaveBeenNthCalledWith(3, expect.objectContaining({ id: "independent-stream-retry:shard:1", count: 3 }));
+    expect(diagnostics).toHaveBeenCalledWith("info", "Accepted particle burst occurrence.", expect.objectContaining({
+      burstId: "independent-stream-retry", outcome: "all-streams-completed"
+    }));
+  });
+
+  it("treats an invalid recipe count as terminal and does not retry it", () => {
+    const effects = buildEffects();
+    const diagnostics = vi.fn();
+    const controller = new ParticleEffectSceneController(effects, diagnostics);
+    const invalidEffect = {
+      ...catalogEffect,
+      particleEffect: {
+        ...catalogEffect.particleEffect,
+        recipe: { ...(catalogEffect.particleEffect.recipe as CatalogParticleRecipe), streams: [stream("spark", true, Number.MAX_SAFE_INTEGER + 1)] }
+      }
+    } as CatalogParticleEffect;
+    const invalidBurst = { id: "invalid", sourceObjectId: "source", effectKey: invalidEffect.effectKey, x: 0, y: 0, quantityMultiplier: 1, enabled: true, order: 0, tuning: {} };
+    const invalidScene = scene({ particleEffectCatalog: [invalidEffect], particleEffectBursts: [invalidBurst] });
+
+    controller.reconcile(invalidScene);
+    controller.reconcile(invalidScene);
+
+    expect(effects.emitBurst).not.toHaveBeenCalled();
+    expect(diagnostics).toHaveBeenCalledWith("warning", expect.stringContaining("terminal invalid count"), expect.objectContaining({
+      burstId: "invalid", outcome: "terminal-invalid-count"
     }));
   });
 
@@ -223,8 +342,8 @@ describe("ParticleEffectSceneController", () => {
     const diagnostics = vi.fn();
     const controller = new ParticleEffectSceneController(effects, diagnostics);
     const burst = {
-      id: "retry-burst", sourceObjectId: "source-1", roomId: "room-1",
-      effectKey: catalogEffect.effectKey, x: 25, y: 35, enabled: true, order: 0, tuning: {}
+      id: "retry-burst", sourceObjectId: "source-1",
+      effectKey: catalogEffect.effectKey, x: 25, y: 35, quantityMultiplier: 1, enabled: true, order: 0, tuning: {}
     };
     const burstScene = scene({ particleEffectBursts: [burst] });
 
@@ -247,7 +366,7 @@ describe("ParticleEffectSceneController", () => {
     const loadImage = vi.fn(() => new Promise<string | null>((resolve) => { resolveImage = resolve; }));
     const controller = new ParticleEffectSceneController(effects, diagnostics, loadImage);
     const burst = {
-      id: "custom-burst", sourceObjectId: "source-1", roomId: "room-1",
+      id: "custom-burst", sourceObjectId: "source-1", quantityMultiplier: 0.5,
       effectKey: catalogEffect.effectKey, x: 25, y: 35, enabled: true, order: 0, tuning: {}
     };
     const mappedScene = scene({
@@ -264,7 +383,7 @@ describe("ParticleEffectSceneController", () => {
     resolveImage(null);
     await vi.waitFor(() => expect(effects.emitBurst).toHaveBeenCalledTimes(1));
     expect(diagnostics).toHaveBeenCalledWith("info", "Deferred particle burst while custom art loads.", expect.objectContaining({ burstId: "custom-burst" }));
-    expect(effects.emitBurst).toHaveBeenCalledWith(expect.objectContaining({ effectId: catalogEffect.effectKey, xPx: 25, yPx: 35 }));
+    expect(effects.emitBurst).toHaveBeenCalledWith(expect.objectContaining({ effectId: catalogEffect.effectKey, xPx: 25, yPx: 35, count: 3 }));
     controller.dispose();
   });
 

@@ -12,5 +12,5 @@ export interface GameRenderParticleEffect {
 
 export interface GameRenderParticleBurst extends GameRenderParticleEffect {
   sourceObjectId: string;
-  roomId: string;
+  quantityMultiplier: number;
 }

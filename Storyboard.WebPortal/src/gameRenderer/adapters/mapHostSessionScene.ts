@@ -195,10 +195,10 @@ function mapParticleBurst(burst: HostParticleEffectBurst): GameRenderParticleBur
   return {
     id: burst.burstId,
     sourceObjectId: burst.sourceObjectId,
-    roomId: burst.roomId,
     effectKey: burst.effectKey,
     x: burst.x,
     y: burst.y,
+    quantityMultiplier: burst.quantityMultiplier ?? 1,
     enabled: true,
     order: 0,
     tuning: mapParticleControls(burst.targetControls)

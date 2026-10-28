@@ -750,11 +750,19 @@ describe("HostApiClient", () => {
           {
             burstId: "burst-1",
             sourceObjectId: "obj-1",
-            roomId: "room-9",
             effectKey: "particle.electrical-sparks",
             x: 120,
             y: 80,
+            quantityMultiplier: 0.5,
             targetControls: { Count: { valueType: "Numeric", numericValue: 5 } }
+          },
+          {
+            burstId: "burst-default-quantity",
+            sourceObjectId: "obj-2",
+            effectKey: "particle.water-spatter",
+            x: 200,
+            y: 100,
+            targetControls: {}
           }
         ],
         authoredRenderWidth: 800,
@@ -802,15 +810,26 @@ describe("HostApiClient", () => {
     expect(baseline.soundCues).toHaveLength(1);
     expect(baseline.soundCues[0].soundEffectLane).toBe("Ambient");
     expect(baseline.soundCues[0].resultCode).toBe("SessionBaseline.PhaseAmbient");
-    expect(baseline.particleEffectBursts).toEqual([{
-      burstId: "burst-1",
-      sourceObjectId: "obj-1",
-      roomId: "room-9",
-      effectKey: "particle.electrical-sparks",
-      x: 120,
-      y: 80,
-      targetControls: { Count: { valueType: "Numeric", numericValue: 5 } }
-    }]);
+    expect(baseline.particleEffectBursts).toEqual([
+      {
+        burstId: "burst-1",
+        sourceObjectId: "obj-1",
+        effectKey: "particle.electrical-sparks",
+        x: 120,
+        y: 80,
+        quantityMultiplier: 0.5,
+        targetControls: { Count: { valueType: "Numeric", numericValue: 5 } }
+      },
+      {
+        burstId: "burst-default-quantity",
+        sourceObjectId: "obj-2",
+        effectKey: "particle.water-spatter",
+        x: 200,
+        y: 100,
+        quantityMultiplier: 1,
+        targetControls: {}
+      }
+    ]);
     expect(baseline.authoredRenderWidth).toBe(800);
     expect(baseline.authoredRenderHeight).toBe(600);
 

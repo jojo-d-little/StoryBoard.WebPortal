@@ -1477,10 +1477,10 @@ export class HostApiClient {
       return {
         burstId: this.readString(burst, ["burstId", "BurstId"]),
         sourceObjectId: this.readString(burst, ["sourceObjectId", "SourceObjectId"]),
-        roomId: this.readString(burst, ["roomId", "RoomId"]),
         effectKey: this.readString(burst, ["effectKey", "EffectKey"]),
         x: this.readNumber(burst, ["x", "X"]),
         y: this.readNumber(burst, ["y", "Y"]),
+        quantityMultiplier: this.readOptionalNumber(burst, ["quantityMultiplier", "QuantityMultiplier"]) ?? 1,
         targetControls: this.readParticleEffectControls(burst)
       };
     });

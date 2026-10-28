@@ -21,6 +21,7 @@ const sparkEffect: CatalogParticleEffect = {
         blendMode: "add",
         ratePerSecond: 0,
         surgeOnly: true,
+        burstCount: 16,
         spawn: { kind: "point", radiusPx: 1 },
         lifeMinSeconds: 0.12,
         lifeMaxSeconds: 0.3,
@@ -50,10 +51,10 @@ export async function runParticleBurstBrowserHarness(): Promise<{
   changedPixelsAtSecondSource: number;
   changedPixelsTotal: number;
   statsAfterDuplicateDelivery: ReturnType<TopDownEffects["getStats"]>;
+  statsAfterZeroCount: ReturnType<TopDownEffects["getStats"]>;
   changedPixelsAfterNaturalDecay: number;
   statsAfterEmit: ReturnType<TopDownEffects["getStats"]>;
   statsAfterDecay: ReturnType<TopDownEffects["getStats"]>;
-  statsAfterLateRoomBurst: ReturnType<TopDownEffects["getStats"]>;
   statsAfterCustomArtBurst: ReturnType<TopDownEffects["getStats"]>;
   customArtChangedPixels: number;
   pixelBufferLength: number;
@@ -81,14 +82,14 @@ export async function runParticleBurstBrowserHarness(): Promise<{
   const controller = new ParticleEffectSceneController(effects, (level, message, details) => {
     diagnostics.push({ level, message, details });
   });
-  const snapshot = (bursts: Array<{ id: string; sourceObjectId: string; roomId: string; effectKey: string; x: number; y: number; enabled: boolean; order: number; tuning: Record<string, never> }> = []) => ({
+  const snapshot = (bursts: Array<{ id: string; sourceObjectId: string; effectKey: string; x: number; y: number; quantityMultiplier?: number; enabled: boolean; order: number; tuning: Record<string, never> }> = []) => ({
     roomId: "burst-room",
     displayMode: "composed" as const,
     bounds: { width: 640, height: 400 },
     directionalOverlays: [],
     objectsById: {},
     particleEffectCatalog: [sparkEffect],
-    particleEffectBursts: bursts
+    particleEffectBursts: bursts.map((burst) => ({ ...burst, quantityMultiplier: burst.quantityMultiplier ?? 1 }))
   });
 
   controller.reconcile(snapshot());
@@ -97,10 +98,10 @@ export async function runParticleBurstBrowserHarness(): Promise<{
   const firstBurst = {
     id: "browser-burst-1",
     sourceObjectId: "sample-sparks-a",
-    roomId: "burst-room",
     effectKey: sparkEffect.effectKey,
     x: 180,
     y: 180,
+    quantityMultiplier: 0.5,
     enabled: true,
     order: 0,
     tuning: {}
@@ -108,12 +109,14 @@ export async function runParticleBurstBrowserHarness(): Promise<{
   controller.reconcile(snapshot([firstBurst, {
     ...firstBurst,
     id: "browser-burst-moved-anchor",
-    x: 240
+    x: 240,
+    quantityMultiplier: 1
   }, {
     ...firstBurst,
     id: "browser-burst-second-source",
     sourceObjectId: "sample-sparks-b",
-    x: 500
+    x: 500,
+    quantityMultiplier: 2
   }, firstBurst]));
   controller.update(0);
   controller.update(0.05);
@@ -154,13 +157,8 @@ export async function runParticleBurstBrowserHarness(): Promise<{
   app.renderer.render(app.stage);
   const statsAfterDecay = effects.getStats();
   const afterDecay = app.renderer.extract.pixels({ target: app.stage }) as unknown as ExtractedPixelFrame;
-  controller.reconcile(snapshot([{
-    ...firstBurst,
-    id: "browser-burst-late-room",
-    roomId: "previous-room"
-  }]));
-  const statsAfterLateRoomBurst = effects.getStats();
-
+  controller.reconcile(snapshot([{ ...firstBurst, id: "browser-burst-zero", quantityMultiplier: 0 }]));
+  const statsAfterZeroCount = effects.getStats();
   const customArtCanvas = document.createElement("canvas");
   customArtCanvas.width = 4;
   customArtCanvas.height = 4;
@@ -204,12 +202,12 @@ export async function runParticleBurstBrowserHarness(): Promise<{
       return count + (value === before.pixels[index] ? 0 : 1);
     }, 0),
     statsAfterDuplicateDelivery,
+    statsAfterZeroCount,
     changedPixelsAfterNaturalDecay: countChangedPixelsNear(afterDecay, 180, 180)
       + countChangedPixelsNear(afterDecay, 240, 180)
       + countChangedPixelsNear(afterDecay, 500, 180),
     statsAfterEmit,
     statsAfterDecay,
-    statsAfterLateRoomBurst,
     statsAfterCustomArtBurst,
     customArtChangedPixels,
     pixelBufferLength: after.pixels.length,
