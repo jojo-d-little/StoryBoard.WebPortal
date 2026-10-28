@@ -460,7 +460,7 @@ export class ParticleEffectSceneController {
           streamIds: eligibleStreams.map((stream) => stream.id),
           reason: "custom-image-load-pending"
         });
-        return;
+        continue;
       }
 
       if (!this.emitBurstStreams(burst, recipe, eligibleStreams)) {

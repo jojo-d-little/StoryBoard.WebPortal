@@ -387,6 +387,117 @@ describe("ParticleEffectSceneController", () => {
     controller.dispose();
   });
 
+  it("processes packaged siblings and independently retains multiple cold-art bursts across an empty snapshot", async () => {
+    const effects = buildEffects() as unknown as Record<string, ReturnType<typeof vi.fn>>;
+    effects.registerPointStyle = vi.fn();
+    const textureA = { destroy: vi.fn() } as unknown as Texture;
+    const textureB = { destroy: vi.fn() } as unknown as Texture;
+    const loadTexture = vi.spyOn(Assets, "load").mockImplementation((url) => Promise.resolve(
+      String(url).includes("AA==") ? textureA : textureB
+    ) as never);
+    const resolves = new Map<string, (url: string | null) => void>();
+    const loadImage = vi.fn((locator: string) => new Promise<string | null>((resolve) => resolves.set(locator, resolve)));
+    const controller = new ParticleEffectSceneController(effects as unknown as TopDownEffects, undefined, loadImage);
+    const customA = { ...catalogEffect, effectKey: "point.test.custom-a" } as CatalogParticleEffect;
+    const customB = { ...catalogEffect, effectKey: "point.test.custom-b" } as CatalogParticleEffect;
+    const packaged = { ...catalogEffect, effectKey: "point.test.packaged" } as CatalogParticleEffect;
+    const mappings = [
+      { effectKey: customA.effectKey, imageSlot: "spark", relativeLocator: "custom/a.png" },
+      { effectKey: customB.effectKey, imageSlot: "spark", relativeLocator: "custom/b.png" }
+    ];
+    const burst = (id: string, effectKey: string, quantityMultiplier: number) => ({
+      id, sourceObjectId: id, effectKey, x: 100, y: 100, quantityMultiplier,
+      enabled: true, order: 0, tuning: {}
+    });
+    const batchScene = scene({
+      particleEffectCatalog: [customA, packaged, customB],
+      particleEffectImageMappings: mappings,
+      particleEffectBursts: [
+        burst("custom-a", customA.effectKey, 0.5),
+        burst("packaged-ready", packaged.effectKey, 1),
+        burst("custom-b", customB.effectKey, 2),
+        burst("custom-a", customA.effectKey, 0.5),
+        burst("packaged-ready", packaged.effectKey, 1)
+      ]
+    });
+    const emptySnapshot = scene({
+      particleEffectCatalog: [customA, packaged, customB],
+      particleEffectImageMappings: mappings,
+      particleEffectBursts: []
+    });
+
+    controller.reconcile(batchScene);
+    expect(loadImage).toHaveBeenCalledTimes(2);
+    expect(effects.emitBurst).toHaveBeenCalledTimes(1);
+    expect(effects.emitBurst).toHaveBeenCalledWith(expect.objectContaining({ id: "packaged-ready:spark:0", count: 5 }));
+    controller.reconcile(emptySnapshot);
+
+    resolves.get("custom/b.png")!("data:image/png;base64,AQ==");
+    await vi.waitFor(() => expect(effects.emitBurst).toHaveBeenCalledTimes(2));
+    resolves.get("custom/a.png")!("data:image/png;base64,AA==");
+    await vi.waitFor(() => expect(effects.emitBurst).toHaveBeenCalledTimes(3));
+    controller.reconcile(batchScene);
+
+    expect(effects.emitBurst).toHaveBeenNthCalledWith(2, expect.objectContaining({ id: "custom-b:spark:0", count: 10 }));
+    expect(effects.emitBurst).toHaveBeenNthCalledWith(3, expect.objectContaining({ id: "custom-a:spark:0", count: 3 }));
+    expect(effects.emitBurst).toHaveBeenCalledTimes(3);
+    controller.dispose();
+    loadTexture.mockRestore();
+  });
+
+  it("uses packaged fallback after cold-art failure without losing or duplicating a ready sibling", async () => {
+    const effects = buildEffects();
+    const diagnostics = vi.fn();
+    const loadImage = vi.fn(async () => null);
+    const controller = new ParticleEffectSceneController(effects, diagnostics, loadImage);
+    const custom = { ...catalogEffect, effectKey: "point.test.custom-fallback" } as CatalogParticleEffect;
+    const packaged = { ...catalogEffect, effectKey: "point.test.packaged-fallback-sibling" } as CatalogParticleEffect;
+    const mappings = [{ effectKey: custom.effectKey, imageSlot: "spark", relativeLocator: "custom/missing.png" }];
+    const bursts = [
+      { id: "fallback-custom", sourceObjectId: "custom-source", effectKey: custom.effectKey, x: 20, y: 30, quantityMultiplier: 0.5, enabled: true, order: 0, tuning: {} },
+      { id: "ready-sibling", sourceObjectId: "packaged-source", effectKey: packaged.effectKey, x: 40, y: 50, quantityMultiplier: 1, enabled: true, order: 0, tuning: {} }
+    ];
+    const mixedScene = scene({ particleEffectCatalog: [custom, packaged], particleEffectImageMappings: mappings, particleEffectBursts: bursts });
+
+    controller.reconcile(mixedScene);
+    expect(effects.emitBurst).toHaveBeenCalledTimes(1);
+    expect(effects.emitBurst).toHaveBeenCalledWith(expect.objectContaining({ id: "ready-sibling:spark:0", count: 5 }));
+    await vi.waitFor(() => expect(effects.emitBurst).toHaveBeenCalledTimes(2));
+    controller.reconcile(mixedScene);
+
+    expect(effects.emitBurst).toHaveBeenNthCalledWith(2, expect.objectContaining({ id: "fallback-custom:spark:0", count: 3 }));
+    expect(effects.emitBurst).toHaveBeenCalledTimes(2);
+    expect(diagnostics).toHaveBeenCalledWith("warning", expect.stringContaining("packaged image slots"), expect.anything());
+    controller.dispose();
+  });
+
+  it("does not emit a deferred event when the surface is disposed before image completion", async () => {
+    const effects = buildEffects() as unknown as Record<string, ReturnType<typeof vi.fn>>;
+    effects.registerPointStyle = vi.fn();
+    const texture = { destroy: vi.fn() } as unknown as Texture;
+    const loadTexture = vi.spyOn(Assets, "load").mockResolvedValue(texture as never);
+    let resolveImage!: (url: string | null) => void;
+    const loadImage = vi.fn(() => new Promise<string | null>((resolve) => { resolveImage = resolve; }));
+    const controller = new ParticleEffectSceneController(effects as unknown as TopDownEffects, undefined, loadImage);
+    const burst = {
+      id: "disposed-cold-art", sourceObjectId: "source", effectKey: catalogEffect.effectKey,
+      x: 20, y: 30, quantityMultiplier: 1, enabled: true, order: 0, tuning: {}
+    };
+
+    controller.reconcile(scene({
+      particleEffectImageMappings: [{ effectKey: catalogEffect.effectKey, imageSlot: "spark", relativeLocator: "custom/disposed.png" }],
+      particleEffectBursts: [burst]
+    }));
+    controller.dispose();
+    resolveImage("data:image/png;base64,AA==");
+    await vi.waitFor(() => expect(loadTexture).toHaveBeenCalledTimes(1));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(effects.emitBurst).not.toHaveBeenCalled();
+    expect(effects.dispose).toHaveBeenCalledTimes(1);
+    loadTexture.mockRestore();
+  });
+
   it("interpolates changed controls from current values over the recipe transition duration", () => {
     const effects = buildEffects();
     const controller = new ParticleEffectSceneController(effects);

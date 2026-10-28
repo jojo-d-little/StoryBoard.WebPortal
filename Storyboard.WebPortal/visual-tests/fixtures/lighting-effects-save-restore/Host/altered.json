@@ -1,0 +1,695 @@
+{
+  "sessionPresentationSettings": {
+    "cellSizePx": 40,
+    "pointLightDefaults": {
+      "radiusPx": 150,
+      "intensityScale": 1,
+      "color": "#E2CB5E",
+      "outerColor": "#FBF706",
+      "gradientExponent": 4,
+      "lightHeightCells": 4,
+      "swayAmountPx": 12,
+      "swayHz": 1,
+      "swayDirectionDeg": 45,
+      "flickerAmount": 0.25,
+      "flickerHz": 8,
+      "flickerStyle": "flame"
+    }
+  },
+  "roomChange": {
+    "newRoom": {
+      "roomId": "0147c843-23d4-48cd-9b6b-2065ef48d572",
+      "name": "Seasonal Shelter",
+      "description": "",
+      "roomImageCanvasWidth": 800,
+      "roomImageCanvasHeight": 600,
+      "ambientLighting": {
+        "transitionDurationMs": 0,
+        "ambient": 0.8,
+        "ambientColor": "#FFF6DE"
+      },
+      "roomDisplayMode": "Overlay",
+      "directionalRenderableImages": [
+        {
+          "slot": "Down",
+          "renderableImage": {
+            "imagePath": "assets/images/_shared/7bc4fd3cfc03a0636edeece94b6f865692f80c41fe62337c47ab48658273be87__DarkBrownWoodenFloor800x600.png",
+            "anchorX": 0,
+            "anchorY": 0,
+            "iconOffsetX": 0,
+            "iconOffsetY": 0,
+            "x": 0,
+            "y": 0,
+            "rotationDegrees": 0,
+            "scale": 1,
+            "additionalSituationalScale": 1
+          }
+        },
+        {
+          "slot": "North",
+          "renderableImage": {
+            "imagePath": "assets/images/_shared/84c8f14bc09348dea467172e1df774dd5ce4aadda9856f4ec558a97c1a40141f__LongBrickWall.png",
+            "anchorX": 0,
+            "anchorY": 0,
+            "iconOffsetX": 0,
+            "iconOffsetY": 0,
+            "x": 0,
+            "y": 0,
+            "rotationDegrees": 180,
+            "scale": 1,
+            "additionalSituationalScale": 1
+          }
+        },
+        {
+          "slot": "East",
+          "renderableImage": {
+            "imagePath": "assets/images/_shared/7ae7e8867d92162a6d3dfb8bc7de9a9bd2ae6d255eab1db7ee29cd807bd54621__ShortBrickWall.png",
+            "anchorX": 0,
+            "anchorY": 0,
+            "iconOffsetX": 0,
+            "iconOffsetY": 0,
+            "x": 0,
+            "y": 0,
+            "rotationDegrees": 180,
+            "scale": 1,
+            "additionalSituationalScale": 1
+          }
+        },
+        {
+          "slot": "South",
+          "renderableImage": {
+            "imagePath": "assets/images/_shared/84c8f14bc09348dea467172e1df774dd5ce4aadda9856f4ec558a97c1a40141f__LongBrickWall.png",
+            "anchorX": 0,
+            "anchorY": 0,
+            "iconOffsetX": 0,
+            "iconOffsetY": 0,
+            "x": 0,
+            "y": 0,
+            "rotationDegrees": 0,
+            "scale": 1,
+            "additionalSituationalScale": 1
+          }
+        },
+        {
+          "slot": "West",
+          "renderableImage": {
+            "imagePath": "assets/images/_shared/7ae7e8867d92162a6d3dfb8bc7de9a9bd2ae6d255eab1db7ee29cd807bd54621__ShortBrickWall.png",
+            "anchorX": 0,
+            "anchorY": 0,
+            "iconOffsetX": 0,
+            "iconOffsetY": 0,
+            "x": 0,
+            "y": 0,
+            "rotationDegrees": 0,
+            "scale": 1,
+            "additionalSituationalScale": 1
+          }
+        }
+      ],
+      "renderableRoomObjects": [
+        {
+          "objectId": "75ffa3ee-e6d4-4f41-815a-16b2a63d9b1f",
+          "name": "Player",
+          "renderableImage": {
+            "imagePath": "assets/images/_shared/450160b976590401c813950cbf2ffebfd5eabb1b11e1ecb7ca49fea5e173bd0b__SimpletonAdventurer.png",
+            "anchorX": 400,
+            "anchorY": 564,
+            "iconOffsetX": 83.00000000000001,
+            "iconOffsetY": 92,
+            "x": 483,
+            "y": 656,
+            "rotationDegrees": 180,
+            "scale": 0.14,
+            "additionalSituationalScale": 1
+          },
+          "renderZOrder": 11003,
+          "imageTransparency": 0,
+          "spatialFootprint": {
+            "cellX": 10,
+            "cellY": 14,
+            "footprintCenterXpx": 440,
+            "footprintCenterYpx": 600,
+            "sizeXCells": 2,
+            "sizeYCells": 2,
+            "cornerStyle": "rounded",
+            "elevationCells": 1
+          },
+          "lightOcclusion": {
+            "strength": 1
+          },
+          "activePresentationCues": [],
+          "activeSoundCues": []
+        },
+        {
+          "objectId": "decb844d-9340-428f-be5e-c785484588e8",
+          "name": "Restore Torch",
+          "renderableImage": {
+            "imagePath": "assets/images/_shared/4b5972442ccdde319218920f3c46673d9c3b0a0287f6d9c0ed5afa2f601ee843__BrownCrate.png",
+            "anchorX": 520,
+            "anchorY": 160,
+            "iconOffsetX": 0,
+            "iconOffsetY": 0,
+            "x": 520,
+            "y": 160,
+            "rotationDegrees": 0,
+            "scale": 0.17,
+            "additionalSituationalScale": 1
+          },
+          "renderZOrder": 11002,
+          "imageTransparency": 0,
+          "spatialFootprint": {
+            "cellX": 13,
+            "cellY": 4,
+            "footprintCenterXpx": 540,
+            "footprintCenterYpx": 180,
+            "sizeXCells": 1,
+            "sizeYCells": 1,
+            "cornerStyle": "rounded",
+            "elevationCells": 1
+          },
+          "activePresentationCues": [],
+          "activeSoundCues": [],
+          "particleEffect": {
+            "effectKey": "particle.torch",
+            "x": 559,
+            "y": 197.79,
+            "isProducing": true,
+            "targetControls": {}
+          }
+        },
+        {
+          "objectId": "0f119046-a6f4-43f6-8c22-e27131a54412",
+          "name": "Restore Smoke",
+          "renderableImage": {
+            "imagePath": "",
+            "anchorX": 560,
+            "anchorY": 160,
+            "iconOffsetX": 0,
+            "iconOffsetY": 0,
+            "x": 560,
+            "y": 160,
+            "rotationDegrees": 0,
+            "scale": 0.17,
+            "additionalSituationalScale": 1
+          },
+          "renderZOrder": 10001,
+          "imageTransparency": 0,
+          "spatialFootprint": {
+            "cellX": 14,
+            "cellY": 4,
+            "footprintCenterXpx": 580,
+            "footprintCenterYpx": 180,
+            "sizeXCells": 1,
+            "sizeYCells": 1,
+            "cornerStyle": "rounded",
+            "elevationCells": 1
+          },
+          "activePresentationCues": [],
+          "activeSoundCues": [],
+          "particleEffect": {
+            "effectKey": "particle.torch.smoke",
+            "x": 600,
+            "y": 160,
+            "isProducing": true,
+            "targetControls": {
+              "WindSpeedPxPerSecond": {
+                "valueType": "Numeric",
+                "numericValue": 0
+              },
+              "WindDirectionDegrees": {
+                "valueType": "Numeric",
+                "numericValue": 45
+              }
+            }
+          }
+        }
+      ],
+      "environmentalParticleEffects": [
+        {
+          "instanceId": "2a8faf08-af6c-b764-bda2-07e426bd7384",
+          "effectKey": "particle.rain",
+          "isProducing": false,
+          "renderOrder": 0,
+          "targetControls": {
+            "EmissionRateMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.5
+            },
+            "LifetimeMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 1
+            },
+            "SizeMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 1
+            },
+            "WindSpeedPxPerSecond": {
+              "valueType": "Numeric",
+              "numericValue": 0
+            },
+            "WindDirectionDegrees": {
+              "valueType": "Numeric",
+              "numericValue": 45
+            },
+            "WindSpeedMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 1
+            },
+            "WindDirectionOffsetDegrees": {
+              "valueType": "Numeric",
+              "numericValue": 0
+            }
+          }
+        },
+        {
+          "instanceId": "b8108c6f-96f7-aaac-b916-58bd097cfbcc",
+          "effectKey": "particle.drifting-motes",
+          "isProducing": false,
+          "renderOrder": 0,
+          "targetControls": {
+            "EmissionRateMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.35
+            }
+          }
+        },
+        {
+          "instanceId": "b5c58b73-29d0-57de-4dcd-f289c32850d1",
+          "effectKey": "particle.fog",
+          "isProducing": false,
+          "renderOrder": 0,
+          "targetControls": {
+            "OpacityMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.12
+            },
+            "Tint": {
+              "valueType": "String",
+              "stringValue": "#DCE8FF"
+            }
+          }
+        },
+        {
+          "instanceId": "3e7a5ea8-cc79-90cc-2f95-e29d5e98e124",
+          "effectKey": "particle.fog",
+          "isProducing": false,
+          "renderOrder": 0,
+          "targetControls": {
+            "OpacityMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.25
+            },
+            "Tint": {
+              "valueType": "String",
+              "stringValue": "#D6AC50"
+            }
+          }
+        },
+        {
+          "instanceId": "80461cc7-0264-1dc9-4841-6f7fa80e9d4a",
+          "effectKey": "particle.drifting-motes",
+          "isProducing": false,
+          "renderOrder": 0,
+          "targetControls": {
+            "EmissionRateMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.5
+            },
+            "Colors": {
+              "valueType": "String",
+              "stringValue": "{\u0022primary\u0022:\u0022#89CFFF\u0022,\u0022secondary\u0022:\u0022#4477FF\u0022}"
+            }
+          }
+        },
+        {
+          "instanceId": "0a6259b2-80a8-d497-42fb-5c1922df5062",
+          "effectKey": "particle.ashfall",
+          "isProducing": false,
+          "renderOrder": 0,
+          "targetControls": {
+            "EmissionRateMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.35
+            }
+          }
+        },
+        {
+          "instanceId": "63025870-5653-b9ce-292b-417348f46c40",
+          "effectKey": "particle.fog",
+          "isProducing": false,
+          "renderOrder": 0,
+          "targetControls": {
+            "OpacityMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.3
+            },
+            "Tint": {
+              "valueType": "String",
+              "stringValue": "#FFB060"
+            }
+          }
+        },
+        {
+          "instanceId": "d498c5b8-31ad-f2ec-f52c-e4e5b8d17905",
+          "effectKey": "particle.drifting-motes",
+          "isProducing": false,
+          "renderOrder": 0,
+          "targetControls": {
+            "EmissionRateMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.5
+            },
+            "SizeMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 2
+            }
+          }
+        },
+        {
+          "instanceId": "525ca869-e88c-924b-197c-c9d236f0e884",
+          "effectKey": "particle.snowfall",
+          "isProducing": false,
+          "renderOrder": 1,
+          "targetControls": {
+            "EmissionRateMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.5
+            },
+            "WindSpeedPxPerSecond": {
+              "valueType": "Numeric",
+              "numericValue": 0
+            },
+            "WindDirectionDegrees": {
+              "valueType": "Numeric",
+              "numericValue": 45
+            },
+            "WindSpeedMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.8
+            },
+            "WindDirectionOffsetDegrees": {
+              "valueType": "Numeric",
+              "numericValue": 0
+            }
+          }
+        },
+        {
+          "instanceId": "3892fdda-c35e-4344-ede9-2e326551fe91",
+          "effectKey": "particle.hail",
+          "isProducing": false,
+          "renderOrder": 2,
+          "targetControls": {
+            "EmissionRateMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.5
+            },
+            "WindSpeedPxPerSecond": {
+              "valueType": "Numeric",
+              "numericValue": 0
+            },
+            "WindDirectionDegrees": {
+              "valueType": "Numeric",
+              "numericValue": 45
+            },
+            "WindSpeedMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.7
+            },
+            "WindDirectionOffsetDegrees": {
+              "valueType": "Numeric",
+              "numericValue": 0
+            }
+          }
+        },
+        {
+          "instanceId": "c5986751-a828-efb4-ac22-19b4b5ac7784",
+          "effectKey": "particle.mixed-leaves",
+          "isProducing": false,
+          "renderOrder": 3,
+          "targetControls": {
+            "EmissionRateMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.45
+            },
+            "SizeMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.85
+            },
+            "WindSpeedPxPerSecond": {
+              "valueType": "Numeric",
+              "numericValue": 0
+            },
+            "WindDirectionDegrees": {
+              "valueType": "Numeric",
+              "numericValue": 45
+            },
+            "WindSpeedMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.8
+            },
+            "WindDirectionOffsetDegrees": {
+              "valueType": "Numeric",
+              "numericValue": 0
+            }
+          }
+        },
+        {
+          "instanceId": "a0eaa03b-f10e-c581-9304-86ccddcfd04b",
+          "effectKey": "particle.fog",
+          "isProducing": false,
+          "renderOrder": 4,
+          "targetControls": {
+            "CoverageMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 1.5
+            },
+            "OpacityMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.4
+            },
+            "Tint": {
+              "valueType": "String",
+              "stringValue": "#D3D8DC"
+            },
+            "WindSpeedPxPerSecond": {
+              "valueType": "Numeric",
+              "numericValue": 0
+            },
+            "WindDirectionDegrees": {
+              "valueType": "Numeric",
+              "numericValue": 45
+            },
+            "WindSpeedMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.15
+            },
+            "WindDirectionOffsetDegrees": {
+              "valueType": "Numeric",
+              "numericValue": 0
+            }
+          }
+        },
+        {
+          "instanceId": "dc53be6a-5763-3ab5-8355-7ec240e2afd4",
+          "effectKey": "particle.cloud",
+          "isProducing": false,
+          "renderOrder": 5,
+          "targetControls": {
+            "CoverageMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.9
+            },
+            "OpacityMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.7
+            },
+            "Tint": {
+              "valueType": "String",
+              "stringValue": "#F2F5FF"
+            },
+            "WindSpeedPxPerSecond": {
+              "valueType": "Numeric",
+              "numericValue": 0
+            },
+            "WindDirectionDegrees": {
+              "valueType": "Numeric",
+              "numericValue": 45
+            },
+            "WindSpeedMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.12
+            },
+            "WindDirectionOffsetDegrees": {
+              "valueType": "Numeric",
+              "numericValue": -12
+            }
+          }
+        },
+        {
+          "instanceId": "ed2f7a61-d063-fffa-6653-d02ea561105b",
+          "effectKey": "particle.cloud",
+          "isProducing": false,
+          "renderOrder": 6,
+          "targetControls": {
+            "CoverageMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 1.25
+            },
+            "OpacityMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.45
+            },
+            "Tint": {
+              "valueType": "String",
+              "stringValue": "#FFFFFF"
+            },
+            "WindSpeedPxPerSecond": {
+              "valueType": "Numeric",
+              "numericValue": 0
+            },
+            "WindDirectionDegrees": {
+              "valueType": "Numeric",
+              "numericValue": 45
+            },
+            "WindSpeedMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.22
+            },
+            "WindDirectionOffsetDegrees": {
+              "valueType": "Numeric",
+              "numericValue": 15
+            }
+          }
+        },
+        {
+          "instanceId": "4142e179-3c5c-17fe-a626-74fce7fd32b1",
+          "effectKey": "particle.cloud",
+          "isProducing": false,
+          "renderOrder": 7,
+          "targetControls": {
+            "CoverageMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 2
+            },
+            "OpacityMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 1
+            },
+            "Tint": {
+              "valueType": "String",
+              "stringValue": "#78828F"
+            },
+            "WindSpeedPxPerSecond": {
+              "valueType": "Numeric",
+              "numericValue": 0
+            },
+            "WindDirectionDegrees": {
+              "valueType": "Numeric",
+              "numericValue": 45
+            },
+            "WindSpeedMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.12
+            },
+            "WindDirectionOffsetDegrees": {
+              "valueType": "Numeric",
+              "numericValue": -8
+            }
+          }
+        },
+        {
+          "instanceId": "a2438e16-94f8-380a-bb9c-76702fddca21",
+          "effectKey": "particle.cloud",
+          "isProducing": false,
+          "renderOrder": 8,
+          "targetControls": {
+            "CoverageMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 1.65
+            },
+            "OpacityMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.65
+            },
+            "Tint": {
+              "valueType": "String",
+              "stringValue": "#9CA7B4"
+            },
+            "WindSpeedPxPerSecond": {
+              "valueType": "Numeric",
+              "numericValue": 0
+            },
+            "WindDirectionDegrees": {
+              "valueType": "Numeric",
+              "numericValue": 45
+            },
+            "WindSpeedMultiplier": {
+              "valueType": "Numeric",
+              "numericValue": 0.25
+            },
+            "WindDirectionOffsetDegrees": {
+              "valueType": "Numeric",
+              "numericValue": 12
+            }
+          }
+        }
+      ]
+    }
+  },
+  "phaseChange": {
+    "newPhase": {
+      "book": {
+        "key": "lighting-effects-test",
+        "displayName": "Lighting Effects Test",
+        "narrative": "Use the control room and traverse the connected test stations."
+      },
+      "chapter": {
+        "key": "season-summer",
+        "displayName": "Summer"
+      },
+      "page": {
+        "key": "summer-day",
+        "displayName": "Summer \u2014 Day"
+      },
+      "pathKey": "lighting-effects-test.season-summer.summer-day",
+      "pathDisplayName": "Lighting Effects Test / Summer / Summer \u2014 Day"
+    },
+    "reason": "resume",
+    "isResume": true,
+    "changedBook": false,
+    "changedChapter": false,
+    "changedPage": false,
+    "orderedTextPresentationSteps": [
+      {
+        "titleText": "",
+        "bodyText": "Use the control room and traverse the connected test stations.",
+        "where": "Unknown",
+        "how": "Appear",
+        "dismissMode": "Manual",
+        "displayDurationMs": 2500,
+        "edgePosition": "TopRight",
+        "backdropMode": "Dim",
+        "backdropOpacity": 0.5,
+        "motionInMs": 500,
+        "motionOutMs": 500,
+        "titleFontSizePx": 24,
+        "bodyFontSizePx": 12,
+        "scrollSpeedPxPerSec": 50,
+        "category": "Text",
+        "effectKey": ""
+      }
+    ]
+  },
+  "roomObjectChanges": [],
+  "activeRoomObjectName": "",
+  "activeRoomObjectSelectionCueEffectKey": "",
+  "secondaryActiveRoomObjectName": "",
+  "secondaryActiveRoomObjectSelectionCueEffectKey": "",
+  "authoredRenderWidth": 800,
+  "authoredRenderHeight": 600,
+  "soundCues": [],
+  "remoteRoomObjects": [],
+  "outputLines": [],
+  "diagnostics": [],
+  "sessionDeltaWatermark": "26"
+}

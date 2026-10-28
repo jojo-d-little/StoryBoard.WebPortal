@@ -57,6 +57,12 @@ export async function runParticleBurstBrowserHarness(): Promise<{
   statsAfterDecay: ReturnType<TopDownEffects["getStats"]>;
   statsAfterCustomArtBurst: ReturnType<TopDownEffects["getStats"]>;
   customArtChangedPixels: number;
+  mixedStatsAfterBatch: ReturnType<TopDownEffects["getStats"]>;
+  mixedStatsAfterCustomReady: ReturnType<TopDownEffects["getStats"]>;
+  mixedPackagedPixelsAfterBatch: number;
+  mixedCustomPixelsAfterReady: number;
+  mixedPackagedPixelsAfterReady: number;
+  mixedBurstFrameDataUrl: string;
   pixelBufferLength: number;
   rendererCanvasDimensions: { width: number; height: number };
   extractedCenterRgba: number[];
@@ -124,13 +130,13 @@ export async function runParticleBurstBrowserHarness(): Promise<{
   const after = app.renderer.extract.pixels({ target: app.stage }) as unknown as ExtractedPixelFrame;
   const statsAfterEmit = effects.getStats();
 
-  const countChangedPixelsNear = (pixels: ExtractedPixelFrame, centerX: number, centerY: number): number => {
+  const countChangedPixelsNearAgainst = (pixels: ExtractedPixelFrame, baseline: ExtractedPixelFrame, centerX: number, centerY: number): number => {
     let count = 0;
     for (let y = centerY - 40; y <= centerY + 40; y += 1) {
       for (let x = centerX - 40; x <= centerX + 40; x += 1) {
         const index = (y * 640 + x) * 4;
         const currentPixels = pixels.pixels;
-        const baselinePixels = before.pixels;
+        const baselinePixels = baseline.pixels;
         if (currentPixels[index] !== baselinePixels[index]
           || currentPixels[index + 1] !== baselinePixels[index + 1]
           || currentPixels[index + 2] !== baselinePixels[index + 2]
@@ -141,6 +147,8 @@ export async function runParticleBurstBrowserHarness(): Promise<{
     }
     return count;
   };
+  const countChangedPixelsNear = (pixels: ExtractedPixelFrame, centerX: number, centerY: number): number =>
+    countChangedPixelsNearAgainst(pixels, before, centerX, centerY);
   const changedPixelsNearBurst = countChangedPixelsNear(after, 180, 180);
   const changedPixelsAtMovedAnchor = countChangedPixelsNear(after, 240, 180);
   const changedPixelsAtSecondSource = countChangedPixelsNear(after, 500, 180);
@@ -193,6 +201,76 @@ export async function runParticleBurstBrowserHarness(): Promise<{
   const customArtChangedPixels = countChangedPixelsNear(customFrame, 320, 200);
   const statsAfterCustomArtBurst = customEffects.getStats();
   diagnostics.push(...customDiagnostics);
+
+  const mixedApp = new Application();
+  await mixedApp.init({ width: 640, height: 400, backgroundColor: 0x101820, antialias: true, preference: "webgl" });
+  mixedApp.ticker.stop();
+  document.body.appendChild(mixedApp.canvas);
+  const mixedEffects = await TopDownEffects.create({ seed: 89 });
+  const mixedBackground = new Graphics().rect(0, 0, 640, 400).fill(0x101820);
+  mixedApp.stage.addChild(mixedBackground, mixedEffects.preLight, mixedEffects.postLight);
+  const mixedDiagnostics: typeof diagnostics = [];
+  let resolveColdImage!: (dataUrl: string | null) => void;
+  const mixedController = new ParticleEffectSceneController(
+    mixedEffects,
+    (level, message, details) => mixedDiagnostics.push({ level, message, details }),
+    async () => new Promise<string | null>((resolve) => { resolveColdImage = resolve; })
+  );
+  const customSparkEffect: CatalogParticleEffect = { ...sparkEffect, effectKey: "particle.browser-cold-custom-sparks" };
+  const packagedSparkEffect: CatalogParticleEffect = { ...sparkEffect, effectKey: "particle.browser-packaged-sparks" };
+  const mixedSnapshot = (bursts: Array<{ id: string; sourceObjectId: string; effectKey: string; x: number; y: number; quantityMultiplier: number; enabled: boolean; order: number; tuning: Record<string, never> }> = []) => ({
+    roomId: "mixed-burst-room",
+    displayMode: "composed" as const,
+    bounds: { width: 640, height: 400 },
+    directionalOverlays: [],
+    objectsById: {},
+    particleEffectCatalog: [customSparkEffect, packagedSparkEffect],
+    particleEffectImageMappings: [{
+      effectKey: customSparkEffect.effectKey,
+      imageSlot: "fragment",
+      relativeLocator: "custom/cold-spark.png"
+    }],
+    particleEffectBursts: bursts
+  });
+  const coldCustomBurst = {
+    id: "browser-mixed-cold-custom", sourceObjectId: "sample-custom-source",
+    effectKey: customSparkEffect.effectKey, x: 180, y: 200,
+    quantityMultiplier: 0.5, enabled: true, order: 0, tuning: {}
+  };
+  const packagedBurst = {
+    id: "browser-mixed-packaged", sourceObjectId: "sample-packaged-source",
+    effectKey: packagedSparkEffect.effectKey, x: 470, y: 200,
+    quantityMultiplier: 1, enabled: true, order: 0, tuning: {}
+  };
+  mixedController.reconcile(mixedSnapshot());
+  mixedApp.renderer.render(mixedApp.stage);
+  const mixedBefore = mixedApp.renderer.extract.pixels({ target: mixedApp.stage }) as unknown as ExtractedPixelFrame;
+  const mixedBursts = [coldCustomBurst, packagedBurst, coldCustomBurst, packagedBurst];
+  mixedController.reconcile(mixedSnapshot(mixedBursts));
+  const mixedStatsAfterBatch = mixedEffects.getStats();
+  mixedController.reconcile(mixedSnapshot());
+  mixedController.update(0.05);
+  mixedApp.renderer.render(mixedApp.stage);
+  const mixedPackagedFrame = mixedApp.renderer.extract.pixels({ target: mixedApp.stage }) as unknown as ExtractedPixelFrame;
+  const mixedPackagedPixelsAfterBatch = countChangedPixelsNearAgainst(mixedPackagedFrame, mixedBefore, 470, 200);
+  resolveColdImage(customArtCanvas.toDataURL("image/png"));
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  mixedController.reconcile(mixedSnapshot(mixedBursts));
+  mixedController.update(0.1);
+  mixedApp.renderer.render(mixedApp.stage);
+  const mixedReadyFrame = mixedApp.renderer.extract.pixels({ target: mixedApp.stage }) as unknown as ExtractedPixelFrame;
+  const mixedCustomPixelsAfterReady = countChangedPixelsNearAgainst(mixedReadyFrame, mixedBefore, 180, 200);
+  const mixedPackagedPixelsAfterReady = countChangedPixelsNearAgainst(mixedReadyFrame, mixedBefore, 470, 200);
+  const mixedFrameCanvas = document.createElement("canvas");
+  mixedFrameCanvas.width = mixedReadyFrame.width;
+  mixedFrameCanvas.height = mixedReadyFrame.height;
+  const mixedFrameContext = mixedFrameCanvas.getContext("2d");
+  if (!mixedFrameContext) throw new Error("Could not create a 2D canvas for the mixed burst frame.");
+  mixedFrameContext.putImageData(new ImageData(new Uint8ClampedArray(mixedReadyFrame.pixels), mixedReadyFrame.width, mixedReadyFrame.height), 0, 0);
+  const mixedBurstFrameDataUrl = mixedFrameCanvas.toDataURL("image/png");
+  const mixedStatsAfterCustomReady = mixedEffects.getStats();
+  diagnostics.push(...mixedDiagnostics);
+
   return {
     changedPixelsNearBurst,
     changedPixelsAtMovedAnchor,
@@ -210,6 +288,12 @@ export async function runParticleBurstBrowserHarness(): Promise<{
     statsAfterDecay,
     statsAfterCustomArtBurst,
     customArtChangedPixels,
+    mixedStatsAfterBatch,
+    mixedStatsAfterCustomReady,
+    mixedPackagedPixelsAfterBatch,
+    mixedCustomPixelsAfterReady,
+    mixedPackagedPixelsAfterReady,
+    mixedBurstFrameDataUrl,
     pixelBufferLength: after.pixels.length,
     rendererCanvasDimensions: { width: after.width, height: after.height },
     extractedCenterRgba: Array.from(after.pixels.slice((180 * after.width + 180) * 4, (180 * after.width + 180) * 4 + 4)),

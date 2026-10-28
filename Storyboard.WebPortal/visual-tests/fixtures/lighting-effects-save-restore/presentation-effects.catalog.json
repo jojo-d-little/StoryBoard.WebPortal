@@ -1,0 +1,3313 @@
+{
+  "schemaVersion": "2.0",
+  "categories": [
+    {
+      "category": "Movement",
+      "objectCueEligible": true
+    },
+    {
+      "category": "Appearance",
+      "objectCueEligible": true
+    },
+    {
+      "category": "Disappearance",
+      "objectCueEligible": true
+    },
+    {
+      "category": "Text",
+      "objectCueEligible": false
+    },
+    {
+      "category": "RoomTransition",
+      "objectCueEligible": false
+    },
+    {
+      "category": "StyledPointEffect",
+      "objectCueEligible": true
+    },
+    {
+      "category": "Custom",
+      "objectCueEligible": true
+    },
+    {
+      "category": "Lighting",
+      "objectCueEligible": true
+    },
+    {
+      "category": "ParticleEffect",
+      "objectCueEligible": true
+    }
+  ],
+  "effects": [
+    {
+      "category": "Movement",
+      "effectKey": "movement.speed.quantum",
+      "displayName": "Quantum",
+      "movementHint": "Quantum",
+      "movementInterpolation": {
+        "frameCount": 1,
+        "secondsPerFrame": 0
+      }
+    },
+    {
+      "category": "Movement",
+      "effectKey": "movement.speed.slow",
+      "displayName": "Slow",
+      "movementHint": "Slow",
+      "movementInterpolation": {
+        "frameCount": 10,
+        "secondsPerFrame": 0.25
+      }
+    },
+    {
+      "category": "Movement",
+      "effectKey": "movement.speed.medium",
+      "displayName": "Medium",
+      "movementHint": "Medium",
+      "movementInterpolation": {
+        "frameCount": 10,
+        "secondsPerFrame": 0.15
+      }
+    },
+    {
+      "category": "Movement",
+      "effectKey": "movement.speed.fast",
+      "displayName": "Fast",
+      "movementHint": "Fast",
+      "movementInterpolation": {
+        "frameCount": 12,
+        "secondsPerFrame": 0.1
+      }
+    },
+    {
+      "category": "RoomTransition",
+      "effectKey": "room.transition.slide.directional.slow",
+      "displayName": "Room Transition Slide - Directional (Slow)",
+      "roomTransitionPresentation": {
+        "mode": "DirectionalSlide"
+      },
+      "movementHint": "Slow",
+      "movementInterpolation": {
+        "frameCount": 28,
+        "secondsPerFrame": 0.06
+      }
+    },
+    {
+      "category": "RoomTransition",
+      "effectKey": "room.transition.slide.directional.medium",
+      "displayName": "Room Transition Slide - Directional (Medium)",
+      "roomTransitionPresentation": {
+        "mode": "DirectionalSlide"
+      },
+      "movementHint": "Medium",
+      "movementInterpolation": {
+        "frameCount": 14,
+        "secondsPerFrame": 0.06
+      }
+    },
+    {
+      "category": "RoomTransition",
+      "effectKey": "room.transition.fade.cross.medium",
+      "displayName": "Room Transition Fade - Crossfade (Medium)",
+      "roomTransitionPresentation": {
+        "mode": "CrossFade"
+      },
+      "movementHint": "Medium",
+      "movementInterpolation": {
+        "frameCount": 14,
+        "secondsPerFrame": 0.06
+      }
+    },
+    {
+      "category": "RoomTransition",
+      "effectKey": "room.transition.fade.blackoutswap.medium",
+      "displayName": "Room Transition Fade - Blackout Swap (Medium)",
+      "roomTransitionPresentation": {
+        "mode": "BlackoutSwapFade"
+      },
+      "movementHint": "Medium",
+      "movementInterpolation": {
+        "frameCount": 14,
+        "secondsPerFrame": 0.1
+      }
+    },
+    {
+      "category": "Appearance",
+      "effectKey": "appearance.selection.outline.cyan",
+      "displayName": "Selection Outline - Cyan",
+      "appearanceOutlineStyle": {
+        "outlineColorHex": "#22D3EE",
+        "outlineThickness": 5,
+        "pulseMs": 350
+      }
+    },
+    {
+      "category": "Appearance",
+      "effectKey": "appearance.selection.outline.amber",
+      "displayName": "Selection Outline - Amber",
+      "appearanceOutlineStyle": {
+        "outlineColorHex": "#F59E0B",
+        "outlineThickness": 5,
+        "pulseMs": 350
+      }
+    },
+    {
+      "category": "Appearance",
+      "effectKey": "appearance.selection.outline.green",
+      "displayName": "Selection Outline - Green",
+      "appearanceOutlineStyle": {
+        "outlineColorHex": "#22C55E",
+        "outlineThickness": 5,
+        "pulseMs": 350
+      }
+    },
+    {
+      "category": "Appearance",
+      "effectKey": "appearance.selection.outline.danger",
+      "displayName": "Selection Outline - Danger",
+      "appearanceOutlineStyle": {
+        "outlineColorHex": "#EF4444",
+        "outlineThickness": 5,
+        "pulseMs": 350
+      }
+    },
+    {
+      "category": "Appearance",
+      "effectKey": "shake.slowgrind",
+      "displayName": "Object Shake - Slow Grind",
+      "shakeStyle": {
+        "horizontalDisplacementPx": 5,
+        "verticalDisplacementPx": 3,
+        "speedHz": 0.5
+      }
+    },
+    {
+      "category": "Appearance",
+      "effectKey": "shake.small.quick",
+      "displayName": "Object Shake - Small and Quick",
+      "shakeStyle": {
+        "horizontalDisplacementPx": 3,
+        "verticalDisplacementPx": 2,
+        "speedHz": 14
+      }
+    },
+    {
+      "category": "Appearance",
+      "effectKey": "shake.large.slow",
+      "displayName": "Object Shake - Large and Slow",
+      "shakeStyle": {
+        "horizontalDisplacementPx": 20,
+        "verticalDisplacementPx": 14,
+        "speedHz": 3.5
+      }
+    },
+    {
+      "category": "Appearance",
+      "effectKey": "shake.large.fast",
+      "displayName": "Object Shake - Large and Fast",
+      "shakeStyle": {
+        "horizontalDisplacementPx": 20,
+        "verticalDisplacementPx": 14,
+        "speedHz": 14
+      }
+    },
+    {
+      "category": "Appearance",
+      "effectKey": "scale.grow.medium",
+      "displayName": "Object Scale Up - Medium",
+      "scaleStyle": {
+        "targetScaleMultiplier": 1.5,
+        "transitionDurationMs": 300
+      }
+    },
+    {
+      "category": "Appearance",
+      "effectKey": "scale.grow.large",
+      "displayName": "Object Scale Up - Large",
+      "scaleStyle": {
+        "targetScaleMultiplier": 2.5,
+        "transitionDurationMs": 600
+      }
+    },
+    {
+      "category": "Appearance",
+      "effectKey": "scale.shrink.medium",
+      "displayName": "Object Scale Down - Medium",
+      "scaleStyle": {
+        "targetScaleMultiplier": 0.5,
+        "transitionDurationMs": 300
+      }
+    },
+    {
+      "category": "Appearance",
+      "effectKey": "scale.shrink.slow.deep",
+      "displayName": "Object Scale Down - Slow and Deep",
+      "scaleStyle": {
+        "targetScaleMultiplier": 0.5,
+        "transitionDurationMs": 5000
+      }
+    },
+    {
+      "category": "Appearance",
+      "effectKey": "scale.grow.slow.deep",
+      "displayName": "Object Scale Up - Slow and Deep",
+      "scaleStyle": {
+        "targetScaleMultiplier": 1.5,
+        "transitionDurationMs": 5000
+      }
+    },
+    {
+      "category": "Appearance",
+      "effectKey": "appearance.selection.silhouette.cyan",
+      "displayName": "Silhouette Pulse - Cyan",
+      "fallbackEffectKey": "appearance.selection.outline.cyan",
+      "appearanceSilhouetteStyle": {
+        "sourceToSilhouette": {
+          "imageToSilhouetteMask": {
+            "policy": "binary",
+            "cutoff": 0.5
+          }
+        },
+        "animation": {
+          "pulseMs": 2000
+        },
+        "passes": [
+          {
+            "name": "core",
+            "blendMode": "normal",
+            "colorStops": [
+              "#4cf5c8",
+              "#34ebd8"
+            ],
+            "scaleStops": [
+              1.05
+            ],
+            "alphaStops": [
+              0.95
+            ]
+          },
+          {
+            "name": "halo",
+            "blendMode": "neon",
+            "colorStops": [
+              "#34ebd8",
+              "#4cf5c8"
+            ],
+            "scaleStops": [
+              1.08,
+              1.12
+            ],
+            "alphaStops": [
+              0.25,
+              0.55
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "category": "Appearance",
+      "effectKey": "appearance.silhouette.green",
+      "displayName": "Silhouette Pulse - Green",
+      "fallbackEffectKey": "appearance.selection.outline.green",
+      "appearanceSilhouetteStyle": {
+        "sourceToSilhouette": {
+          "imageToSilhouetteMask": {
+            "policy": "binary",
+            "cutoff": 0.5
+          }
+        },
+        "animation": {
+          "pulseMs": 2000
+        },
+        "passes": [
+          {
+            "name": "core",
+            "blendMode": "normal",
+            "colorStops": [
+              "#26f148",
+              "#93fa93"
+            ],
+            "scaleStops": [
+              1.05
+            ],
+            "alphaStops": [
+              0.95
+            ]
+          },
+          {
+            "name": "halo",
+            "blendMode": "neon",
+            "colorStops": [
+              "#93fa93",
+              "#26f148"
+            ],
+            "scaleStops": [
+              1.08,
+              1.12
+            ],
+            "alphaStops": [
+              0.25,
+              0.55
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "category": "Appearance",
+      "effectKey": "appearance.selection.silhouette.amber",
+      "displayName": "Silhouette - Amber",
+      "fallbackEffectKey": "appearance.selection.outline.amber",
+      "appearanceSilhouetteStyle": {
+        "sourceToSilhouette": {
+          "imageToSilhouetteMask": {
+            "policy": "soft",
+            "cutoff": 0
+          }
+        },
+        "animation": {
+          "pulseMs": 350
+        },
+        "passes": [
+          {
+            "name": "main",
+            "blendMode": "normal",
+            "colorStops": [
+              "#F59E0B"
+            ],
+            "scaleStops": [
+              1.1
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "category": "StyledPointEffect",
+      "effectKey": "waypoint.point.place.pulse.medium",
+      "displayName": "Waypoint Point Placement Pulse (Medium)",
+      "styledPointEffect": {
+        "coreLayers": [
+          {
+            "name": "outer-core",
+            "blendMode": "normal",
+            "colorStops": [
+              "#22D3EE",
+              "#A5F3FC",
+              "#22D3EE"
+            ],
+            "alphaStops": [
+              0.3,
+              0.18,
+              0.3
+            ],
+            "radiusStops": [
+              10,
+              15,
+              10
+            ],
+            "radiusScale": 1
+          },
+          {
+            "name": "inner-core",
+            "blendMode": "normal",
+            "colorStops": [
+              "#22D3EE",
+              "#A5F3FC",
+              "#22D3EE"
+            ],
+            "alphaStops": [
+              0.95,
+              0.55,
+              0.95
+            ],
+            "radiusStops": [
+              10,
+              15,
+              10
+            ],
+            "radiusScale": 0.55
+          }
+        ],
+        "orbitLayer": {
+          "enabled": true,
+          "style": "spinner",
+          "blendMode": "normal",
+          "spinner": {
+            "colorStops": [
+              "#22D3EE",
+              "#A5F3FC",
+              "#22D3EE"
+            ],
+            "alphaStops": [
+              0.75,
+              0.4,
+              0.75
+            ],
+            "densityStops": [
+              5,
+              9,
+              5
+            ],
+            "radiusScaleBase": 1.35,
+            "radiusScaleStep": 0.2,
+            "radiusScaleBands": 3,
+            "sparkRadiusScale": 0.09,
+            "angularSpeedScale": 1,
+            "baseRadiusScale": 1,
+            "alphaScale": 1
+          }
+        },
+        "pulseMs": 900,
+        "lifecycle": {
+          "clearPolicy": "timebased",
+          "lifetimeMs": 10000,
+          "cooldownMs": 1200
+        }
+      }
+    },
+    {
+      "category": "StyledPointEffect",
+      "effectKey": "waypoint.point.place.rings.medium",
+      "displayName": "Waypoint Point Placement Rings (Medium)",
+      "styledPointEffect": {
+        "coreLayers": [
+          {
+            "name": "outer-core",
+            "blendMode": "normal",
+            "colorStops": [
+              "#22D3EE",
+              "#CFFAFE",
+              "#22D3EE"
+            ],
+            "alphaStops": [
+              0.34,
+              0.2,
+              0.34
+            ],
+            "radiusStops": [
+              3,
+              5,
+              3
+            ],
+            "radiusScale": 1
+          },
+          {
+            "name": "inner-core",
+            "blendMode": "normal",
+            "colorStops": [
+              "#22D3EE",
+              "#E0F2FE",
+              "#22D3EE"
+            ],
+            "alphaStops": [
+              0.92,
+              0.6,
+              0.92
+            ],
+            "radiusStops": [
+              2,
+              4,
+              2
+            ],
+            "radiusScale": 1
+          }
+        ],
+        "orbitLayer": {
+          "enabled": true,
+          "style": "ring-pulse",
+          "blendMode": "add",
+          "ringPulse": {
+            "colorStops": [
+              "#22D3EE",
+              "#A5F3FC",
+              "#ECFEFF"
+            ],
+            "alphaStops": [
+              0.9,
+              0.45,
+              0.08
+            ],
+            "ringCount": 3,
+            "ringSpacingScale": 0.1,
+            "radialGrowthStops": [
+              0.7,
+              1.2,
+              1.8
+            ],
+            "ringThicknessPx": 3,
+            "phaseOffsetStep": 0.2,
+            "baseRadiusScale": 1,
+            "alphaScale": 0.8
+          }
+        },
+        "pulseMs": 1000,
+        "lifecycle": {
+          "clearPolicy": "timebased",
+          "lifetimeMs": 10000,
+          "cooldownMs": 1200
+        }
+      }
+    },
+    {
+      "category": "StyledPointEffect",
+      "effectKey": "appearance.point.rings.medium",
+      "displayName": "Appearance Point Rings Medium",
+      "styledPointEffect": {
+        "coreLayers": [
+          {
+            "name": "outer-core",
+            "blendMode": "normal",
+            "colorStops": [
+              "#22D3EE",
+              "#CFFAFE",
+              "#22D3EE"
+            ],
+            "alphaStops": [
+              0.34,
+              0.2,
+              0.34
+            ],
+            "radiusStops": [
+              3,
+              5,
+              3
+            ],
+            "radiusScale": 1
+          },
+          {
+            "name": "inner-core",
+            "blendMode": "normal",
+            "colorStops": [
+              "#22D3EE",
+              "#E0F2FE",
+              "#22D3EE"
+            ],
+            "alphaStops": [
+              0.92,
+              0.6,
+              0.92
+            ],
+            "radiusStops": [
+              2,
+              4,
+              2
+            ],
+            "radiusScale": 1
+          }
+        ],
+        "orbitLayer": {
+          "enabled": true,
+          "style": "ring-pulse",
+          "blendMode": "add",
+          "ringPulse": {
+            "colorStops": [
+              "#22D3EE",
+              "#A5F3FC",
+              "#ECFEFF"
+            ],
+            "alphaStops": [
+              0.9,
+              0.45,
+              0.08
+            ],
+            "ringCount": 3,
+            "ringSpacingScale": 0.1,
+            "radialGrowthStops": [
+              0.7,
+              1.2,
+              1.8
+            ],
+            "ringThicknessPx": 3,
+            "phaseOffsetStep": 0.2,
+            "baseRadiusScale": 1,
+            "alphaScale": 0.8
+          }
+        },
+        "pulseMs": 1000,
+        "lifecycle": {
+          "clearPolicy": "manual-removal"
+        }
+      }
+    },
+    {
+      "category": "StyledPointEffect",
+      "effectKey": "appearance.point.pulse.medium",
+      "displayName": "Appearance Point Pulse Medium",
+      "styledPointEffect": {
+        "coreLayers": [
+          {
+            "name": "outer-core",
+            "blendMode": "normal",
+            "colorStops": [
+              "#22D3EE",
+              "#A5F3FC",
+              "#22D3EE"
+            ],
+            "alphaStops": [
+              0.3,
+              0.18,
+              0.3
+            ],
+            "radiusStops": [
+              10,
+              15,
+              10
+            ],
+            "radiusScale": 1
+          },
+          {
+            "name": "inner-core",
+            "blendMode": "normal",
+            "colorStops": [
+              "#22D3EE",
+              "#A5F3FC",
+              "#22D3EE"
+            ],
+            "alphaStops": [
+              0.95,
+              0.55,
+              0.95
+            ],
+            "radiusStops": [
+              10,
+              15,
+              10
+            ],
+            "radiusScale": 0.55
+          }
+        ],
+        "orbitLayer": {
+          "enabled": true,
+          "style": "spinner",
+          "blendMode": "normal",
+          "spinner": {
+            "colorStops": [
+              "#22D3EE",
+              "#A5F3FC",
+              "#22D3EE"
+            ],
+            "alphaStops": [
+              0.75,
+              0.4,
+              0.75
+            ],
+            "densityStops": [
+              5,
+              9,
+              5
+            ],
+            "radiusScaleBase": 1.35,
+            "radiusScaleStep": 0.2,
+            "radiusScaleBands": 3,
+            "sparkRadiusScale": 0.09,
+            "angularSpeedScale": 1,
+            "baseRadiusScale": 1,
+            "alphaScale": 1
+          }
+        },
+        "pulseMs": 900,
+        "lifecycle": {
+          "clearPolicy": "manual-removal"
+        }
+      }
+    },
+    {
+      "category": "Text",
+      "effectKey": "text.hudoverlay.fadein.auto.6000",
+      "displayName": "HUD Fade In (6s)",
+      "textPresentation": {
+        "where": "HudEdgeCard",
+        "how": "FadeIn",
+        "dismissMode": "Auto",
+        "displayDurationMs": 6000,
+        "motionInMs": 2000,
+        "motionOutMs": 2000
+      }
+    },
+    {
+      "category": "Text",
+      "effectKey": "text.hudoverlay.fadein.manual.dismiss",
+      "displayName": "HUD Fade In (Manual Dismiss)",
+      "textPresentation": {
+        "where": "HudEdgeCard",
+        "how": "FadeIn",
+        "dismissMode": "Manual"
+      }
+    },
+    {
+      "category": "Text",
+      "effectKey": "text.hudoverlay.titlesplash.manualdismiss",
+      "displayName": "HUD Fullscreen Title Splash",
+      "textPresentation": {
+        "where": "HudFullscreen",
+        "how": "Appear",
+        "dismissMode": "Auto",
+        "displayDurationMs": 6000,
+        "panelOpacity": 0.5,
+        "panelBorderThicknessPx": 0,
+        "titleFontSizePx": 24,
+        "bodyFontSizePx": 18,
+        "backdropOpacity": 1
+      }
+    },
+    {
+      "category": "Text",
+      "effectKey": "text.hudoverlay.autoscroll.manualdismiss",
+      "displayName": "HUD Fullscreen Auto Scroll (Manual Dismiss)",
+      "textPresentation": {
+        "where": "HudFullscreen",
+        "how": "AutoScroll",
+        "dismissMode": "Manual",
+        "displayDurationMs": 0,
+        "panelOpacity": 0.5,
+        "panelBorderThicknessPx": 1,
+        "titleFontSizePx": 24,
+        "bodyFontSizePx": 18,
+        "scrollSpeedPxPerSec": 25
+      }
+    },
+    {
+      "category": "Text",
+      "effectKey": "text.hudoverlay.manualscroll.manualdismiss",
+      "displayName": "HUD Fullscreen Manual Scroll (Manual Dismiss)",
+      "textPresentation": {
+        "where": "HudFullscreen",
+        "how": "ManualScroll",
+        "dismissMode": "Manual",
+        "displayDurationMs": 0,
+        "panelOpacity": 0.5,
+        "panelBorderThicknessPx": 1,
+        "titleFontSizePx": 24,
+        "bodyFontSizePx": 18
+      }
+    },
+    {
+      "category": "Appearance",
+      "effectKey": "appearance.overlay.lightning",
+      "displayName": "Lightning Pane Flash",
+      "appearanceColorOverlayTimelineStyle": {
+        "maskPolicy": "binaryThreshold",
+        "alphaThreshold": 0.5,
+        "blendMode": "add",
+        "timeline": {
+          "frames": [
+            {
+              "atMs": 0,
+              "color": "#D9F2FF",
+              "strength": 0
+            },
+            {
+              "atMs": 55,
+              "color": "#f3f166",
+              "strength": 0.95
+            },
+            {
+              "atMs": 110,
+              "color": "#05a1f0",
+              "strength": 0.16
+            },
+            {
+              "atMs": 165,
+              "color": "#00ccff",
+              "strength": 0.82
+            },
+            {
+              "atMs": 260,
+              "color": "#12a1e9",
+              "strength": 0.08
+            },
+            {
+              "atMs": 350,
+              "color": "#FFFFFF",
+              "strength": 0.82
+            },
+            {
+              "atMs": 510,
+              "color": "#0c95f0",
+              "strength": 0.72
+            },
+            {
+              "atMs": 680,
+              "color": "#08dbf7",
+              "strength": 0.45
+            },
+            {
+              "atMs": 900,
+              "color": "#19a4ee",
+              "strength": 0
+            },
+            {
+              "atMs": 1000,
+              "color": "#D9F2FF",
+              "strength": 0
+            },
+            {
+              "atMs": 1055,
+              "color": "#05a1f0",
+              "strength": 0.16
+            },
+            {
+              "atMs": 1110,
+              "color": "#f3f166",
+              "strength": 0.95
+            },
+            {
+              "atMs": 1165,
+              "color": "#00ccff",
+              "strength": 0.72
+            },
+            {
+              "atMs": 1260,
+              "color": "#12a1e9",
+              "strength": 0.08
+            },
+            {
+              "atMs": 1350,
+              "color": "#FFFFFF",
+              "strength": 0.82
+            },
+            {
+              "atMs": 1510,
+              "color": "#0c95f0",
+              "strength": 0.12
+            },
+            {
+              "atMs": 1680,
+              "color": "#08dbf7",
+              "strength": 0.45
+            },
+            {
+              "atMs": 1900,
+              "color": "#19a4ee",
+              "strength": 0
+            },
+            {
+              "atMs": 2000,
+              "color": "#D9F2FF",
+              "strength": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "category": "Lighting",
+      "effectKey": "lighting.point-light.lightning.timeline",
+      "displayName": "Lightning Point Light Flicker",
+      "pointLightTimelineStyle": {
+        "timeline": {
+          "frames": [
+            {
+              "atMs": 0,
+              "enabled": true,
+              "intensity": 0.5,
+              "color": "#7dd5f8",
+              "radius": 220
+            },
+            {
+              "atMs": 55,
+              "enabled": true,
+              "intensity": 0.15,
+              "color": "#D9F2FF",
+              "radius": 220
+            },
+            {
+              "atMs": 105,
+              "enabled": false,
+              "intensity": 0
+            },
+            {
+              "atMs": 145,
+              "enabled": true,
+              "intensity": 1.1,
+              "color": "#69ddf1",
+              "radius": 250
+            },
+            {
+              "atMs": 245,
+              "enabled": true,
+              "intensity": 0.25
+            },
+            {
+              "atMs": 340,
+              "enabled": true,
+              "intensity": 0.9,
+              "color": "#628fa7",
+              "radius": 240
+            },
+            {
+              "atMs": 500,
+              "enabled": true,
+              "intensity": 0.4
+            },
+            {
+              "atMs": 675,
+              "enabled": true,
+              "intensity": 1
+            },
+            {
+              "atMs": 900,
+              "enabled": true,
+              "intensity": 1.2
+            },
+            {
+              "atMs": 1000,
+              "enabled": true,
+              "intensity": 0.5,
+              "color": "#7dd5f8",
+              "radius": 220
+            },
+            {
+              "atMs": 1055,
+              "enabled": false,
+              "intensity": 0
+            },
+            {
+              "atMs": 1105,
+              "enabled": true,
+              "intensity": 0.15,
+              "color": "#D9F2FF",
+              "radius": 220
+            },
+            {
+              "atMs": 1145,
+              "enabled": true,
+              "intensity": 1.1,
+              "color": "#69ddf1",
+              "radius": 250
+            },
+            {
+              "atMs": 1245,
+              "enabled": true,
+              "intensity": 0.25
+            },
+            {
+              "atMs": 1340,
+              "enabled": true,
+              "intensity": 0.9,
+              "color": "#628fa7",
+              "radius": 240
+            },
+            {
+              "atMs": 1500,
+              "enabled": true,
+              "intensity": 1.2
+            },
+            {
+              "atMs": 1700,
+              "enabled": true,
+              "intensity": 0.4
+            },
+            {
+              "atMs": 1900,
+              "enabled": true,
+              "intensity": 1
+            },
+            {
+              "atMs": 2000,
+              "enabled": true,
+              "intensity": 0.5,
+              "color": "#7dd5f8",
+              "radius": 220
+            }
+          ]
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.rain",
+      "displayName": "rain",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "room",
+          "family": "rain",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "drops",
+              "textureId": "rain-drop",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 180,
+              "spawn": {
+                "kind": "room"
+              },
+              "lifeMinSeconds": 0.5,
+              "lifeMaxSeconds": 0.85,
+              "startElevationCells": 3,
+              "endElevationCells": 0,
+              "velocityXMinPxPerSecond": -3,
+              "velocityXMaxPxPerSecond": 3,
+              "velocityYMinPxPerSecond": -3,
+              "velocityYMaxPxPerSecond": 3,
+              "startWidthPx": 5,
+              "startHeightPx": 5,
+              "endWidthPx": 2,
+              "endHeightPx": 2,
+              "startColor": "#edf5ff",
+              "endColor": "#dceaff",
+              "startAlpha": 0.95,
+              "endAlpha": 0.55,
+              "occludeByCells": true,
+              "onDeathStreamId": "splash",
+              "isWindBlown": true,
+              "isWindStretched": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "role",
+                "role": "primary"
+              },
+              "colorTransitionSeconds": 1.2
+            },
+            {
+              "id": "splash",
+              "textureId": "rain-ripple",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 0,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 0
+              },
+              "lifeMinSeconds": 0.22,
+              "lifeMaxSeconds": 0.3,
+              "startElevationCells": 0,
+              "endElevationCells": 0,
+              "velocityXMinPxPerSecond": 0,
+              "velocityXMaxPxPerSecond": 0,
+              "velocityYMinPxPerSecond": 0,
+              "velocityYMaxPxPerSecond": 0,
+              "startWidthPx": 7,
+              "startHeightPx": 7,
+              "endWidthPx": 16,
+              "endHeightPx": 16,
+              "startColor": "#edf5ff",
+              "endColor": "#dceaff",
+              "startAlpha": 0.95,
+              "endAlpha": 0.25,
+              "occludeByCells": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "role",
+                "role": "secondary"
+              },
+              "colorTransitionSeconds": 1.2,
+              "lifetimeTuningApplicable": false
+            }
+          ]
+        },
+        "imageSlots": {
+          "rain-drop": "rain-drop",
+          "rain-ripple": "rain-ripple"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.campfire",
+      "displayName": "campfire",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "point",
+          "family": "fire",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "flame",
+              "textureId": "spark-glow",
+              "layer": "pre-light",
+              "blendMode": "add",
+              "ratePerSecond": 26,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 9
+              },
+              "lifeMinSeconds": 0.25,
+              "lifeMaxSeconds": 0.55,
+              "startElevationCells": 0,
+              "endElevationCells": 1.2,
+              "velocityXMinPxPerSecond": -7,
+              "velocityXMaxPxPerSecond": 7,
+              "velocityYMinPxPerSecond": -7,
+              "velocityYMaxPxPerSecond": 7,
+              "startWidthPx": 10,
+              "startHeightPx": 10,
+              "endWidthPx": 24,
+              "endHeightPx": 24,
+              "startColor": "#ffb13b",
+              "endColor": "#ff3c12",
+              "startAlpha": 0.9,
+              "endAlpha": 0,
+              "occludeByCells": true,
+              "role": "flame",
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              }
+            },
+            {
+              "id": "tip",
+              "textureId": "flame-tip",
+              "layer": "pre-light",
+              "drawOrder": 10,
+              "blendMode": "add",
+              "ratePerSecond": 14,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 0.9
+              },
+              "lifeMinSeconds": 0.22,
+              "lifeMaxSeconds": 0.34,
+              "startElevationCells": 0.2,
+              "endElevationCells": 1.1,
+              "velocityXMinPxPerSecond": -1.2,
+              "velocityXMaxPxPerSecond": 1.2,
+              "velocityYMinPxPerSecond": -1.2,
+              "velocityYMaxPxPerSecond": 1.2,
+              "rotationMinRadians": -0.2,
+              "rotationMaxRadians": 0.2,
+              "startWidthPx": 6,
+              "startHeightPx": 12,
+              "endWidthPx": 5,
+              "endHeightPx": 10,
+              "startColor": "#fff0b0",
+              "endColor": "#fff0b0",
+              "startAlpha": 0.95,
+              "endAlpha": 0.3,
+              "occludeByCells": true,
+              "role": "flame"
+            },
+            {
+              "id": "embers",
+              "textureId": "spark-glow",
+              "layer": "post-light",
+              "blendMode": "add",
+              "ratePerSecond": 11,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 10
+              },
+              "lifeMinSeconds": 0.5,
+              "lifeMaxSeconds": 1.1,
+              "startElevationCells": 0,
+              "endElevationCells": 1.5,
+              "velocityXMinPxPerSecond": -25,
+              "velocityXMaxPxPerSecond": 25,
+              "velocityYMinPxPerSecond": -25,
+              "velocityYMaxPxPerSecond": 25,
+              "startWidthPx": 5,
+              "startHeightPx": 5,
+              "endWidthPx": 9,
+              "endHeightPx": 9,
+              "startColor": "#ffe6a1",
+              "endColor": "#ff6721",
+              "startAlpha": 1,
+              "endAlpha": 0,
+              "occludeByCells": true,
+              "role": "ember",
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              }
+            }
+          ]
+        },
+        "imageSlots": {
+          "candle-flame": "candle-flame",
+          "flame-tip": "flame-tip",
+          "spark-glow": "spark-glow"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.campfire.smoke",
+      "displayName": "campfire smoke",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "point",
+          "family": "smoke",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "smoke",
+              "textureId": "smoke-puff",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 4,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 32,
+                "innerRadiusPx": 20
+              },
+              "lifeMinSeconds": 1.2,
+              "lifeMaxSeconds": 2.3,
+              "startElevationCells": 0.1,
+              "endElevationCells": 2,
+              "velocityXMinPxPerSecond": -9,
+              "velocityXMaxPxPerSecond": 9,
+              "velocityYMinPxPerSecond": -9,
+              "velocityYMaxPxPerSecond": 9,
+              "startWidthPx": 8,
+              "startHeightPx": 8,
+              "endWidthPx": 40,
+              "endHeightPx": 40,
+              "startColor": "#a5a1a0",
+              "endColor": "#d1ced0",
+              "startAlpha": 0.35,
+              "endAlpha": 0,
+              "occludeByCells": true,
+              "role": "smoke",
+              "isWindBlown": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              }
+            }
+          ]
+        },
+        "imageSlots": {
+          "candle-smoke": "candle-smoke",
+          "smoke-puff": "smoke-puff"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.torch",
+      "displayName": "torch",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "point",
+          "family": "fire",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "body",
+              "textureId": "candle-flame",
+              "layer": "post-light",
+              "blendMode": "normal",
+              "ratePerSecond": 22,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 1.5
+              },
+              "lifeMinSeconds": 0.28,
+              "lifeMaxSeconds": 0.42,
+              "startElevationCells": 0.1,
+              "endElevationCells": 0.75,
+              "velocityXMinPxPerSecond": -1.5,
+              "velocityXMaxPxPerSecond": 1.5,
+              "velocityYMinPxPerSecond": -1.5,
+              "velocityYMaxPxPerSecond": 1.5,
+              "rotationMinRadians": 0,
+              "rotationMaxRadians": 6.2831853,
+              "startWidthPx": 12,
+              "startHeightPx": 16,
+              "endWidthPx": 15,
+              "endHeightPx": 21,
+              "startColor": "#fff2a1",
+              "endColor": "#f28a28",
+              "startAlpha": 0.95,
+              "endAlpha": 0.16,
+              "occludeByCells": true,
+              "role": "flame",
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              }
+            },
+            {
+              "id": "core",
+              "textureId": "spark-glow",
+              "layer": "post-light",
+              "blendMode": "add",
+              "ratePerSecond": 10,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 1.2
+              },
+              "lifeMinSeconds": 0.18,
+              "lifeMaxSeconds": 0.3,
+              "startElevationCells": 0.1,
+              "endElevationCells": 0.8,
+              "velocityXMinPxPerSecond": -2,
+              "velocityXMaxPxPerSecond": 2,
+              "velocityYMinPxPerSecond": -2,
+              "velocityYMaxPxPerSecond": 2,
+              "startWidthPx": 5,
+              "startHeightPx": 5,
+              "endWidthPx": 7,
+              "endHeightPx": 7,
+              "startColor": "#fff7c9",
+              "endColor": "#ffd05e",
+              "startAlpha": 0.5,
+              "endAlpha": 0.06,
+              "occludeByCells": true,
+              "role": "flame",
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "role",
+                "role": "primary"
+              }
+            },
+            {
+              "id": "tip",
+              "textureId": "flame-tip",
+              "layer": "post-light",
+              "drawOrder": 10,
+              "blendMode": "add",
+              "ratePerSecond": 16,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 0.15
+              },
+              "lifeMinSeconds": 0.18,
+              "lifeMaxSeconds": 0.28,
+              "startElevationCells": 0.15,
+              "endElevationCells": 0.9,
+              "velocityXMinPxPerSecond": -0.8,
+              "velocityXMaxPxPerSecond": 0.8,
+              "velocityYMinPxPerSecond": -0.8,
+              "velocityYMaxPxPerSecond": 0.8,
+              "rotationMinRadians": -0.12,
+              "rotationMaxRadians": 0.12,
+              "startWidthPx": 5,
+              "startHeightPx": 11,
+              "endWidthPx": 4,
+              "endHeightPx": 9,
+              "startColor": "#fff0b0",
+              "endColor": "#fff0b0",
+              "startAlpha": 0.95,
+              "endAlpha": 0.28,
+              "occludeByCells": true,
+              "role": "flame"
+            },
+            {
+              "id": "embers",
+              "textureId": "spark-glow",
+              "layer": "post-light",
+              "blendMode": "add",
+              "ratePerSecond": 4,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 3
+              },
+              "lifeMinSeconds": 0.5,
+              "lifeMaxSeconds": 0.9,
+              "startElevationCells": 0,
+              "endElevationCells": 1.3,
+              "velocityXMinPxPerSecond": -13,
+              "velocityXMaxPxPerSecond": 13,
+              "velocityYMinPxPerSecond": -13,
+              "velocityYMaxPxPerSecond": 13,
+              "startWidthPx": 3,
+              "startHeightPx": 3,
+              "endWidthPx": 5,
+              "endHeightPx": 5,
+              "startColor": "#ffe09a",
+              "endColor": "#ff863a",
+              "startAlpha": 0.8,
+              "endAlpha": 0,
+              "occludeByCells": true,
+              "role": "ember",
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              }
+            }
+          ]
+        },
+        "imageSlots": {
+          "candle-flame": "candle-flame",
+          "flame-tip": "flame-tip",
+          "spark-glow": "spark-glow"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.torch.smoke",
+      "displayName": "torch smoke",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "point",
+          "family": "smoke",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "smoke",
+              "textureId": "smoke-puff",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 1.4,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 2
+              },
+              "lifeMinSeconds": 1,
+              "lifeMaxSeconds": 1.8,
+              "startElevationCells": 0.1,
+              "endElevationCells": 1.5,
+              "velocityXMinPxPerSecond": -4,
+              "velocityXMaxPxPerSecond": 4,
+              "velocityYMinPxPerSecond": -4,
+              "velocityYMaxPxPerSecond": 4,
+              "startWidthPx": 10,
+              "startHeightPx": 10,
+              "endWidthPx": 32,
+              "endHeightPx": 32,
+              "startColor": "#a8a4a0",
+              "endColor": "#c6c2bd",
+              "startAlpha": 0.24,
+              "endAlpha": 0,
+              "occludeByCells": true,
+              "role": "smoke",
+              "isWindBlown": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              }
+            }
+          ]
+        },
+        "imageSlots": {
+          "candle-smoke": "candle-smoke",
+          "smoke-puff": "smoke-puff"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.candle",
+      "displayName": "candle",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "point",
+          "family": "fire",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "flame",
+              "textureId": "candle-flame",
+              "layer": "post-light",
+              "blendMode": "normal",
+              "ratePerSecond": 18,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 0.8
+              },
+              "lifeMinSeconds": 0.24,
+              "lifeMaxSeconds": 0.38,
+              "startElevationCells": 0.08,
+              "endElevationCells": 0.42,
+              "velocityXMinPxPerSecond": -0.55,
+              "velocityXMaxPxPerSecond": 0.55,
+              "velocityYMinPxPerSecond": -0.55,
+              "velocityYMaxPxPerSecond": 0.55,
+              "rotationMinRadians": 0,
+              "rotationMaxRadians": 6.2831853,
+              "startWidthPx": 6,
+              "startHeightPx": 8,
+              "endWidthPx": 7,
+              "endHeightPx": 10,
+              "startColor": "#fff2a1",
+              "endColor": "#f28a28",
+              "startAlpha": 0.95,
+              "endAlpha": 0.18,
+              "occludeByCells": true,
+              "role": "flame",
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              }
+            },
+            {
+              "id": "core",
+              "textureId": "spark-glow",
+              "layer": "post-light",
+              "blendMode": "add",
+              "ratePerSecond": 10,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 0.5
+              },
+              "lifeMinSeconds": 0.2,
+              "lifeMaxSeconds": 0.32,
+              "startElevationCells": 0.04,
+              "endElevationCells": 0.28,
+              "velocityXMinPxPerSecond": -0.25,
+              "velocityXMaxPxPerSecond": 0.25,
+              "velocityYMinPxPerSecond": -0.25,
+              "velocityYMaxPxPerSecond": 0.25,
+              "startWidthPx": 5,
+              "startHeightPx": 5,
+              "endWidthPx": 7,
+              "endHeightPx": 7,
+              "startColor": "#fff7c9",
+              "endColor": "#ffd05e",
+              "startAlpha": 0.5,
+              "endAlpha": 0.06,
+              "occludeByCells": true,
+              "role": "flame",
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "role",
+                "role": "primary"
+              }
+            },
+            {
+              "id": "tip",
+              "textureId": "flame-tip",
+              "layer": "post-light",
+              "drawOrder": 10,
+              "blendMode": "add",
+              "ratePerSecond": 14,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 0.08
+              },
+              "lifeMinSeconds": 0.18,
+              "lifeMaxSeconds": 0.27,
+              "startElevationCells": 0.08,
+              "endElevationCells": 0.58,
+              "velocityXMinPxPerSecond": -0.35,
+              "velocityXMaxPxPerSecond": 0.35,
+              "velocityYMinPxPerSecond": -0.35,
+              "velocityYMaxPxPerSecond": 0.35,
+              "rotationMinRadians": -0.08,
+              "rotationMaxRadians": 0.08,
+              "startWidthPx": 4,
+              "startHeightPx": 9,
+              "endWidthPx": 3,
+              "endHeightPx": 7,
+              "startColor": "#fff0b0",
+              "endColor": "#fff0b0",
+              "startAlpha": 0.9,
+              "endAlpha": 0.25,
+              "occludeByCells": true,
+              "role": "flame"
+            }
+          ]
+        },
+        "imageSlots": {
+          "candle-flame": "candle-flame",
+          "flame-tip": "flame-tip",
+          "spark-glow": "spark-glow"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.candle.smoke",
+      "displayName": "candle smoke",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "point",
+          "family": "smoke",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "smoke",
+              "textureId": "candle-smoke",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 4.5,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 0.6
+              },
+              "lifeMinSeconds": 2.2,
+              "lifeMaxSeconds": 3.2,
+              "startElevationCells": 0.15,
+              "endElevationCells": 1.8,
+              "velocityXMinPxPerSecond": 8,
+              "velocityXMaxPxPerSecond": 12,
+              "velocityYMinPxPerSecond": -0.5,
+              "velocityYMaxPxPerSecond": 0.5,
+              "accelerationYPxPerSecond2": 3,
+              "rotationMinRadians": -0.08,
+              "rotationMaxRadians": 0.08,
+              "startWidthPx": 16,
+              "startHeightPx": 9,
+              "endWidthPx": 22,
+              "endHeightPx": 13,
+              "startColor": "#aaa6a0",
+              "endColor": "#d1ced0",
+              "startAlpha": 0.42,
+              "endAlpha": 0,
+              "occludeByCells": true,
+              "role": "smoke",
+              "isWindBlown": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              }
+            }
+          ]
+        },
+        "imageSlots": {
+          "candle-smoke": "candle-smoke",
+          "smoke-puff": "smoke-puff"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.water-spatter",
+      "displayName": "water-spatter",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "point",
+          "family": "water-spatter",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "particles",
+              "textureId": "rain-drop",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 0,
+              "surgeOnly": true,
+              "burstCount": 12,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 2
+              },
+              "lifeMinSeconds": 0.35,
+              "lifeMaxSeconds": 0.65,
+              "startElevationCells": 0,
+              "endElevationCells": 0.12,
+              "velocityXMinPxPerSecond": -42,
+              "velocityXMaxPxPerSecond": 42,
+              "velocityYMinPxPerSecond": -42,
+              "velocityYMaxPxPerSecond": 42,
+              "startWidthPx": 4,
+              "startHeightPx": 4,
+              "endWidthPx": 2,
+              "endHeightPx": 2,
+              "startColor": "#d9f5ff",
+              "endColor": "#8bc9e8",
+              "startAlpha": 0.9,
+              "endAlpha": 0.1,
+              "occludeByCells": true,
+              "isWindBlown": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              }
+            }
+          ]
+        },
+        "imageSlots": {
+          "rain-drop": "rain-drop"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.electrical-sparks",
+      "displayName": "electrical-sparks",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "point",
+          "family": "electrical-sparks",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "particles",
+              "textureId": "fragment",
+              "layer": "post-light",
+              "blendMode": "add",
+              "ratePerSecond": 0,
+              "surgeOnly": true,
+              "burstCount": 16,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 1
+              },
+              "lifeMinSeconds": 0.12,
+              "lifeMaxSeconds": 0.3,
+              "startElevationCells": 0,
+              "endElevationCells": 0.08,
+              "velocityXMinPxPerSecond": -75,
+              "velocityXMaxPxPerSecond": 75,
+              "velocityYMinPxPerSecond": -75,
+              "velocityYMaxPxPerSecond": 75,
+              "rotationMinRadians": 0,
+              "rotationMaxRadians": 6.2831853,
+              "startWidthPx": 4,
+              "startHeightPx": 2,
+              "endWidthPx": 1,
+              "endHeightPx": 1,
+              "startColor": "#fff7b0",
+              "endColor": "#4feaff",
+              "startAlpha": 1,
+              "endAlpha": 0,
+              "occludeByCells": true,
+              "isWindBlown": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              }
+            }
+          ]
+        },
+        "imageSlots": {
+          "fragment": "fragment"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.wall-debris",
+      "displayName": "wall-debris",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "point",
+          "family": "wall-debris",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "flying-chips",
+              "textureId": "rubble-chip",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 0,
+              "surgeOnly": true,
+              "burstCount": 8,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 3
+              },
+              "lifeMinSeconds": 0.35,
+              "lifeMaxSeconds": 0.65,
+              "startElevationCells": 0.05,
+              "endElevationCells": 0.85,
+              "velocityXMinPxPerSecond": -12,
+              "velocityXMaxPxPerSecond": 12,
+              "velocityYMinPxPerSecond": -12,
+              "velocityYMaxPxPerSecond": 12,
+              "rotationMinRadians": 0,
+              "rotationMaxRadians": 6.2831853,
+              "startWidthPx": 7,
+              "startHeightPx": 7,
+              "endWidthPx": 6,
+              "endHeightPx": 6,
+              "startColor": "#806448",
+              "endColor": "#c3a47c",
+              "startAlpha": 1,
+              "endAlpha": 0.85,
+              "occludeByCells": true,
+              "onDeathStreamId": "settled-rubble",
+              "lifetimeTuningApplicable": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              }
+            },
+            {
+              "id": "settled-rubble",
+              "textureId": "rubble-chip",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 0,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 18
+              },
+              "lifeMinSeconds": 86400,
+              "lifeMaxSeconds": 86400,
+              "startElevationCells": 0,
+              "endElevationCells": 0,
+              "velocityXMinPxPerSecond": 0,
+              "velocityXMaxPxPerSecond": 0,
+              "velocityYMinPxPerSecond": 0,
+              "velocityYMaxPxPerSecond": 0,
+              "rotationMinRadians": 0,
+              "rotationMaxRadians": 6.2831853,
+              "startWidthPx": 8,
+              "startHeightPx": 8,
+              "endWidthPx": 8,
+              "endHeightPx": 8,
+              "startColor": "#806448",
+              "endColor": "#c3a47c",
+              "startAlpha": 0.92,
+              "endAlpha": 0.92,
+              "occludeByCells": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              },
+              "lifetimeTuningApplicable": false
+            }
+          ]
+        },
+        "imageSlots": {
+          "rubble-chip": "rubble-chip"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.pipe-steam",
+      "displayName": "pipe-steam",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "point",
+          "family": "pipe-steam",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "puffs",
+              "textureId": "smoke-puff",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 7,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 2
+              },
+              "lifeMinSeconds": 0.7,
+              "lifeMaxSeconds": 1.4,
+              "startElevationCells": 0,
+              "endElevationCells": 0.6,
+              "velocityXMinPxPerSecond": -4,
+              "velocityXMaxPxPerSecond": 4,
+              "velocityYMinPxPerSecond": -4,
+              "velocityYMaxPxPerSecond": 4,
+              "startWidthPx": 8,
+              "startHeightPx": 8,
+              "endWidthPx": 25,
+              "endHeightPx": 25,
+              "startColor": "#d9e1e3",
+              "endColor": "#f0f2ef",
+              "startAlpha": 0.42,
+              "endAlpha": 0,
+              "occludeByCells": true,
+              "isWindBlown": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              }
+            }
+          ]
+        },
+        "imageSlots": {
+          "smoke-puff": "smoke-puff"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.impact-dust",
+      "displayName": "impact-dust",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "point",
+          "family": "impact-dust",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "puff",
+              "textureId": "soft-mote",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 0,
+              "surgeOnly": true,
+              "burstCount": 10,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 1
+              },
+              "lifeMinSeconds": 0.45,
+              "lifeMaxSeconds": 0.9,
+              "startElevationCells": 0,
+              "endElevationCells": 0.12,
+              "velocityXMinPxPerSecond": -24,
+              "velocityXMaxPxPerSecond": 24,
+              "velocityYMinPxPerSecond": -24,
+              "velocityYMaxPxPerSecond": 24,
+              "startWidthPx": 6,
+              "startHeightPx": 6,
+              "endWidthPx": 22,
+              "endHeightPx": 22,
+              "startColor": "#b89a78",
+              "endColor": "#dfcdb5",
+              "startAlpha": 0.55,
+              "endAlpha": 0,
+              "occludeByCells": true,
+              "isWindBlown": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              }
+            }
+          ]
+        },
+        "imageSlots": {
+          "soft-mote": "soft-mote"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.leaking-drip",
+      "displayName": "leaking-drip",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "point",
+          "family": "leaking-drip",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "drops",
+              "textureId": "rain-drop",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 1.2,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 1
+              },
+              "lifeMinSeconds": 0.65,
+              "lifeMaxSeconds": 0.9,
+              "startElevationCells": 0.7,
+              "endElevationCells": 0,
+              "velocityXMinPxPerSecond": -2,
+              "velocityXMaxPxPerSecond": 2,
+              "velocityYMinPxPerSecond": -2,
+              "velocityYMaxPxPerSecond": 2,
+              "startWidthPx": 3,
+              "startHeightPx": 3,
+              "endWidthPx": 2,
+              "endHeightPx": 2,
+              "startColor": "#d9f5ff",
+              "endColor": "#8bc9e8",
+              "startAlpha": 0.9,
+              "endAlpha": 0.25,
+              "occludeByCells": true,
+              "isWindBlown": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              }
+            }
+          ]
+        },
+        "imageSlots": {
+          "rain-drop": "rain-drop"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.insect-orbit",
+      "displayName": "insect-orbit",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "point",
+          "family": "insect-orbit",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "bugs",
+              "textureId": "organic-mote",
+              "layer": "post-light",
+              "blendMode": "add",
+              "ratePerSecond": 5,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 24,
+                "innerRadiusPx": 12
+              },
+              "lifeMinSeconds": 2,
+              "lifeMaxSeconds": 3,
+              "startElevationCells": 0.1,
+              "endElevationCells": 0.2,
+              "velocityXMinPxPerSecond": 0,
+              "velocityXMaxPxPerSecond": 0,
+              "velocityYMinPxPerSecond": 0,
+              "velocityYMaxPxPerSecond": 0,
+              "rotationMinRadians": 0,
+              "rotationMaxRadians": 6.2831853,
+              "orbitAngularSpeedRadiansPerSecond": 3.8,
+              "startWidthPx": 4,
+              "startHeightPx": 4,
+              "endWidthPx": 3,
+              "endHeightPx": 3,
+              "startColor": "#f4dd83",
+              "endColor": "#c8a94f",
+              "startAlpha": 0.75,
+              "endAlpha": 0.1,
+              "occludeByCells": true,
+              "isWindBlown": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              }
+            }
+          ]
+        },
+        "imageSlots": {
+          "organic-mote": "organic-mote"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.magic-aura",
+      "displayName": "magic-aura",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "point",
+          "family": "magic-aura",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "motes",
+              "textureId": "spark-glow",
+              "layer": "post-light",
+              "blendMode": "add",
+              "ratePerSecond": 8,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 20
+              },
+              "lifeMinSeconds": 0.7,
+              "lifeMaxSeconds": 1.4,
+              "startElevationCells": 0.1,
+              "endElevationCells": 0.25,
+              "velocityXMinPxPerSecond": -5,
+              "velocityXMaxPxPerSecond": 5,
+              "velocityYMinPxPerSecond": -5,
+              "velocityYMaxPxPerSecond": 5,
+              "startWidthPx": 5,
+              "startHeightPx": 5,
+              "endWidthPx": 9,
+              "endHeightPx": 9,
+              "startColor": "#a987ff",
+              "endColor": "#64d8ff",
+              "startAlpha": 0.7,
+              "endAlpha": 0.05,
+              "occludeByCells": true,
+              "isWindBlown": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              }
+            }
+          ]
+        },
+        "imageSlots": {
+          "spark-glow": "spark-glow"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.toxic-cloud",
+      "displayName": "toxic-cloud",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "point",
+          "family": "toxic-cloud",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "cloud",
+              "textureId": "smoke-puff",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 6,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 15
+              },
+              "lifeMinSeconds": 1.2,
+              "lifeMaxSeconds": 2.2,
+              "startElevationCells": 0,
+              "endElevationCells": 0.2,
+              "velocityXMinPxPerSecond": -5,
+              "velocityXMaxPxPerSecond": 5,
+              "velocityYMinPxPerSecond": -5,
+              "velocityYMaxPxPerSecond": 5,
+              "startWidthPx": 12,
+              "startHeightPx": 12,
+              "endWidthPx": 34,
+              "endHeightPx": 34,
+              "startColor": "#75a83d",
+              "endColor": "#c2d865",
+              "startAlpha": 0.42,
+              "endAlpha": 0.04,
+              "occludeByCells": true,
+              "isWindBlown": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              }
+            }
+          ],
+          "wind": {
+            "nudgeFadeOutSeconds": 0.8
+          }
+        },
+        "imageSlots": {
+          "smoke-puff": "smoke-puff"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.snowfall",
+      "displayName": "snowfall",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "room",
+          "family": "snowfall",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "flakes",
+              "textureId": "snowflake",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 38,
+              "spawn": {
+                "kind": "room"
+              },
+              "lifeMinSeconds": 1.8,
+              "lifeMaxSeconds": 3.2,
+              "startElevationCells": 3,
+              "endElevationCells": 0,
+              "velocityXMinPxPerSecond": -5,
+              "velocityXMaxPxPerSecond": 5,
+              "velocityYMinPxPerSecond": -5,
+              "velocityYMaxPxPerSecond": 5,
+              "rotationMinRadians": 0,
+              "rotationMaxRadians": 6.2831853,
+              "startWidthPx": 8,
+              "startHeightPx": 8,
+              "endWidthPx": 6,
+              "endHeightPx": 6,
+              "startColor": "#ffffff",
+              "endColor": "#dceaff",
+              "startAlpha": 0.85,
+              "endAlpha": 0.35,
+              "occludeByCells": true,
+              "isWindBlown": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              },
+              "colorTransitionSeconds": 2.5,
+              "colorTransitionFraction": 1
+            }
+          ]
+        },
+        "imageSlots": {
+          "snowflake": "snowflake"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.hail",
+      "displayName": "hail",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "room",
+          "family": "hail",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "stones",
+              "textureId": "fragment",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 24,
+              "spawn": {
+                "kind": "room"
+              },
+              "lifeMinSeconds": 0.45,
+              "lifeMaxSeconds": 0.7,
+              "startElevationCells": 3,
+              "endElevationCells": 0,
+              "velocityXMinPxPerSecond": -3,
+              "velocityXMaxPxPerSecond": 3,
+              "velocityYMinPxPerSecond": -3,
+              "velocityYMaxPxPerSecond": 3,
+              "startWidthPx": 5,
+              "startHeightPx": 5,
+              "endWidthPx": 4,
+              "endHeightPx": 4,
+              "startColor": "#e7f6ff",
+              "endColor": "#e7f6ff",
+              "startAlpha": 0.9,
+              "endAlpha": 0.65,
+              "occludeByCells": true,
+              "onDeathStreamId": "impact",
+              "isWindBlown": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "role",
+                "role": "primary"
+              },
+              "colorTransitionSeconds": 0.575
+            },
+            {
+              "id": "impact",
+              "textureId": "rain-ripple",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 0,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 0
+              },
+              "lifeMinSeconds": 0.12,
+              "lifeMaxSeconds": 0.18,
+              "startElevationCells": 0,
+              "endElevationCells": 0,
+              "velocityXMinPxPerSecond": 0,
+              "velocityXMaxPxPerSecond": 0,
+              "velocityYMinPxPerSecond": 0,
+              "velocityYMaxPxPerSecond": 0,
+              "startWidthPx": 4,
+              "startHeightPx": 4,
+              "endWidthPx": 11,
+              "endHeightPx": 11,
+              "startColor": "#b9d9ee",
+              "endColor": "#b9d9ee",
+              "startAlpha": 0.7,
+              "endAlpha": 0,
+              "occludeByCells": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "role",
+                "role": "secondary"
+              },
+              "colorTransitionSeconds": 0.575,
+              "lifetimeTuningApplicable": false
+            }
+          ]
+        },
+        "imageSlots": {
+          "fragment": "fragment",
+          "rain-ripple": "rain-ripple"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.ashfall",
+      "displayName": "ashfall",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "room",
+          "family": "ashfall",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "ash",
+              "textureId": "fragment",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 42,
+              "spawn": {
+                "kind": "room"
+              },
+              "lifeMinSeconds": 1.5,
+              "lifeMaxSeconds": 2.8,
+              "startElevationCells": 2.8,
+              "endElevationCells": 0,
+              "velocityXMinPxPerSecond": -7,
+              "velocityXMaxPxPerSecond": 7,
+              "velocityYMinPxPerSecond": -7,
+              "velocityYMaxPxPerSecond": 7,
+              "rotationMinRadians": 0,
+              "rotationMaxRadians": 6.2831853,
+              "startWidthPx": 4,
+              "startHeightPx": 4,
+              "endWidthPx": 3,
+              "endHeightPx": 3,
+              "startColor": "#b8aaa0",
+              "endColor": "#625b58",
+              "startAlpha": 0.85,
+              "endAlpha": 0.35,
+              "occludeByCells": true,
+              "isWindBlown": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              },
+              "colorTransitionSeconds": 1.72,
+              "colorTransitionFraction": 0.8
+            }
+          ]
+        },
+        "imageSlots": {
+          "fragment": "fragment"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.cinderfall",
+      "displayName": "cinderfall",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "room",
+          "family": "cinderfall",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "cinders",
+              "textureId": "soft-mote",
+              "layer": "post-light",
+              "blendMode": "add",
+              "ratePerSecond": 17,
+              "spawn": {
+                "kind": "room"
+              },
+              "lifeMinSeconds": 1,
+              "lifeMaxSeconds": 1.6,
+              "startElevationCells": 3,
+              "endElevationCells": 0,
+              "velocityXMinPxPerSecond": -7,
+              "velocityXMaxPxPerSecond": 7,
+              "velocityYMinPxPerSecond": -7,
+              "velocityYMaxPxPerSecond": 7,
+              "startWidthPx": 11,
+              "startHeightPx": 11,
+              "endWidthPx": 6,
+              "endHeightPx": 6,
+              "startColor": "#ffca59",
+              "endColor": "#ae3520",
+              "startAlpha": 0.9,
+              "endAlpha": 0.25,
+              "occludeByCells": true,
+              "onDeathStreamId": "cool-fragment",
+              "isWindBlown": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              },
+              "colorTransitionSeconds": 0.9099999999999999,
+              "colorTransitionFraction": 0.7
+            },
+            {
+              "id": "cool-fragment",
+              "textureId": "fragment",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 0,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 0
+              },
+              "lifeMinSeconds": 0.3,
+              "lifeMaxSeconds": 0.5,
+              "startElevationCells": 0,
+              "endElevationCells": 0,
+              "velocityXMinPxPerSecond": 0,
+              "velocityXMaxPxPerSecond": 0,
+              "velocityYMinPxPerSecond": 0,
+              "velocityYMaxPxPerSecond": 0,
+              "startWidthPx": 3,
+              "startHeightPx": 3,
+              "endWidthPx": 3,
+              "endHeightPx": 3,
+              "startColor": "#ae3520",
+              "endColor": "#ae3520",
+              "startAlpha": 0.45,
+              "endAlpha": 0,
+              "occludeByCells": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "role",
+                "role": "secondary"
+              },
+              "colorTransitionSeconds": 0.9099999999999999,
+              "lifetimeTuningApplicable": false
+            }
+          ]
+        },
+        "imageSlots": {
+          "fragment": "fragment",
+          "soft-mote": "soft-mote"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.drifting-motes",
+      "displayName": "drifting-motes",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "room",
+          "family": "motes",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "motes",
+              "textureId": "drifting-mote",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 11,
+              "spawn": {
+                "kind": "room"
+              },
+              "lifeMinSeconds": 2.304,
+              "lifeMaxSeconds": 4.096,
+              "startElevationCells": 1.1,
+              "endElevationCells": 1.1,
+              "velocityXMinPxPerSecond": -5,
+              "velocityXMaxPxPerSecond": 5,
+              "velocityYMinPxPerSecond": -5,
+              "velocityYMaxPxPerSecond": 5,
+              "rotationMinRadians": 0,
+              "rotationMaxRadians": 6.2831853,
+              "startWidthPx": 9,
+              "startHeightPx": 9,
+              "endWidthPx": 11.700000000000001,
+              "endHeightPx": 11.700000000000001,
+              "startColor": "#d8d5c8",
+              "endColor": "#8ca09b",
+              "startAlpha": 0.64,
+              "endAlpha": 0,
+              "occludeByCells": false,
+              "isWindBlown": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              },
+              "colorTransitionSeconds": 2.72,
+              "colorTransitionFraction": 0.85
+            }
+          ]
+        },
+        "imageSlots": {
+          "drifting-mote": "drifting-mote",
+          "organic-mote": "organic-mote"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.organic-motes",
+      "displayName": "organic-motes",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "room",
+          "family": "motes",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "motes",
+              "textureId": "organic-mote",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 8,
+              "spawn": {
+                "kind": "room"
+              },
+              "lifeMinSeconds": 2.448,
+              "lifeMaxSeconds": 4.352,
+              "startElevationCells": 1.1,
+              "endElevationCells": 1.1,
+              "velocityXMinPxPerSecond": -5,
+              "velocityXMaxPxPerSecond": 5,
+              "velocityYMinPxPerSecond": -5,
+              "velocityYMaxPxPerSecond": 5,
+              "rotationMinRadians": 0,
+              "rotationMaxRadians": 6.2831853,
+              "startWidthPx": 8,
+              "startHeightPx": 8,
+              "endWidthPx": 10.4,
+              "endHeightPx": 10.4,
+              "startColor": "#e6d28a",
+              "endColor": "#92a66e",
+              "startAlpha": 0.62,
+              "endAlpha": 0,
+              "occludeByCells": false,
+              "isWindBlown": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              },
+              "colorTransitionSeconds": 2.8899999999999997,
+              "colorTransitionFraction": 0.85
+            }
+          ]
+        },
+        "imageSlots": {
+          "drifting-mote": "drifting-mote",
+          "organic-mote": "organic-mote"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.oak-leaves",
+      "displayName": "oak-leaves",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "room",
+          "family": "leaves",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "leaves",
+              "textureId": "leaf-oak",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 14,
+              "spawn": {
+                "kind": "room"
+              },
+              "lifeMinSeconds": 2.2,
+              "lifeMaxSeconds": 3.4,
+              "startElevationCells": 3,
+              "endElevationCells": 0,
+              "velocityXMinPxPerSecond": -8,
+              "velocityXMaxPxPerSecond": 8,
+              "velocityYMinPxPerSecond": -8,
+              "velocityYMaxPxPerSecond": 8,
+              "rotationMinRadians": 0,
+              "rotationMaxRadians": 6.2831853,
+              "startWidthPx": 13,
+              "startHeightPx": 13,
+              "endWidthPx": 11,
+              "endHeightPx": 11,
+              "startColor": "#b87835",
+              "endColor": "#71512e",
+              "startAlpha": 0.9,
+              "endAlpha": 0.55,
+              "occludeByCells": true,
+              "isWindBlown": true,
+              "windEdgeFlow": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "flip"
+              },
+              "colorTransitionSeconds": 2.24,
+              "colorTransitionFraction": 0.8,
+              "windMotionMixEnabled": true
+            }
+          ],
+          "wind": {
+            "motionMix": {
+              "maxWindSpeedPxPerSecond": 40,
+              "lowWindSkitterFraction": 0.2,
+              "highWindSkitterFraction": 0.08
+            }
+          }
+        },
+        "imageSlots": {
+          "leaf-maple": "leaf-maple",
+          "leaf-oak": "leaf-oak",
+          "leaf-oval": "leaf-oval"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.maple-leaves",
+      "displayName": "maple-leaves",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "room",
+          "family": "leaves",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "leaves",
+              "textureId": "leaf-maple",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 14,
+              "spawn": {
+                "kind": "room"
+              },
+              "lifeMinSeconds": 2.2,
+              "lifeMaxSeconds": 3.4,
+              "startElevationCells": 3,
+              "endElevationCells": 0,
+              "velocityXMinPxPerSecond": -8,
+              "velocityXMaxPxPerSecond": 8,
+              "velocityYMinPxPerSecond": -8,
+              "velocityYMaxPxPerSecond": 8,
+              "rotationMinRadians": 0,
+              "rotationMaxRadians": 6.2831853,
+              "startWidthPx": 13,
+              "startHeightPx": 13,
+              "endWidthPx": 11,
+              "endHeightPx": 11,
+              "startColor": "#c94f2b",
+              "endColor": "#e5a43c",
+              "startAlpha": 0.9,
+              "endAlpha": 0.55,
+              "occludeByCells": true,
+              "isWindBlown": true,
+              "windEdgeFlow": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "flip"
+              },
+              "colorTransitionSeconds": 2.24,
+              "colorTransitionFraction": 0.8,
+              "windMotionMixEnabled": true
+            }
+          ],
+          "wind": {
+            "motionMix": {
+              "maxWindSpeedPxPerSecond": 40,
+              "lowWindSkitterFraction": 0.2,
+              "highWindSkitterFraction": 0.08
+            }
+          }
+        },
+        "imageSlots": {
+          "leaf-maple": "leaf-maple",
+          "leaf-oak": "leaf-oak",
+          "leaf-oval": "leaf-oval"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.oval-leaves",
+      "displayName": "oval-leaves",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "room",
+          "family": "leaves",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "leaves",
+              "textureId": "leaf-oval",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 14,
+              "spawn": {
+                "kind": "room"
+              },
+              "lifeMinSeconds": 2.2,
+              "lifeMaxSeconds": 3.4,
+              "startElevationCells": 3,
+              "endElevationCells": 0,
+              "velocityXMinPxPerSecond": -8,
+              "velocityXMaxPxPerSecond": 8,
+              "velocityYMinPxPerSecond": -8,
+              "velocityYMaxPxPerSecond": 8,
+              "rotationMinRadians": 0,
+              "rotationMaxRadians": 6.2831853,
+              "startWidthPx": 13,
+              "startHeightPx": 13,
+              "endWidthPx": 11,
+              "endHeightPx": 11,
+              "startColor": "#b59a44",
+              "endColor": "#6c7738",
+              "startAlpha": 0.9,
+              "endAlpha": 0.55,
+              "occludeByCells": true,
+              "isWindBlown": true,
+              "windEdgeFlow": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "flip"
+              },
+              "colorTransitionSeconds": 2.24,
+              "colorTransitionFraction": 0.8,
+              "windMotionMixEnabled": true
+            }
+          ],
+          "wind": {
+            "motionMix": {
+              "maxWindSpeedPxPerSecond": 40,
+              "lowWindSkitterFraction": 0.2,
+              "highWindSkitterFraction": 0.08
+            }
+          }
+        },
+        "imageSlots": {
+          "leaf-maple": "leaf-maple",
+          "leaf-oak": "leaf-oak",
+          "leaf-oval": "leaf-oval"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.mixed-leaves",
+      "displayName": "mixed-leaves",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "room",
+          "family": "leaves",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "oak",
+              "textureId": "leaf-oak",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 5,
+              "spawn": {
+                "kind": "room"
+              },
+              "lifeMinSeconds": 2.2,
+              "lifeMaxSeconds": 3.4,
+              "startElevationCells": 3,
+              "endElevationCells": 0,
+              "velocityXMinPxPerSecond": -8,
+              "velocityXMaxPxPerSecond": 8,
+              "velocityYMinPxPerSecond": -8,
+              "velocityYMaxPxPerSecond": 8,
+              "rotationMinRadians": 0,
+              "rotationMaxRadians": 6.2831853,
+              "startWidthPx": 13,
+              "startHeightPx": 13,
+              "endWidthPx": 11,
+              "endHeightPx": 11,
+              "startColor": "#b87835",
+              "endColor": "#71512e",
+              "startAlpha": 0.9,
+              "endAlpha": 0.55,
+              "occludeByCells": true,
+              "isWindBlown": true,
+              "windEdgeFlow": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "flip"
+              },
+              "colorTransitionSeconds": 2.24,
+              "colorTransitionFraction": 0.8,
+              "windMotionMixEnabled": true
+            },
+            {
+              "id": "maple",
+              "textureId": "leaf-maple",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 5,
+              "spawn": {
+                "kind": "room"
+              },
+              "lifeMinSeconds": 2.2,
+              "lifeMaxSeconds": 3.4,
+              "startElevationCells": 3,
+              "endElevationCells": 0,
+              "velocityXMinPxPerSecond": -8,
+              "velocityXMaxPxPerSecond": 8,
+              "velocityYMinPxPerSecond": -8,
+              "velocityYMaxPxPerSecond": 8,
+              "rotationMinRadians": 0,
+              "rotationMaxRadians": 6.2831853,
+              "startWidthPx": 13,
+              "startHeightPx": 13,
+              "endWidthPx": 11,
+              "endHeightPx": 11,
+              "startColor": "#c94f2b",
+              "endColor": "#e5a43c",
+              "startAlpha": 0.9,
+              "endAlpha": 0.55,
+              "occludeByCells": true,
+              "isWindBlown": true,
+              "windEdgeFlow": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "flip"
+              },
+              "colorTransitionSeconds": 2.24,
+              "colorTransitionFraction": 0.8,
+              "windMotionMixEnabled": true
+            },
+            {
+              "id": "oval",
+              "textureId": "leaf-oval",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 4,
+              "spawn": {
+                "kind": "room"
+              },
+              "lifeMinSeconds": 2.2,
+              "lifeMaxSeconds": 3.4,
+              "startElevationCells": 3,
+              "endElevationCells": 0,
+              "velocityXMinPxPerSecond": -8,
+              "velocityXMaxPxPerSecond": 8,
+              "velocityYMinPxPerSecond": -8,
+              "velocityYMaxPxPerSecond": 8,
+              "rotationMinRadians": 0,
+              "rotationMaxRadians": 6.2831853,
+              "startWidthPx": 13,
+              "startHeightPx": 13,
+              "endWidthPx": 11,
+              "endHeightPx": 11,
+              "startColor": "#b59a44",
+              "endColor": "#6c7738",
+              "startAlpha": 0.9,
+              "endAlpha": 0.55,
+              "occludeByCells": true,
+              "isWindBlown": true,
+              "windEdgeFlow": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "flip"
+              },
+              "colorTransitionSeconds": 2.24,
+              "colorTransitionFraction": 0.8,
+              "windMotionMixEnabled": true
+            }
+          ],
+          "wind": {
+            "motionMix": {
+              "maxWindSpeedPxPerSecond": 40,
+              "lowWindSkitterFraction": 0.2,
+              "highWindSkitterFraction": 0.08
+            }
+          }
+        },
+        "imageSlots": {
+          "leaf-maple": "leaf-maple",
+          "leaf-oak": "leaf-oak",
+          "leaf-oval": "leaf-oval"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.fog",
+      "displayName": "fog",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "overlay",
+          "family": "fog",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot",
+            "layer": "post-light",
+            "order": 0
+          },
+          "overlay": "fog",
+          "coveragePx": 520,
+          "opacity": 0.5,
+          "tint": "#ffffff",
+          "windSpeedPxPerSecond": 0,
+          "windDirectionDegrees": -1,
+          "windSpeedMultiplier": 1,
+          "windDirectionOffsetDegrees": 0
+        },
+        "imageSlots": {
+          "fog": "fog"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.cloud",
+      "displayName": "cloud",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "overlay",
+          "family": "cloud",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot",
+            "layer": "post-light",
+            "order": 0
+          },
+          "overlay": "cloud",
+          "coveragePx": 520,
+          "opacity": 0.5,
+          "tint": "#ffffff",
+          "windSpeedPxPerSecond": 0,
+          "windDirectionDegrees": -1,
+          "windSpeedMultiplier": 1,
+          "windDirectionOffsetDegrees": 0
+        },
+        "imageSlots": {
+          "cloud": "cloud"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.stain.splatter",
+      "displayName": "splatter",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "stain",
+          "family": "surface-mark",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot",
+            "layer": "pre-light",
+            "order": 0
+          },
+          "style": "splatter",
+          "sizePx": 100,
+          "opacity": 1,
+          "amount": 0.5,
+          "colors": {
+            "primary": "#ffffff",
+            "secondary": "#cccccc"
+          },
+          "directionDegrees": 0
+        },
+        "imageSlots": {
+          "stain-patch-base": "stain-patch-base",
+          "stain-patch-base-variant-a": "stain-patch-base-variant-a",
+          "stain-patch-base-variant-b": "stain-patch-base-variant-b",
+          "stain-patch-detail": "stain-patch-detail",
+          "stain-patch-detail-variant-a": "stain-patch-detail-variant-a",
+          "stain-patch-detail-variant-b": "stain-patch-detail-variant-b",
+          "stain-splatter-base": "stain-splatter-base",
+          "stain-splatter-base-variant-a": "stain-splatter-base-variant-a",
+          "stain-splatter-base-variant-b": "stain-splatter-base-variant-b",
+          "stain-splatter-detail": "stain-splatter-detail",
+          "stain-splatter-detail-variant-a": "stain-splatter-detail-variant-a",
+          "stain-splatter-detail-variant-b": "stain-splatter-detail-variant-b",
+          "stain-spray-streak-a": "stain-spray-streak-a",
+          "stain-spray-streak-b": "stain-spray-streak-b",
+          "stain-spray-streak-c": "stain-spray-streak-c",
+          "stain-streak-base": "stain-streak-base",
+          "stain-streak-base-variant-a": "stain-streak-base-variant-a",
+          "stain-streak-base-variant-b": "stain-streak-base-variant-b",
+          "stain-streak-detail": "stain-streak-detail",
+          "stain-streak-detail-variant-a": "stain-streak-detail-variant-a",
+          "stain-streak-detail-variant-b": "stain-streak-detail-variant-b"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.stain.patch",
+      "displayName": "patch",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "stain",
+          "family": "surface-mark",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot",
+            "layer": "pre-light",
+            "order": 0
+          },
+          "style": "patch",
+          "sizePx": 100,
+          "opacity": 1,
+          "amount": 0.5,
+          "colors": {
+            "primary": "#ffffff",
+            "secondary": "#cccccc"
+          },
+          "directionDegrees": 0
+        },
+        "imageSlots": {
+          "stain-patch-base": "stain-patch-base",
+          "stain-patch-base-variant-a": "stain-patch-base-variant-a",
+          "stain-patch-base-variant-b": "stain-patch-base-variant-b",
+          "stain-patch-detail": "stain-patch-detail",
+          "stain-patch-detail-variant-a": "stain-patch-detail-variant-a",
+          "stain-patch-detail-variant-b": "stain-patch-detail-variant-b",
+          "stain-splatter-base": "stain-splatter-base",
+          "stain-splatter-base-variant-a": "stain-splatter-base-variant-a",
+          "stain-splatter-base-variant-b": "stain-splatter-base-variant-b",
+          "stain-splatter-detail": "stain-splatter-detail",
+          "stain-splatter-detail-variant-a": "stain-splatter-detail-variant-a",
+          "stain-splatter-detail-variant-b": "stain-splatter-detail-variant-b",
+          "stain-spray-streak-a": "stain-spray-streak-a",
+          "stain-spray-streak-b": "stain-spray-streak-b",
+          "stain-spray-streak-c": "stain-spray-streak-c",
+          "stain-streak-base": "stain-streak-base",
+          "stain-streak-base-variant-a": "stain-streak-base-variant-a",
+          "stain-streak-base-variant-b": "stain-streak-base-variant-b",
+          "stain-streak-detail": "stain-streak-detail",
+          "stain-streak-detail-variant-a": "stain-streak-detail-variant-a",
+          "stain-streak-detail-variant-b": "stain-streak-detail-variant-b"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.stain.streak",
+      "displayName": "streak",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "stain",
+          "family": "surface-mark",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot",
+            "layer": "pre-light",
+            "order": 0
+          },
+          "style": "streak",
+          "sizePx": 100,
+          "opacity": 1,
+          "amount": 0.5,
+          "colors": {
+            "primary": "#ffffff",
+            "secondary": "#cccccc"
+          },
+          "directionDegrees": 0
+        },
+        "imageSlots": {
+          "stain-patch-base": "stain-patch-base",
+          "stain-patch-base-variant-a": "stain-patch-base-variant-a",
+          "stain-patch-base-variant-b": "stain-patch-base-variant-b",
+          "stain-patch-detail": "stain-patch-detail",
+          "stain-patch-detail-variant-a": "stain-patch-detail-variant-a",
+          "stain-patch-detail-variant-b": "stain-patch-detail-variant-b",
+          "stain-splatter-base": "stain-splatter-base",
+          "stain-splatter-base-variant-a": "stain-splatter-base-variant-a",
+          "stain-splatter-base-variant-b": "stain-splatter-base-variant-b",
+          "stain-splatter-detail": "stain-splatter-detail",
+          "stain-splatter-detail-variant-a": "stain-splatter-detail-variant-a",
+          "stain-splatter-detail-variant-b": "stain-splatter-detail-variant-b",
+          "stain-spray-streak-a": "stain-spray-streak-a",
+          "stain-spray-streak-b": "stain-spray-streak-b",
+          "stain-spray-streak-c": "stain-spray-streak-c",
+          "stain-streak-base": "stain-streak-base",
+          "stain-streak-base-variant-a": "stain-streak-base-variant-a",
+          "stain-streak-base-variant-b": "stain-streak-base-variant-b",
+          "stain-streak-detail": "stain-streak-detail",
+          "stain-streak-detail-variant-a": "stain-streak-detail-variant-a",
+          "stain-streak-detail-variant-b": "stain-streak-detail-variant-b"
+        }
+      }
+    },
+    {
+      "category": "ParticleEffect",
+      "effectKey": "particle.stain.directional-spray",
+      "displayName": "directional-spray",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "stain",
+          "family": "surface-mark",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": null
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot",
+            "layer": "pre-light",
+            "order": 0
+          },
+          "style": "directional-spray",
+          "sizePx": 100,
+          "opacity": 1,
+          "amount": 0.5,
+          "colors": {
+            "primary": "#ffffff",
+            "secondary": "#cccccc"
+          },
+          "directionDegrees": 0
+        },
+        "imageSlots": {
+          "stain-patch-base": "stain-patch-base",
+          "stain-patch-base-variant-a": "stain-patch-base-variant-a",
+          "stain-patch-base-variant-b": "stain-patch-base-variant-b",
+          "stain-patch-detail": "stain-patch-detail",
+          "stain-patch-detail-variant-a": "stain-patch-detail-variant-a",
+          "stain-patch-detail-variant-b": "stain-patch-detail-variant-b",
+          "stain-splatter-base": "stain-splatter-base",
+          "stain-splatter-base-variant-a": "stain-splatter-base-variant-a",
+          "stain-splatter-base-variant-b": "stain-splatter-base-variant-b",
+          "stain-splatter-detail": "stain-splatter-detail",
+          "stain-splatter-detail-variant-a": "stain-splatter-detail-variant-a",
+          "stain-splatter-detail-variant-b": "stain-splatter-detail-variant-b",
+          "stain-spray-streak-a": "stain-spray-streak-a",
+          "stain-spray-streak-b": "stain-spray-streak-b",
+          "stain-spray-streak-c": "stain-spray-streak-c",
+          "stain-streak-base": "stain-streak-base",
+          "stain-streak-base-variant-a": "stain-streak-base-variant-a",
+          "stain-streak-base-variant-b": "stain-streak-base-variant-b",
+          "stain-streak-detail": "stain-streak-detail",
+          "stain-streak-detail-variant-a": "stain-streak-detail-variant-a",
+          "stain-streak-detail-variant-b": "stain-streak-detail-variant-b"
+        }
+      }
+    }
+  ],
+  "particleRecipeContractVersion": "4"
+}
