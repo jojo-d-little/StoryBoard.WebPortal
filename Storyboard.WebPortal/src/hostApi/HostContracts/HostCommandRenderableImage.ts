@@ -4,6 +4,8 @@ export interface HostCommandRenderableImage {
   anchorY: number;
   iconOffsetX: number;
   iconOffsetY: number;
+  situationalScalePivotOffsetXPx?: number;
+  situationalScalePivotOffsetYPx?: number;
   x: number;
   y: number;
   rotationDegrees: number;

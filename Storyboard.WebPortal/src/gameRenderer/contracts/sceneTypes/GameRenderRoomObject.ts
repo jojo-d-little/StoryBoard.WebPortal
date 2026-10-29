@@ -15,6 +15,9 @@ export interface GameRenderRoomObject {
   scale: number;
   imageTransparency?: number;
   additionalSituationalScale?: number;
+  /** Paired room-axis pivot vector from the image draw origin, resolved by the Host adapter. */
+  situationalScalePivotOffsetFromImageXPx?: number;
+  situationalScalePivotOffsetFromImageYPx?: number;
   zOrder: number;
   activePresentationCues: GameRenderPresentationCue[];
   resolvedObjectEffects?: GameRenderResolvedObjectEffect[];

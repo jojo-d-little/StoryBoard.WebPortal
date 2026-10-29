@@ -92,6 +92,59 @@ function buildSessionData(overrides: Partial<HostSessionPresentationData> = {}):
 }
 
 describe("mapHostSessionDataToSceneSnapshot", () => {
+  it("resolves the paired Host situational pivot offsets from anchor to image draw origin", () => {
+    const hostData = buildSessionData();
+    hostData.roomChange!.newRoom!.renderableRoomObjects = [{
+      objectId: "crate-child",
+      name: "Crate Child",
+      renderableImage: {
+        imagePath: "assets/images/white-crate.png",
+        anchorX: 240,
+        anchorY: 240,
+        iconOffsetX: 10,
+        iconOffsetY: -5,
+        x: 250,
+        y: 235,
+        rotationDegrees: 0,
+        scale: 0.5,
+        additionalSituationalScale: 1.5,
+        situationalScalePivotOffsetXPx: 40,
+        situationalScalePivotOffsetYPx: 40
+      },
+      renderZOrder: 1
+    }, {
+      objectId: "default-pivot",
+      name: "Default Pivot",
+      renderableImage: {
+        imagePath: "assets/images/default.png",
+        anchorX: 100,
+        anchorY: 120,
+        iconOffsetX: 0,
+        iconOffsetY: 0,
+        x: 100,
+        y: 120,
+        rotationDegrees: 0,
+        scale: 1
+      },
+      renderZOrder: 2
+    }];
+
+    const snapshot = mapHostSessionDataToSceneSnapshot(hostData);
+    const objects = renderedRoomObjects(snapshot);
+    expect(objects.find((object) => object.objectId === "crate-child")).toEqual(expect.objectContaining({
+      x: 250,
+      y: 235,
+      scale: 0.5,
+      additionalSituationalScale: 1.5,
+      situationalScalePivotOffsetFromImageXPx: 30,
+      situationalScalePivotOffsetFromImageYPx: 45
+    }));
+    expect(objects.find((object) => object.objectId === "default-pivot")).toEqual(expect.not.objectContaining({
+      situationalScalePivotOffsetFromImageXPx: expect.anything(),
+      situationalScalePivotOffsetFromImageYPx: expect.anything()
+    }));
+  });
+
   it("retains sparse effect image mappings across room changes and merges current-room additions by slot", () => {
     const first = mapHostSessionDataToSceneSnapshot(buildSessionData({
       roomChange: { ...buildSessionData().roomChange!, newRoom: {

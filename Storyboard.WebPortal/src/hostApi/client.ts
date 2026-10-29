@@ -1983,6 +1983,10 @@ export class HostApiClient {
 
   private readRenderableImage(source: Record<string, unknown>): HostCommandRenderableImage {
     const additionalSituationalScale = this.readOptionalFiniteNumber(source, ["additionalSituationalScale", "AdditionalSituationalScale"]);
+    const situationalScalePivotOffsetXPx = this.readOptionalFiniteNumber(source, ["situationalScalePivotOffsetXPx", "SituationalScalePivotOffsetXPx"]);
+    const situationalScalePivotOffsetYPx = this.readOptionalFiniteNumber(source, ["situationalScalePivotOffsetYPx", "SituationalScalePivotOffsetYPx"]);
+    const hasSituationalScalePivot = situationalScalePivotOffsetXPx !== undefined
+      && situationalScalePivotOffsetYPx !== undefined;
 
     return {
       imagePath: this.readString(source, ["imagePath", "ImagePath"]),
@@ -1994,7 +1998,8 @@ export class HostApiClient {
       y: this.readNumber(source, ["y", "Y"]),
       rotationDegrees: this.readNumber(source, ["rotationDegrees", "RotationDegrees"]),
       scale: this.readNumber(source, ["scale", "Scale"]),
-      ...(additionalSituationalScale === undefined ? {} : { additionalSituationalScale })
+      ...(additionalSituationalScale === undefined ? {} : { additionalSituationalScale }),
+      ...(hasSituationalScalePivot ? { situationalScalePivotOffsetXPx, situationalScalePivotOffsetYPx } : {})
     };
   }
 

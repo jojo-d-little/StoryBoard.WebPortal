@@ -113,6 +113,8 @@ interface RoomObjectSpriteState {
   assetPath: string;
   scaleCenterX: number;
   scaleCenterY: number;
+  situationalScalePivotOffsetFromImageXPx: number | null;
+  situationalScalePivotOffsetFromImageYPx: number | null;
 }
 
 interface RoomSurfaceState {
@@ -524,8 +526,23 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       state.sprite.anchor.set(0, 0);
     }
 
-    wrapper.pivot.set(textureWidth * 0.5, textureHeight * 0.5);
-    wrapper.position.set(textureWidth * 0.5, textureHeight * 0.5);
+    const roomPivotOffsetX = state.situationalScalePivotOffsetFromImageXPx;
+    const roomPivotOffsetY = state.situationalScalePivotOffsetFromImageYPx;
+    if (roomPivotOffsetX !== null && roomPivotOffsetY !== null) {
+      // The Host pivot vector is already expressed in room axes. Convert it to
+      // this image's local axes, then undo the independent artwork-fit scale so
+      // the selected room-space pivot stays fixed while situational scale acts.
+      const cos = Math.cos(state.root.rotation);
+      const sin = Math.sin(state.root.rotation);
+      const localPivotX = ((roomPivotOffsetX * cos) + (roomPivotOffsetY * sin)) / clampedBaseScale;
+      const localPivotY = ((roomPivotOffsetY * cos) - (roomPivotOffsetX * sin)) / clampedBaseScale;
+      wrapper.pivot.set(localPivotX, localPivotY);
+      wrapper.position.set(localPivotX, localPivotY);
+    } else {
+      // Preserve the legacy self-center pivot when the paired Host fields are absent.
+      wrapper.pivot.set(textureWidth * 0.5, textureHeight * 0.5);
+      wrapper.position.set(textureWidth * 0.5, textureHeight * 0.5);
+    }
     wrapper.scale.set(situationalScale);
     state.effectTransformHost = wrapper;
   }
@@ -1974,6 +1991,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         || leftObject.scale !== rightObject.scale
         || leftObject.imageTransparency !== rightObject.imageTransparency
         || normalizeSituationalScale(leftObject.additionalSituationalScale) !== normalizeSituationalScale(rightObject.additionalSituationalScale)
+        || leftObject.situationalScalePivotOffsetFromImageXPx !== rightObject.situationalScalePivotOffsetFromImageXPx
+        || leftObject.situationalScalePivotOffsetFromImageYPx !== rightObject.situationalScalePivotOffsetFromImageYPx
         || leftObject.zOrder !== rightObject.zOrder
         || leftObject.movementDurationMs !== rightObject.movementDurationMs
         || JSON.stringify(leftObject.particleEffect ?? null) !== JSON.stringify(rightObject.particleEffect ?? null)
@@ -2264,7 +2283,9 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
             effectTransformHost: baseScaleContainer,
             assetPath: assetUrl,
             scaleCenterX: texture.width * 0.5,
-            scaleCenterY: texture.height * 0.5
+            scaleCenterY: texture.height * 0.5,
+            situationalScalePivotOffsetFromImageXPx: null,
+            situationalScalePivotOffsetFromImageYPx: null
           };
           surface.roomObjectSpritesById.set(roomObject.objectId, roomObjectSpriteState);
 
@@ -2282,6 +2303,12 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         }
 
         sprite = roomObjectSpriteState.sprite;
+        roomObjectSpriteState.situationalScalePivotOffsetFromImageXPx = Number.isFinite(roomObject.situationalScalePivotOffsetFromImageXPx)
+          ? roomObject.situationalScalePivotOffsetFromImageXPx!
+          : null;
+        roomObjectSpriteState.situationalScalePivotOffsetFromImageYPx = Number.isFinite(roomObject.situationalScalePivotOffsetFromImageYPx)
+          ? roomObject.situationalScalePivotOffsetFromImageYPx!
+          : null;
         sprite.alpha = 1 - Math.min(1, Math.max(0, Number.isFinite(roomObject.imageTransparency) ? roomObject.imageTransparency! : 0));
         if (roomObjectSpriteState.root.parent !== surface.roomObjectLayer) {
           surface.roomObjectLayer.addChild(roomObjectSpriteState.root);

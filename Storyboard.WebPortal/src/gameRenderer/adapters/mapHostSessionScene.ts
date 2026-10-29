@@ -324,6 +324,9 @@ function mapRenderableRoomObject(
   const additionalSituationalScale = Number.isFinite(roomObject.renderableImage.additionalSituationalScale)
     ? roomObject.renderableImage.additionalSituationalScale
     : undefined;
+  const pivotOffsetX = roomObject.renderableImage.situationalScalePivotOffsetXPx;
+  const pivotOffsetY = roomObject.renderableImage.situationalScalePivotOffsetYPx;
+  const hasSituationalScalePivot = Number.isFinite(pivotOffsetX) && Number.isFinite(pivotOffsetY);
 
   return {
     objectId: roomObject.objectId,
@@ -342,6 +345,10 @@ function mapRenderableRoomObject(
       ? { imageTransparency: Math.min(1, Math.max(0, roomObject.imageTransparency!)) }
       : {}),
     ...(additionalSituationalScale === undefined ? {} : { additionalSituationalScale }),
+    ...(hasSituationalScalePivot ? {
+      situationalScalePivotOffsetFromImageXPx: roomObject.renderableImage.anchorX + pivotOffsetX! - roomObject.renderableImage.x,
+      situationalScalePivotOffsetFromImageYPx: roomObject.renderableImage.anchorY + pivotOffsetY! - roomObject.renderableImage.y
+    } : {}),
     zOrder: roomObject.renderZOrder,
     activePresentationCues: []
   };

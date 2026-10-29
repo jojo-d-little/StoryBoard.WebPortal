@@ -548,7 +548,9 @@ describe("HostApiClient", () => {
                   x: 140,
                   y: 95,
                   rotationDegrees: 15,
-                  scale: 1
+                  scale: 1,
+                  situationalScalePivotOffsetXPx: 0,
+                  situationalScalePivotOffsetYPx: -12.5
                 },
                 renderZOrder: 1002,
                 activePresentationCues: [{
@@ -628,6 +630,10 @@ describe("HostApiClient", () => {
     expect(response.sessionData?.roomChange?.newRoom?.renderableRoomObjects[0].objectId).toBe("obj-1");
     expect(response.sessionData?.roomObjectChanges[0].changeKind).toBe("Updated");
     expect(response.sessionData?.roomObjectChanges[0].renderableRoomObject?.renderableImage.x).toBe(140);
+    expect(response.sessionData?.roomObjectChanges[0].renderableRoomObject?.renderableImage).toMatchObject({
+      situationalScalePivotOffsetXPx: 0,
+      situationalScalePivotOffsetYPx: -12.5
+    });
     expect(response.sessionData?.roomObjectChanges[0].renderableRoomObject?.activePresentationCues?.[0]).toMatchObject({
       category: "Movement",
       effectKey: "walk",

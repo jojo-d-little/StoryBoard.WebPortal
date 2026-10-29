@@ -1148,6 +1148,60 @@ function expectRoomPoint(point: { x: number; y: number }, x: number, y: number):
   expect(point.y).toBeCloseTo(y, 5);
 }
 
+function buildSituationalPivotScene(scale: number, pivotOffset?: { x: number; y: number }): GameRenderSceneSnapshot {
+  const roomObject = {
+    objectId: "white-crate-child",
+    objectName: "White Crate Child",
+    asset: { assetPath: "data:image/mock;white-crate-child" },
+    x: 250,
+    y: 235,
+    rotationDegrees: 0,
+    scale: 0.5,
+    additionalSituationalScale: scale,
+    ...(pivotOffset ? {
+      situationalScalePivotOffsetFromImageXPx: pivotOffset.x,
+      situationalScalePivotOffsetFromImageYPx: pivotOffset.y
+    } : {}),
+    zOrder: 1,
+    activePresentationCues: []
+  };
+  return {
+    roomId: "situational-pivot-room",
+    displayMode: "composed",
+    bounds: { width: 640, height: 480 },
+    directionalOverlays: [],
+    objectsById: createSceneObjectsFromRoomObjects([roomObject])
+  };
+}
+
+function getSingleRoomObjectNodes(): {
+  roomLayer: TransformNode;
+  root: TransformNode;
+  scaleStyle: TransformNode;
+  baseScale: TransformNode;
+  image: TransformNode;
+} {
+  const apps = pixiMocks.__appInstances as Array<{ stage: { children: TransformNode[] } }>;
+  const app = apps[apps.length - 1];
+  const roomLayer = app.stage.children[0].children[0].children[0].children[1];
+  const root = roomLayer.children[0];
+  if (!root) throw new Error("Expected a room object to be rendered.");
+  const scaleStyle = root.children[0].children[0];
+  if (!scaleStyle) throw new Error("Expected the room object's scale style container.");
+  const baseScale = scaleStyle.children[0];
+  if (!baseScale) throw new Error("Expected the room object's artwork-fit container.");
+  const imageOrSituationalWrapper = baseScale.children[0];
+  if (!imageOrSituationalWrapper) throw new Error("Expected the room object's image.");
+  const image = imageOrSituationalWrapper.children[0] ?? imageOrSituationalWrapper;
+  return { roomLayer, root, scaleStyle, baseScale, image };
+}
+
+function hasSingleRoomObject(): boolean {
+  const apps = pixiMocks.__appInstances as Array<{ stage: { children: TransformNode[] } }>;
+  const app = apps[apps.length - 1];
+  return Boolean(app?.stage?.children?.[0]?.children?.[0]?.children?.[0]?.children?.[1]?.children?.length);
+}
+
 function getElevatorNodes(): {
   app: { ticker: { tick: (deltaMs?: number) => void } };
   roomLayer: TransformNode;
@@ -1183,6 +1237,100 @@ function imageBounds(root: TransformNode, roomLayer: TransformNode): { left: num
     bottom: Math.max(...points.map((point) => point.y))
   };
 }
+
+describe("PixiGameRenderer situational scale pivots", () => {
+  it("preserves the legacy self-center pivot when Host offsets are absent", async () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const renderer = createGameRenderer(mount);
+    (pixiMocks.Assets.load as ReturnType<typeof vi.fn>).mockImplementation(async () => ({ width: 120, height: 80 }));
+    try {
+      renderer.resize(640, 480);
+      await waitFor(() => {
+        const apps = pixiMocks.__appInstances as Array<{ stage: { children: unknown[] } }>;
+        return apps[apps.length - 1]?.stage.children.length > 0;
+      }, 1000);
+      renderer.updateScene(buildSituationalPivotScene(2));
+      await waitFor(() => hasSingleRoomObject() && getSingleRoomObjectNodes().baseScale.children[0]?.children?.length === 1, 1000);
+
+      const { roomLayer, root, baseScale, image } = getSingleRoomObjectNodes();
+      const wrapper = baseScale.children[0];
+      expect(root.position).toMatchObject({ x: 250, y: 235 });
+      expect(baseScale.scale.x).toBe(0.5);
+      expect(wrapper.pivot).toMatchObject({ x: 60, y: 40 });
+      expect(wrapper.position).toMatchObject({ x: 60, y: 40 });
+      expectRoomPoint(toRoomPoint(wrapper, wrapper.position, roomLayer), 280, 255);
+      // The loaded texture rectangle includes transparent padding; the complete rectangle
+      // remains in the legacy self-centered transform.
+      expectRoomPoint(toRoomPoint(image, { x: 0, y: 0 }, roomLayer), 220, 215);
+      expectRoomPoint(toRoomPoint(image, { x: 120, y: 80 }, roomLayer), 340, 295);
+      // Its non-transparent artwork is inset 20px horizontally and 10px vertically.
+      expectRoomPoint(toRoomPoint(image, { x: 20, y: 10 }, roomLayer), 240, 225);
+      expectRoomPoint(toRoomPoint(image, { x: 100, y: 70 }, roomLayer), 320, 285);
+    } finally {
+      renderer.dispose();
+      mount.remove();
+    }
+  });
+
+  it("scales the padded image and icon offset around the parent footprint pivot without changing artwork fit", async () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const renderer = createGameRenderer(mount);
+    (pixiMocks.Assets.load as ReturnType<typeof vi.fn>).mockImplementation(async () => ({ width: 120, height: 80 }));
+    try {
+      renderer.resize(640, 480);
+      await waitFor(() => {
+        const apps = pixiMocks.__appInstances as Array<{ stage: { children: unknown[] } }>;
+        return apps[apps.length - 1]?.stage.children.length > 0;
+      }, 1000);
+      renderer.updateScene(buildSituationalPivotScene(1, { x: 30, y: 45 }));
+      await waitFor(() => hasSingleRoomObject() && getSingleRoomObjectNodes().baseScale.children.length === 1, 1000);
+      const initial = getSingleRoomObjectNodes();
+      expect(initial.root.position).toMatchObject({ x: 250, y: 235 });
+      expect(initial.baseScale.scale.x).toBe(0.5);
+      expectRoomPoint(toRoomPoint(initial.image, { x: 0, y: 0 }, initial.roomLayer), 250, 235);
+      expectRoomPoint(toRoomPoint(initial.image, { x: 120, y: 80 }, initial.roomLayer), 310, 275);
+
+      renderer.updateScene(buildSituationalPivotScene(2, { x: 30, y: 45 }));
+      await waitFor(() => hasSingleRoomObject() && getSingleRoomObjectNodes().baseScale.children[0]?.children?.length === 1, 1000);
+      const doubled = getSingleRoomObjectNodes();
+      const wrapper = doubled.baseScale.children[0];
+      expect(doubled.root.position).toMatchObject({ x: 250, y: 235 });
+      expect(doubled.baseScale.scale.x).toBe(0.5);
+      expect(wrapper.pivot).toMatchObject({ x: 60, y: 90 });
+      expect(wrapper.position).toMatchObject({ x: 60, y: 90 });
+      expectRoomPoint(toRoomPoint(wrapper, wrapper.position, doubled.roomLayer), 280, 280);
+      expectRoomPoint(toRoomPoint(doubled.image, { x: 0, y: 0 }, doubled.roomLayer), 220, 190);
+      expectRoomPoint(toRoomPoint(doubled.image, { x: 120, y: 80 }, doubled.roomLayer), 340, 270);
+      expectRoomPoint(toRoomPoint(doubled.image, { x: 20, y: 10 }, doubled.roomLayer), 240, 200);
+      expectRoomPoint(toRoomPoint(doubled.image, { x: 100, y: 70 }, doubled.roomLayer), 320, 260);
+
+      renderer.updateScene(buildSituationalPivotScene(1.5, { x: 30, y: 45 }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const scaled = getSingleRoomObjectNodes();
+      const scaledWrapper = scaled.baseScale.children[0];
+      expect(scaled.baseScale.scale.x).toBe(0.5);
+      expect(scaledWrapper.pivot).toMatchObject({ x: 60, y: 90 });
+      expectRoomPoint(toRoomPoint(scaledWrapper, scaledWrapper.position, scaled.roomLayer), 280, 280);
+      expectRoomPoint(toRoomPoint(scaled.image, { x: 0, y: 0 }, scaled.roomLayer), 235, 212.5);
+      expectRoomPoint(toRoomPoint(scaled.image, { x: 120, y: 80 }, scaled.roomLayer), 325, 272.5);
+
+      renderer.updateScene(buildSituationalPivotScene(1.5, { x: 20, y: 30 }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const movedPivot = getSingleRoomObjectNodes();
+      const movedPivotWrapper = movedPivot.baseScale.children[0];
+      expect(movedPivot.baseScale.scale.x).toBe(0.5);
+      expect(movedPivotWrapper.pivot).toMatchObject({ x: 40, y: 60 });
+      expectRoomPoint(toRoomPoint(movedPivotWrapper, movedPivotWrapper.position, movedPivot.roomLayer), 270, 265);
+      expectRoomPoint(toRoomPoint(movedPivot.image, { x: 0, y: 0 }, movedPivot.roomLayer), 240, 220);
+      expectRoomPoint(toRoomPoint(movedPivot.image, { x: 120, y: 80 }, movedPivot.roomLayer), 330, 280);
+    } finally {
+      renderer.dispose();
+      mount.remove();
+    }
+  });
+});
 
 describe("PixiGameRenderer scale cue pivots", () => {
   it("keeps the floor and rotated elevator aligned through shrink, hold, shake, and cue removal", async () => {
