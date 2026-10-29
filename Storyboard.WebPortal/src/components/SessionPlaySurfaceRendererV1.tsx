@@ -16,6 +16,7 @@ import type { ResolvedStyledPointEffect } from "../gameRenderer/contracts/presen
 import type { PresentationIsolationSettings } from "../gameRenderer/presentationIsolation";
 
 interface WaypointInteractionRendererBridge {
+  subscribeFps: (listener: (fps: number) => void) => () => void;
   setInteractionMode: (mode: "CommandClick" | "WaypointMoveSetup") => void;
   appendWaypointDraft: (point: GameRendererRoomPoint) => number;
   getWaypointsSnapshot: () => readonly GameRendererRoomPoint[];

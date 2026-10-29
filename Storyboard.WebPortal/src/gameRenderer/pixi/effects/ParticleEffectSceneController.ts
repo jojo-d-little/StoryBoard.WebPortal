@@ -11,7 +11,7 @@ import {
 } from "@jojo-d-little/storyboard-particles";
 import type { GameRenderParticleEffect, GameRenderParticleBurst } from "../../contracts/presentationEffects";
 import type { GameRenderSceneSnapshot } from "../../contracts/sceneTypes";
-import { Assets, type Container, type Texture } from "pixi.js";
+import { Assets, type Texture } from "pixi.js";
 
 type Diagnostic = (level: "warning" | "info", message: string, details?: unknown) => void;
 const sharedTextureUsers = new WeakMap<Texture, number>();
@@ -124,7 +124,6 @@ export class ParticleEffectSceneController {
   private readonly textureLoadJobs = new Map<string, Promise<Texture>>();
   private readonly decodedTexturesByLocator = new Map<string, Texture>();
   private lastReconcileDiagnosticSignature = "";
-  private lastMagicAuraRuntimeDiagnosticMs = Number.NEGATIVE_INFINITY;
   private enabled = true;
   private disposed = false;
 
@@ -226,23 +225,27 @@ export class ParticleEffectSceneController {
     this.activeIds.clear();
     for (const id of validIds) this.activeIds.add(id);
 
-    const diagnosticState = {
-      roomId,
-      geometry: { width: scene.bounds.width, height: scene.bounds.height, ready: this.geometryReady },
-      registeredCatalogEffectCount: this.registeredKeys.size,
-      catalogEffectKeys: [...this.registeredKeys].sort(),
-      requestedInstanceCount: requested.size,
-      activeRequestedInstanceCount: [...requested.values()].filter((effect) => effect.enabled).length,
-      acceptedInstanceCount: validIds.size,
-      acceptedEnabledInstanceCount: [...validIds].filter((id) => requested.get(id)?.enabled).length,
-      pendingCustomImageLoadCount: this.pendingImageLoads.size,
-      burstCount: scene.particleEffectBursts?.length ?? 0
-    };
-    const diagnosticSignature = JSON.stringify(diagnosticState);
-    if (diagnosticSignature !== this.lastReconcileDiagnosticSignature) {
+    // The Portal capture sink resolves lazy details only after checking that the
+    // current capture/category filters accept this event. Reconcile can run on
+    // every delta, so keep sorting/counting/serializing out of uncaptured frames.
+    this.diagnostics?.("info", "Particle effect scene reconciled.", () => {
+      const diagnosticState = {
+        roomId,
+        geometry: { width: scene.bounds.width, height: scene.bounds.height, ready: this.geometryReady },
+        registeredCatalogEffectCount: this.registeredKeys.size,
+        catalogEffectKeys: [...this.registeredKeys].sort(),
+        requestedInstanceCount: requested.size,
+        activeRequestedInstanceCount: [...requested.values()].filter((effect) => effect.enabled).length,
+        acceptedInstanceCount: validIds.size,
+        acceptedEnabledInstanceCount: [...validIds].filter((id) => requested.get(id)?.enabled).length,
+        pendingCustomImageLoadCount: this.pendingImageLoads.size,
+        burstCount: scene.particleEffectBursts?.length ?? 0
+      };
+      const diagnosticSignature = JSON.stringify(diagnosticState);
+      if (diagnosticSignature === this.lastReconcileDiagnosticSignature) return undefined;
       this.lastReconcileDiagnosticSignature = diagnosticSignature;
-      this.diagnostics?.("info", "Particle effect scene reconciled.", diagnosticState);
-    }
+      return diagnosticState;
+    });
 
     this.flushPendingBursts();
     this.consumeBursts(scene.particleEffectBursts ?? [], catalog);
@@ -266,45 +269,6 @@ export class ParticleEffectSceneController {
     }
     this.effects.update(timeSeconds);
 
-    const magicAuraInstances = [...this.instanceStates.entries()]
-      .filter(([, state]) => state.target.effectKey === "particle.magic-aura" && state.target.enabled);
-    const diagnosticNowMs = performance.now();
-    if (magicAuraInstances.length > 0 && diagnosticNowMs - this.lastMagicAuraRuntimeDiagnosticMs >= 1000) {
-      this.lastMagicAuraRuntimeDiagnosticMs = diagnosticNowMs;
-      const layerState = (layer: Container) => ({
-        visible: layer.visible,
-        renderable: layer.renderable,
-        alpha: layer.alpha,
-        childCount: layer.children.length
-      });
-      this.diagnostics?.("info", "Magic Aura particle runtime snapshot.", {
-        roomId: this.currentRoomId,
-        instances: magicAuraInstances.map(([id, state]) => {
-          const recipe = state.definition.particleEffect.recipe;
-          return {
-            instanceId: id,
-            x: state.target.x,
-            y: state.target.y,
-            enabled: state.target.enabled,
-            renderingMode: recipe.renderingMode,
-            streams: "streams" in recipe ? recipe.streams.map((stream) => ({
-              id: stream.id,
-              textureId: stream.textureId,
-              layer: stream.layer,
-              ratePerSecond: stream.ratePerSecond,
-              surgeOnly: stream.surgeOnly ?? false
-            })) : []
-          };
-        }),
-        runtimeStats: this.effects.getStats(),
-        renderLayers: {
-          preLight: layerState(this.effects.preLight),
-          postLight: layerState(this.effects.postLight)
-        }
-      });
-    } else if (magicAuraInstances.length === 0) {
-      this.lastMagicAuraRuntimeDiagnosticMs = Number.NEGATIVE_INFINITY;
-    }
   }
 
   clearRoom(): void {
@@ -349,7 +313,6 @@ export class ParticleEffectSceneController {
     this.burstStreamAttemptCounts.clear();
     this.readyImageMappings.clear();
     this.failedImageMappings.clear();
-    this.lastMagicAuraRuntimeDiagnosticMs = Number.NEGATIVE_INFINITY;
     this.pendingImageLoads.clear();
     this.textureLoadJobs.clear();
     this.decodedTexturesByLocator.clear();

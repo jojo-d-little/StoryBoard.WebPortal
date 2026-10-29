@@ -62,6 +62,7 @@ export interface GameRendererRoomPoint {
 export type SetInteractionModeResult = "changed" | "unchanged";
 
 export interface GameRendererHandle {
+  subscribeFps: (listener: (fps: number) => void) => () => void;
   updateScene: (scene: GameRenderSceneSnapshot) => void;
   prepareRoomTransitionSnapshot: (requestedMode?: "slide" | "fade" | "fade-blackout") => void;
   resize: (width: number, height: number) => void;
@@ -280,6 +281,34 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       };
 
   const app = new Application();
+  const fpsListeners = new Set<(fps: number) => void>();
+  let fpsWindowStartedAt = 0;
+  let fpsWindowFrameCount = 0;
+  let fpsTickerAttached = false;
+  const sampleFps = (): void => {
+    fpsWindowFrameCount += 1;
+    const now = performance.now();
+    const elapsedMs = now - fpsWindowStartedAt;
+    if (elapsedMs < 1000) return;
+
+    const fps = fpsWindowFrameCount * 1000 / elapsedMs;
+    fpsListeners.forEach((listener) => listener(fps));
+    fpsWindowStartedAt = now;
+    fpsWindowFrameCount = 0;
+  };
+  const attachFpsTicker = (): void => {
+    if (fpsTickerAttached || !isReady || isDisposed || fpsListeners.size === 0) return;
+    fpsWindowStartedAt = performance.now();
+    fpsWindowFrameCount = 0;
+    app.ticker.add(sampleFps);
+    fpsTickerAttached = true;
+  };
+  const detachFpsTicker = (): void => {
+    if (!fpsTickerAttached) return;
+    app.ticker.remove(sampleFps);
+    fpsTickerAttached = false;
+    fpsWindowFrameCount = 0;
+  };
   const onWebGLContextLost = (event: Event): void => {
     diagnostics?.({
       category: "lifecycle",
@@ -2757,6 +2786,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     app.ticker.add(updateParticleEffects);
     app.ticker.add(syncParticleEffectLayers);
     isReady = true;
+    attachFpsTicker();
     updateSnapshotTransitionMask();
 
     if (currentScene) {
@@ -2789,6 +2819,15 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   });
 
   return {
+    subscribeFps: (listener) => {
+      if (isDisposed) return () => {};
+      fpsListeners.add(listener);
+      attachFpsTicker();
+      return () => {
+        fpsListeners.delete(listener);
+        if (fpsListeners.size === 0) detachFpsTicker();
+      };
+    },
     prepareRoomTransitionSnapshot: (requestedMode) => {
       // This pre-render boundary exists only to freeze the outgoing image for snapshot slides.
       // A late preparation during a live fade-blackout would put a snapshot layer above the
@@ -3169,6 +3208,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
 
       isDisposed = true;
       isReady = false;
+      detachFpsTicker();
+      fpsListeners.clear();
       const canvas = app.canvas;
 
       try {

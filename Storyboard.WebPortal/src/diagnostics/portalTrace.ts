@@ -201,7 +201,7 @@ function readDetailNumber(details: unknown, key: string): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
-function inferSource(category: string, severity: PortalTraceSeverity): PortalTraceSource {
+export function inferSource(category: string, severity: PortalTraceSeverity): PortalTraceSource {
   const normalizedCategory = category.trim().toLowerCase();
 
   if (normalizedCategory === "auth") {

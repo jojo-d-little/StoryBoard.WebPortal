@@ -147,6 +147,7 @@ export type WaypointActionKind =
   | "submit-waypoint-draft";
 
 interface WaypointInteractionRendererBridge {
+  subscribeFps: (listener: (fps: number) => void) => () => void;
   setInteractionMode: (mode: "CommandClick" | "WaypointMoveSetup") => void;
   appendWaypointDraft: (point: GameRendererRoomPoint) => number;
   getWaypointsSnapshot: () => readonly GameRendererRoomPoint[];
@@ -289,6 +290,7 @@ export interface HostWorkflowState {
   undoLastWaypointDraftPoint: () => void;
   submitWaypointDraft: () => Promise<void>;
   registerWaypointInteractionRendererBridge: (bridge: WaypointInteractionRendererBridge | null) => void;
+  subscribeRendererFps: (listener: (fps: number) => void) => () => void;
   appendWaypointDraftPoint: (point: GameRendererRoomPoint) => void;
 }
 
@@ -1004,6 +1006,10 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     setWaypointDraftCount(bridge.getWaypointsSnapshot().length);
   }, []);
 
+  const subscribeRendererFps = useCallback((listener: (fps: number) => void): (() => void) => {
+    return waypointRendererBridge?.subscribeFps(listener) ?? (() => {});
+  }, [waypointRendererBridge]);
+
   const emitWaypointTransitionWarning = useCallback((
     warningCode: string,
     action: WaypointActionKind,
@@ -1244,6 +1250,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     undoLastWaypointDraftPoint,
     submitWaypointDraft,
     registerWaypointInteractionRendererBridge,
+    subscribeRendererFps,
     appendWaypointDraftPoint
   };
 }

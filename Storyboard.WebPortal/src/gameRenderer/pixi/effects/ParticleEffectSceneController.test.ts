@@ -83,6 +83,39 @@ function buildEffects(onBurst?: (request: { count: number; streamId?: string }, 
 }
 
 describe("ParticleEffectSceneController", () => {
+  it("builds reconciliation diagnostics only while the current capture sink accepts them", () => {
+    const effects = buildEffects();
+    let capturing = false;
+    const captured: Array<{ message: string; details?: unknown }> = [];
+    const diagnostics = vi.fn((_level: string, message: string, details?: unknown) => {
+      if (!capturing) return;
+      const resolved = typeof details === "function" ? (details as () => unknown)() : details;
+      if (resolved !== undefined) captured.push({ message, details: resolved });
+    });
+    const stringify = vi.spyOn(JSON, "stringify");
+    const controller = new ParticleEffectSceneController(effects, diagnostics);
+
+    controller.reconcile(scene());
+    expect(stringify).not.toHaveBeenCalled();
+    expect(captured).toHaveLength(0);
+
+    capturing = true;
+    controller.reconcile(scene());
+    expect(stringify).toHaveBeenCalledTimes(1);
+    expect(captured).toHaveLength(1);
+    expect(captured[0]).toEqual(expect.objectContaining({
+      message: "Particle effect scene reconciled.",
+      details: expect.objectContaining({ roomId: "room-1", registeredCatalogEffectCount: 1 })
+    }));
+
+    capturing = false;
+    stringify.mockClear();
+    controller.reconcile(scene({ bounds: { width: 641, height: 400 } }));
+    expect(stringify).not.toHaveBeenCalled();
+    expect(captured).toHaveLength(1);
+    controller.dispose();
+    stringify.mockRestore();
+  });
   it("registers recipes and reconciles object and room instances with stable namespaced IDs", () => {
     const effects = buildEffects();
     const diagnostics = vi.fn();
@@ -112,7 +145,10 @@ describe("ParticleEffectSceneController", () => {
       tuning: { EmissionRateMultiplier: 2 }
     }));
     expect(effects.upsertCatalogEffect).toHaveBeenCalledWith(expect.objectContaining({ id: "room:room-effect-1", order: 4 }));
-    expect(diagnostics).toHaveBeenCalledWith("info", "Particle effect scene reconciled.", expect.objectContaining({
+    const reconcileDiagnostic = diagnostics.mock.calls.find((call) => call[1] === "Particle effect scene reconciled.");
+    expect(reconcileDiagnostic).toBeDefined();
+    const reconcileDetails = (reconcileDiagnostic?.[2] as () => unknown)();
+    expect(reconcileDetails).toEqual(expect.objectContaining({
       registeredCatalogEffectCount: 1,
       requestedInstanceCount: 2,
       activeRequestedInstanceCount: 2,

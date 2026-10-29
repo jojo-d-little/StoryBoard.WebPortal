@@ -1,4 +1,4 @@
-import type { JSX } from "react";
+import { useEffect, useState, type JSX } from "react";
 import type { HostWorkflowState } from "../hooks/useHostWorkflow";
 
 interface StatusBarInfoV1Props {
@@ -7,6 +7,12 @@ interface StatusBarInfoV1Props {
 }
 
 export function StatusBarInfoV1(props: StatusBarInfoV1Props): JSX.Element {
+  const [fps, setFps] = useState<number | null>(null);
+  useEffect(() => {
+    setFps(null);
+    return props.hostWorkflow.subscribeRendererFps(setFps);
+  }, [props.hostWorkflow.subscribeRendererFps]);
+
   const sessionId = props.hostWorkflow.activeSessionId || "(none)";
   const principal = props.hostWorkflow.principalName || "(guest)";
   const phase = props.hostWorkflow.hostOperationPhase;
@@ -50,6 +56,7 @@ export function StatusBarInfoV1(props: StatusBarInfoV1Props): JSX.Element {
         <span className="storyboard-statusbar-chip">room={roomLabel}</span>
         <span className="storyboard-statusbar-chip">viewport={viewportLabel}</span>
         <span className="storyboard-statusbar-chip">scale={scaleLabel}</span>
+        <span className="storyboard-statusbar-chip">fps={fps === null ? "(n/a)" : fps.toFixed(1)}</span>
         <span className="storyboard-statusbar-chip">click.raw={rawClickLabel}</span>
         <span className="storyboard-statusbar-chip">click.room={roomClickLabel}</span>
         <span className="storyboard-statusbar-chip">click.zone={clickInsideLabel}</span>

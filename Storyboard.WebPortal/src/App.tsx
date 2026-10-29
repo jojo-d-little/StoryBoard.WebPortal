@@ -7,7 +7,7 @@ import { ConfigDrivenLayoutPreview } from "./components/ConfigDrivenLayoutPrevie
 import { DevToolsPanel } from "./components/DevToolsPanel";
 import { DiagnosticsConsole, type DiagnosticsEntry, type DiagnosticsLevel } from "./components/DiagnosticsConsole";
 import type { DiagnosticsWorkspaceProps, DiagnosticsProfile } from "./components/DiagnosticsWorkspace";
-import { appendPortalTraceEvent, normalizePortalTraceEvent } from "./diagnostics/portalTrace";
+import { appendPortalTraceEvent, inferSource, normalizePortalTraceEvent } from "./diagnostics/portalTrace";
 import { buildDiagnosticsScopeOptions, getDiagnosticsProfileScope } from "./diagnostics/diagnosticsScope";
 import type { PortalTraceSource } from "./diagnostics/portalTrace";
 import type { DiagnosticsProfileKey } from "./diagnostics/traceProfiles";
@@ -407,11 +407,25 @@ export default function App(props: AppProps): JSX.Element {
       return;
     }
 
+    const source = inferSource(category.trim().toLowerCase() || "uncategorized", level);
+    if (!diagnosticsScope[source]
+      && !(diagnosticsLogAllWarnings && level === "warn")
+      && !(diagnosticsLogAllErrors && level === "error")) {
+      return;
+    }
+
+    const resolvedDetails = typeof details === "function"
+      ? (details as () => unknown)()
+      : details;
+    if (resolvedDetails === undefined) {
+      return;
+    }
+
     const entry = normalizePortalTraceEvent({
       level,
       category,
       message,
-      details
+      details: resolvedDetails
     }, diagnosticsSequenceRef.current + 1);
 
     if (!diagnosticsScope[entry.source]
