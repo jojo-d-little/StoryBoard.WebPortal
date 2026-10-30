@@ -50,7 +50,7 @@ function scene(mode: AlphaMode): GameRenderSceneSnapshot {
       zOrder: 1,
       imageTransparency: mode === "pane-flash" ? 1 : undefined,
       activePresentationCues: mode === "pane-flash" ? [{
-        category: "Appearance",
+        category: "Highlight",
         effectKey: "appearance.lightning.pane-flash",
         activationId: "flash-1",
         timelineStartAtMs: performance.now()

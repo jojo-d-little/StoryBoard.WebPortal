@@ -1,0 +1,277 @@
+[
+  {
+    "objectId": "10000000-0000-0000-0000-000000000007",
+    "name": "Contained",
+    "renderableImage": {
+      "imagePath": "",
+      "anchorX": 0,
+      "anchorY": 0,
+      "iconOffsetX": 0,
+      "iconOffsetY": 0,
+      "x": 0,
+      "y": 0,
+      "rotationDegrees": 0,
+      "scale": 1,
+      "additionalSituationalScale": 1
+    },
+    "renderZOrder": 10006,
+    "imageTransparency": 0,
+    "spatialFootprint": {
+      "cellX": 0,
+      "cellY": 0,
+      "footprintCenterXpx": 20,
+      "footprintCenterYpx": 20,
+      "sizeXCells": 1,
+      "sizeYCells": 1,
+      "cornerStyle": "sharp",
+      "elevationCells": 0
+    },
+    "activePresentationCues": [],
+    "activeSoundCues": []
+  },
+  {
+    "objectId": "10000000-0000-0000-0000-000000000006",
+    "name": "Fixed",
+    "renderableImage": {
+      "imagePath": "",
+      "anchorX": 200,
+      "anchorY": 200,
+      "iconOffsetX": 0,
+      "iconOffsetY": 0,
+      "x": 200,
+      "y": 200,
+      "rotationDegrees": 0,
+      "scale": 1,
+      "additionalSituationalScale": 1
+    },
+    "renderZOrder": 10005,
+    "imageTransparency": 0,
+    "spatialFootprint": {
+      "cellX": 5,
+      "cellY": 5,
+      "footprintCenterXpx": 220,
+      "footprintCenterYpx": 220,
+      "sizeXCells": 1,
+      "sizeYCells": 1,
+      "cornerStyle": "sharp",
+      "elevationCells": 0
+    },
+    "activePresentationCues": [],
+    "activeSoundCues": []
+  },
+  {
+    "objectId": "10000000-0000-0000-0000-000000000005",
+    "name": "Empty",
+    "renderableImage": {
+      "imagePath": "",
+      "anchorX": 80,
+      "anchorY": 40,
+      "iconOffsetX": 0,
+      "iconOffsetY": 0,
+      "situationalScalePivotOffsetXPx": -20,
+      "situationalScalePivotOffsetYPx": 20,
+      "x": 80,
+      "y": 40,
+      "rotationDegrees": 0,
+      "scale": 1,
+      "additionalSituationalScale": 1
+    },
+    "renderZOrder": 10004,
+    "imageTransparency": 0,
+    "pointLight": {
+      "x": 90,
+      "y": 42,
+      "radiusPx": 20,
+      "intensityScale": 1,
+      "color": "#FFFFFF",
+      "lightHeightCells": 0,
+      "motionMode": "static"
+    },
+    "spatialFootprint": {
+      "cellX": 2,
+      "cellY": 1,
+      "footprintCenterXpx": 100,
+      "footprintCenterYpx": 60,
+      "sizeXCells": 1,
+      "sizeYCells": 1,
+      "cornerStyle": "sharp",
+      "elevationCells": 0
+    },
+    "activePresentationCues": [],
+    "activeSoundCues": [],
+    "particleEffect": {
+      "effectKey": "particle.magic-aura",
+      "x": 95,
+      "y": 42,
+      "isProducing": true,
+      "targetControls": {}
+    }
+  },
+  {
+    "objectId": "10000000-0000-0000-0000-000000000004",
+    "name": "Defaults",
+    "renderableImage": {
+      "imagePath": "",
+      "anchorX": 80,
+      "anchorY": 40,
+      "iconOffsetX": 0,
+      "iconOffsetY": 0,
+      "situationalScalePivotOffsetXPx": -20,
+      "situationalScalePivotOffsetYPx": 20,
+      "x": 80,
+      "y": 40,
+      "rotationDegrees": 0,
+      "scale": 1,
+      "additionalSituationalScale": 1
+    },
+    "renderZOrder": 10003,
+    "imageTransparency": 0,
+    "spatialFootprint": {
+      "cellX": 2,
+      "cellY": 1,
+      "footprintCenterXpx": 100,
+      "footprintCenterYpx": 60,
+      "sizeXCells": 1,
+      "sizeYCells": 1,
+      "cornerStyle": "sharp",
+      "elevationCells": 0
+    },
+    "activePresentationCues": [
+      {
+        "category": "Scale",
+        "effectKey": "scale.grow.large",
+        "activationId": "20000000-0000-0000-0000-000000000001"
+      },
+      {
+        "category": "Movement",
+        "effectKey": "movement.speed.medium",
+        "activationId": "20000000-0000-0000-0000-000000000005",
+        "movement": {
+          "moveDirection": "North",
+          "movementDurationMs": 900,
+          "movementFrames": 10
+        }
+      }
+    ],
+    "activeSoundCues": []
+  },
+  {
+    "objectId": "10000000-0000-0000-0000-000000000003",
+    "name": "Selected",
+    "renderableImage": {
+      "imagePath": "",
+      "anchorX": 80,
+      "anchorY": 40,
+      "iconOffsetX": 0,
+      "iconOffsetY": 0,
+      "situationalScalePivotOffsetXPx": -20,
+      "situationalScalePivotOffsetYPx": 20,
+      "x": 80,
+      "y": 40,
+      "rotationDegrees": 0,
+      "scale": 1,
+      "additionalSituationalScale": 1
+    },
+    "renderZOrder": 10002,
+    "imageTransparency": 0,
+    "spatialFootprint": {
+      "cellX": 2,
+      "cellY": 1,
+      "footprintCenterXpx": 100,
+      "footprintCenterYpx": 60,
+      "sizeXCells": 1,
+      "sizeYCells": 1,
+      "cornerStyle": "sharp",
+      "elevationCells": 0
+    },
+    "activePresentationCues": [
+      {
+        "category": "Scale",
+        "effectKey": "scale.shrink.medium",
+        "activationId": "20000000-0000-0000-0000-000000000006"
+      },
+      {
+        "category": "Scale",
+        "effectKey": "scale.grow.large",
+        "activationId": "20000000-0000-0000-0000-000000000001"
+      },
+      {
+        "category": "Shake",
+        "effectKey": "shake.large.fast",
+        "activationId": "20000000-0000-0000-0000-000000000002"
+      },
+      {
+        "category": "Highlight",
+        "effectKey": "appearance.selection.outline.cyan",
+        "activationId": "20000000-0000-0000-0000-000000000003"
+      },
+      {
+        "category": "ColorOverlay",
+        "effectKey": "appearance.overlay.lightning",
+        "activationId": "20000000-0000-0000-0000-000000000004"
+      }
+    ],
+    "activeSoundCues": []
+  },
+  {
+    "objectId": "10000000-0000-0000-0000-000000000002",
+    "name": "Parent",
+    "renderableImage": {
+      "imagePath": "",
+      "anchorX": 40,
+      "anchorY": 40,
+      "iconOffsetX": 0,
+      "iconOffsetY": 0,
+      "x": 40,
+      "y": 40,
+      "rotationDegrees": 0,
+      "scale": 1,
+      "additionalSituationalScale": 1
+    },
+    "renderZOrder": 10001,
+    "imageTransparency": 0,
+    "spatialFootprint": {
+      "cellX": 1,
+      "cellY": 1,
+      "footprintCenterXpx": 60,
+      "footprintCenterYpx": 60,
+      "sizeXCells": 1,
+      "sizeYCells": 1,
+      "cornerStyle": "sharp",
+      "elevationCells": 0
+    },
+    "activePresentationCues": [
+      {
+        "category": "Scale",
+        "effectKey": "scale.grow.large",
+        "activationId": "20000000-0000-0000-0000-000000000001"
+      },
+      {
+        "category": "Shake",
+        "effectKey": "shake.large.fast",
+        "activationId": "20000000-0000-0000-0000-000000000002"
+      },
+      {
+        "category": "Highlight",
+        "effectKey": "appearance.selection.outline.cyan",
+        "activationId": "20000000-0000-0000-0000-000000000003"
+      },
+      {
+        "category": "ColorOverlay",
+        "effectKey": "appearance.overlay.lightning",
+        "activationId": "20000000-0000-0000-0000-000000000004"
+      },
+      {
+        "category": "Movement",
+        "effectKey": "movement.speed.medium",
+        "activationId": "20000000-0000-0000-0000-000000000005",
+        "movement": {
+          "moveDirection": "North",
+          "movementDurationMs": 900,
+          "movementFrames": 10
+        }
+      }
+    ],
+    "activeSoundCues": []
+  }
+]

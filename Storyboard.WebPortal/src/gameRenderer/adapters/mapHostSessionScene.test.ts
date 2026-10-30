@@ -4,6 +4,9 @@ import type { GameRenderSceneSnapshot } from "../contracts/sceneTypes";
 import { mapHostPresentationToSceneSnapshot, mapHostSessionDataToSceneSnapshot } from "./mapHostSessionScene";
 import { mapLightingFrameInput } from "./mapLightingFrameInput";
 import { selectRenderableRoomObjects } from "../scene/sceneObjects";
+import engineBaseline from "../testing/fixtures/parent-cue-inheritance/baseline.json";
+import engineDelta from "../testing/fixtures/parent-cue-inheritance/delta.json";
+import type { HostCommandRenderableRoomObject } from "../../hostApi/HostContracts";
 
 function renderedRoomObjects(scene: GameRenderSceneSnapshot | null | undefined) {
   return scene ? selectRenderableRoomObjects(scene) : [];
@@ -90,6 +93,41 @@ function buildSessionData(overrides: Partial<HostSessionPresentationData> = {}):
     ...overrides
   };
 }
+
+describe("Engine ParentCueInheritance Host fixtures", () => {
+  it("maps the current baseline and flat delta cues, anchors, light and particle sources", () => {
+    const baselineObjects = engineBaseline as unknown as HostCommandRenderableRoomObject[];
+    const deltaChanges = engineDelta as unknown as HostSessionPresentationData["roomObjectChanges"];
+    const template = buildSessionData();
+    const baseline = mapHostPresentationToSceneSnapshot({
+      ...template,
+      roomChange: {
+        ...template.roomChange!,
+        newRoom: { ...template.roomChange!.newRoom!, renderableRoomObjects: baselineObjects }
+      }
+    });
+    expect(baseline).not.toBeNull();
+    expect(baseline!.objectsById["10000000-0000-0000-0000-000000000003"].activePresentationCues.map((cue) => cue.category))
+      .toEqual(["Scale", "Scale", "Shake", "Highlight", "ColorOverlay"]);
+    expect(baseline!.objectsById["10000000-0000-0000-0000-000000000003"].activePresentationCues.map((cue) => cue.activationId))
+      .toContain("20000000-0000-0000-0000-000000000001");
+
+    const moved = mapHostSessionDataToSceneSnapshot({
+      ...template,
+      roomChange: null,
+      roomObjectChanges: deltaChanges
+    }, baseline!);
+    if (!moved) throw new Error("Expected Engine delta to map onto the baseline scene.");
+    const defaults = moved.objectsById["10000000-0000-0000-0000-000000000004"];
+    expect(defaults.activePresentationCues.map((cue) => cue.category)).toEqual(["Movement"]);
+    expect(defaults.activePresentationCues[0]?.movementDurationMs).toBe(900);
+    const empty = moved.objectsById["10000000-0000-0000-0000-000000000005"];
+    expect(empty.lighting?.pointLight?.x).toBe(130);
+    expect(empty.particleEffect?.x).toBe(135);
+    expect(baseline!.objectsById["10000000-0000-0000-0000-000000000006"].activePresentationCues).toEqual([]);
+    expect(baselineObjects.find((object) => object.objectId === "10000000-0000-0000-0000-000000000006")?.renderableImage.anchorX).toBe(200);
+  });
+});
 
 describe("mapHostSessionDataToSceneSnapshot", () => {
   it("resolves the paired Host situational pivot offsets from anchor to image draw origin", () => {
@@ -250,14 +288,14 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
           renderableImage: { ...visibleObject.renderableImage, x: 160 },
           pointLight: { x: 170, y: 90, radiusPx: 80 },
           spatialFootprint: { cellX: 4, cellY: 2, footprintCenterXpx: 176, footprintCenterYpx: 96 },
-          activePresentationCues: [{ category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
+          activePresentationCues: [{ category: "Highlight", effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
         },
       }]
     }), hidden);
     expect(renderedRoomObjects(shown)).toMatchObject([{
       objectId: "obj-1",
       x: 160,
-      activePresentationCues: [{ category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
+      activePresentationCues: [{ category: "Highlight", effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
     }]);
     expect(shown?.objectsById["obj-1"].lighting).toMatchObject({
       pointLight: { x: 170, y: 90, radiusPx: 80 },
@@ -316,8 +354,8 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
           renderableRoomObjects: [{
             ...buildSessionData().roomChange!.newRoom!.renderableRoomObjects[0],
             activePresentationCues: [
-              { category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" },
-              { category: "Appearance", effectKey: "appearance.selection.outline.amber", activationId: "activation-2" }
+              { category: "Highlight", effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" },
+              { category: "Highlight", effectKey: "appearance.selection.outline.amber", activationId: "activation-2" }
             ]
           }]
         }
@@ -326,8 +364,8 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
 
     const baselineObject = renderedRoomObjects(baseline).find((entry) => entry.objectId === "obj-1");
     expect(baselineObject?.activePresentationCues).toEqual([
-      { category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" },
-      { category: "Appearance", effectKey: "appearance.selection.outline.amber", activationId: "activation-2" }
+      { category: "Highlight", effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" },
+      { category: "Highlight", effectKey: "appearance.selection.outline.amber", activationId: "activation-2" }
     ]);
 
     const moved = mapHostSessionDataToSceneSnapshot(buildSessionData({
@@ -340,7 +378,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
           ...buildSessionData().roomChange!.newRoom!.renderableRoomObjects[0],
           renderableImage: { ...buildSessionData().roomChange!.newRoom!.renderableRoomObjects[0].renderableImage, x: 140 },
           activePresentationCues: [
-            { category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "activation-2" },
+            { category: "Highlight", effectKey: "appearance.selection.outline.cyan", activationId: "activation-2" },
               { category: "Movement", effectKey: "movement.walk", activationId: "movement-1", movement: { moveDirection: "East", movementDurationMs: 640, movementFrames: 16 } }
           ]
         },
@@ -1321,7 +1359,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
               scale: 1
             },
             renderZOrder: 1002,
-            activePresentationCues: [{ category: "Appearance", effectKey: "appearance.selection.silhouette.default", activationId: "appearance-1" }]
+            activePresentationCues: [{ category: "Highlight", effectKey: "appearance.selection.silhouette.default", activationId: "appearance-1" }]
           },
         }
       ]
@@ -1385,7 +1423,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
               scale: 1
             },
             renderZOrder: 1002,
-            activePresentationCues: [{ category: "Appearance", effectKey: "appearance.selection.silhouette.default", activationId: "appearance-2" }]
+            activePresentationCues: [{ category: "Highlight", effectKey: "appearance.selection.silhouette.default", activationId: "appearance-2" }]
           },
         }
       ]
@@ -1448,7 +1486,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
               scale: 1
             },
             renderZOrder: 1002,
-            activePresentationCues: [{ category: "Appearance", effectKey: "appearance.selection.silhouette.default", activationId: "appearance-active-1" }]
+            activePresentationCues: [{ category: "Highlight", effectKey: "appearance.selection.silhouette.default", activationId: "appearance-active-1" }]
           },
         }
       ]
@@ -1489,7 +1527,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
   it("preserves active cues when an Updated object omits the cue field", () => {
     const baseline = buildSessionData();
     baseline.roomChange!.newRoom!.renderableRoomObjects[0]!.activePresentationCues = [
-      { category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "cue-1" }
+      { category: "Highlight", effectKey: "appearance.selection.outline.cyan", activationId: "cue-1" }
     ];
     const previous = mapHostPresentationToSceneSnapshot(baseline)!;
     const roomObject = baseline.roomChange!.newRoom!.renderableRoomObjects[0]!;

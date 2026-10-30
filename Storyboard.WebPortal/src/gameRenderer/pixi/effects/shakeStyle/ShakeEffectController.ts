@@ -57,7 +57,7 @@ export function createShakeEffectController(): ShakeEffectController {
       for (const effect of shakeEffects) {
         const key = cueActivationKey(effect);
         state.activations.set(key, {
-          startedAtMs: state.activations.get(key)?.startedAtMs ?? nowMs,
+          startedAtMs: state.activations.get(key)?.startedAtMs ?? effect.activationStartAtMs ?? nowMs,
           style: effect.style
         });
       }

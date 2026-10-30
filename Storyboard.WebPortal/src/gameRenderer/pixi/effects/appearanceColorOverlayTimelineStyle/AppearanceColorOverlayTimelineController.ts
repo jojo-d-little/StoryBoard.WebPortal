@@ -67,6 +67,10 @@ export class AppearanceColorOverlayTimelineController {
   private readonly active = new Map<string, ActiveOverlay>();
   private readonly completedActivationIds = new Set<string>();
 
+  private completionKey(objectId: string, activationId: string): string {
+    return `${objectId}:${activationId}`;
+  }
+
   replaceEvent(objectId: string, timelineStartAtMs: number | undefined): void {
     const state = this.active.get(objectId);
     if (state && timelineStartAtMs !== undefined && state.effect.timelineStartAtMs !== timelineStartAtMs) this.remove(objectId);
@@ -75,7 +79,7 @@ export class AppearanceColorOverlayTimelineController {
   apply(objectId: string, host: Container, source: Sprite, effect: GameRenderAppearanceColorOverlayTimelineEffect | undefined): void {
     const prior = this.active.get(objectId);
     if (!effect) { this.remove(objectId); return; }
-    if (this.completedActivationIds.has(effect.activationId ?? "")) return;
+    if (this.completedActivationIds.has(this.completionKey(objectId, effect.activationId ?? ""))) return;
     if (prior && prior.activationId === effect.activationId) {
       prior.host = host; prior.source = source; this.sync(prior); return;
     }
@@ -103,7 +107,7 @@ export class AppearanceColorOverlayTimelineController {
       this.sync(state);
       if (value.done) {
         if (!state.finalFrameSampled) { state.finalFrameSampled = true; continue; }
-        this.completedActivationIds.add(state.activationId);
+        this.completedActivationIds.add(this.completionKey(objectId, state.activationId));
         if (this.completedActivationIds.size > 4096) this.completedActivationIds.delete(this.completedActivationIds.values().next().value ?? "");
         this.remove(objectId);
       }
@@ -114,7 +118,7 @@ export class AppearanceColorOverlayTimelineController {
     const state = this.active.get(objectId);
     if (!state) return;
     this.active.delete(objectId);
-    this.completedActivationIds.add(state.activationId);
+    this.completedActivationIds.add(this.completionKey(objectId, state.activationId));
     state.overlay.removeFromParent();
     state.filter.destroy();
     state.overlay.destroy();

@@ -13,15 +13,15 @@ export function resolveObjectVisualEffects(
   const effects: GameRenderResolvedObjectEffect[] = [];
   for (const cue of cues) {
     const category = normalizePresentationCategory(cue.category);
-    if (category !== "appearance" && category !== "lighting") continue;
+    if (category !== "highlight" && category !== "coloroverlay" && category !== "scale" && category !== "shake" && category !== "lighting") continue;
     const catalogEffect = catalog?.effects?.find((candidate) =>
       normalizePresentationCategory(candidate.category ?? "") === category
       && candidate.effectKey?.trim().toLowerCase() === cue.effectKey.trim().toLowerCase()
     );
     if (!catalogEffect) continue;
-    const identity = { effectKey: cue.effectKey, activationId: cue.activationId };
+    const identity = { effectKey: cue.effectKey, activationId: cue.activationId, activationStartAtMs: cue.activationStartAtMs };
 
-    if (category === "appearance" && catalogEffect.appearanceColorOverlayTimelineStyle) {
+    if (category === "coloroverlay" && catalogEffect.appearanceColorOverlayTimelineStyle) {
       const source = catalogEffect.appearanceColorOverlayTimelineStyle;
       const frames = source.timeline?.frames;
       const maskPolicy = source.maskPolicy;
@@ -69,17 +69,18 @@ export function resolveObjectVisualEffects(
       }
     }
 
-    if (category !== "appearance") continue;
+    if (category !== "highlight" && category !== "shake" && category !== "scale") continue;
 
-    if (catalogEffect.appearanceOutlineStyle) {
+    if (category === "highlight" && catalogEffect.appearanceOutlineStyle) {
       const style = resolveAppearanceOutlineStyle([cue], catalog);
       if (style) effects.push({ ...identity, kind: "appearanceOutlineStyle", style });
     }
-    if (catalogEffect.appearanceSilhouetteStyle) {
+    if (category === "highlight" && catalogEffect.appearanceSilhouetteStyle) {
       const style = resolveAppearanceSilhouetteStyle([cue], catalog);
       if (style) effects.push({ ...identity, kind: "appearanceSilhouetteStyle", style });
     }
 
+    if (category === "shake") {
     const horizontal = catalogEffect.shakeStyle?.horizontalDisplacementPx;
     const vertical = catalogEffect.shakeStyle?.verticalDisplacementPx;
     const speedHz = catalogEffect.shakeStyle?.speedHz;
@@ -92,7 +93,9 @@ export function resolveObjectVisualEffects(
         style: { horizontalDisplacementPx: horizontal!, verticalDisplacementPx: vertical!, speedHz: speedHz! }
       });
     }
+    }
 
+    if (category !== "scale") continue;
     const targetScaleMultiplier = catalogEffect.scaleStyle?.targetScaleMultiplier;
     const transitionDurationMs = catalogEffect.scaleStyle?.transitionDurationMs;
     if (Number.isFinite(targetScaleMultiplier) && targetScaleMultiplier! >= 0.1 && targetScaleMultiplier! <= 8

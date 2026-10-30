@@ -12,8 +12,7 @@ declare global { interface Window { __hostRestoreHarness?: { scene: GameRenderSc
 
 const client = new HostApiClient({ baseUrl: window.location.origin });
 const catalog = {
-  effects: (samplePresentationCatalog.categories as PresentationCueCatalogDocument["effects"] ?? [])
-    .filter((effect) => effect.category === "ParticleEffect" && effect.effectKey === "particle.candle")
+  effects: samplePresentationCatalog.effects as PresentationCueCatalogDocument["effects"]
 } satisfies PresentationCueCatalogDocument;
 function Harness(): JSX.Element {
   const [scene, setScene] = useState<GameRenderSceneSnapshot | null>(null);

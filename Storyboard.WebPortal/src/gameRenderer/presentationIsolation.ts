@@ -3,7 +3,10 @@ import type { PresentationCueCatalogDocument } from "./contracts/presentationEff
 export type PresentationIsolationCategory =
   | "movement"
   | "roomTransition"
-  | "appearance"
+  | "scale"
+  | "shake"
+  | "highlight"
+  | "colorOverlay"
   | "styledPointEffect"
   | "text";
 
@@ -29,7 +32,10 @@ export const DEFAULT_PRESENTATION_ISOLATION_SETTINGS: PresentationIsolationSetti
   categories: {
     movement: true,
     roomTransition: true,
-    appearance: true,
+    scale: true,
+    shake: true,
+    highlight: true,
+    colorOverlay: true,
     styledPointEffect: true,
     text: true
   }
@@ -38,7 +44,10 @@ export const DEFAULT_PRESENTATION_ISOLATION_SETTINGS: PresentationIsolationSetti
 const APPROVED_PRESENTATION_ISOLATION_CATEGORIES: readonly PresentationIsolationCategoryOption[] = [
   { key: "movement", label: "Movement", catalogCategory: "Movement" },
   { key: "roomTransition", label: "Room Transition", catalogCategory: "RoomTransition" },
-  { key: "appearance", label: "Appearance", catalogCategory: "Appearance" },
+  { key: "scale", label: "Scale", catalogCategory: "Scale" },
+  { key: "shake", label: "Shake", catalogCategory: "Shake" },
+  { key: "highlight", label: "Highlight", catalogCategory: "Highlight" },
+  { key: "colorOverlay", label: "Color Overlay", catalogCategory: "ColorOverlay" },
   { key: "styledPointEffect", label: "Styled Point Effect", catalogCategory: "StyledPointEffect" },
   { key: "text", label: "Text", catalogCategory: "Text" }
 ];

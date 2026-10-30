@@ -13,6 +13,7 @@ import { AppearanceColorOverlayTimelineController } from "./effects/appearanceCo
 import { PointLightTimelineController } from "./effects/pointLightTimelineStyle/PointLightTimelineController";
 import { createShakeEffectController, type ShakeEffectController } from "./effects/shakeStyle/ShakeEffectController";
 import { createScaleEffectController, type ScaleEffectController } from "./effects/scaleStyle/ScaleEffectController";
+import { projectPresentationCueSource } from "./presentationCueSourceProjection";
 import { captureRoomTexture, type CapturedRoomTexture } from "./RoomSnapshotRenderer";
 import { RoomLightingController } from "./lighting/RoomLightingController";
 import { TopDownEffects } from "@jojo-d-little/storyboard-particles";
@@ -547,14 +548,39 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     state.effectTransformHost = wrapper;
   }
 
+  function projectAttachedSourceThroughCue(
+    object: GameRenderSceneSnapshot["objectsById"][string],
+    state: RoomObjectSpriteState | undefined,
+    x: number,
+    y: number
+  ): { x: number; y: number } {
+    if (!state || !object.sprite) return { x, y };
+    const fitScale = Number.isFinite(object.sprite.scale) && object.sprite.scale > 0 ? object.sprite.scale : 1;
+    const cueScale = Number.isFinite(state.scaleStyleContainer.scale.x) ? state.scaleStyleContainer.scale.x : 1;
+    return projectPresentationCueSource({
+      sourceX: x,
+      sourceY: y,
+      anchorX: state.root.position.x,
+      anchorY: state.root.position.y,
+      rotationRadians: state.root.rotation,
+      artworkFitScale: fitScale,
+      pivotLocalX: state.scaleCenterX,
+      pivotLocalY: state.scaleCenterY,
+      cueScale,
+      shakeLocalX: state.shakeStyleContainer.position.x,
+      shakeLocalY: state.shakeStyleContainer.position.y
+    });
+  }
+
   function updateObjectCueAnimations(_ticker: Ticker): void {
     if (isDisposed) return;
-    const enabled = isPresentationCategoryEnabled(presentationIsolationSettings, "appearance");
     const nowMs = performance.now();
-    activeRoomSurface.shakeEffectController.tick(nowMs, enabled);
-    activeRoomSurface.scaleEffectController.tick(nowMs, enabled);
-    stagingRoomSurface.shakeEffectController.tick(nowMs, enabled);
-    stagingRoomSurface.scaleEffectController.tick(nowMs, enabled);
+    const shakeEnabled = isPresentationCategoryEnabled(presentationIsolationSettings, "shake");
+    const scaleEnabled = isPresentationCategoryEnabled(presentationIsolationSettings, "scale");
+    activeRoomSurface.shakeEffectController.tick(nowMs, shakeEnabled);
+    activeRoomSurface.scaleEffectController.tick(nowMs, scaleEnabled);
+    stagingRoomSurface.shakeEffectController.tick(nowMs, shakeEnabled);
+    stagingRoomSurface.scaleEffectController.tick(nowMs, scaleEnabled);
   }
   function emit(level: "debug" | "info" | "warning" | "error", message: string, details?: unknown): void {
     diagnostics?.({
@@ -1407,8 +1433,13 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         position,
         scene.lighting?.cellSizePx ?? Number.NaN
       );
+      const sourcePoint = lighting.pointLight;
+      const state = activeRoomSurface.roomObjectSpritesById.get(objectId);
+      const cuePoint = sourcePoint && state
+        ? projectAttachedSourceThroughCue(object, state, sourcePoint.x, sourcePoint.y)
+        : sourcePoint;
       objectsById ??= { ...projected.objectsById };
-      objectsById[objectId] = { ...object, lighting };
+      objectsById[objectId] = { ...object, lighting: { ...lighting, ...(cuePoint ? { pointLight: { ...sourcePoint!, ...cuePoint } } : {}) } };
     }
     const projectedScene = objectsById ? { ...projected, objectsById } : projected;
     return activeRoomSurface.pointLightTimelineController.applyToScene(projectedScene, performance.now());
@@ -1730,7 +1761,12 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
             const easedProgress = progress * (2 - progress);
             anchorTween.currentX = activeSegment.fromX + ((activeSegment.toX - activeSegment.fromX) * easedProgress);
             anchorTween.currentY = activeSegment.fromY + ((activeSegment.toY - activeSegment.fromY) * easedProgress);
-            anchors.set(object.objectId, { x: anchorTween.currentX, y: anchorTween.currentY });
+            anchors.set(object.objectId, projectAttachedSourceThroughCue(
+              object,
+              state,
+              anchorTween.currentX,
+              anchorTween.currentY
+            ));
             if (progress >= 1) {
               anchorTween.currentX = activeSegment.toX;
               anchorTween.currentY = activeSegment.toY;
@@ -1744,10 +1780,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
             continue;
           }
           if (!sprite || !state) continue;
-          anchors.set(object.objectId, {
-            x: state.root.position.x + (effect.x - sprite.x),
-            y: state.root.position.y + (effect.y - sprite.y)
-          });
+          anchors.set(object.objectId, projectAttachedSourceThroughCue(object, state, state.root.position.x + (effect.x - sprite.x), state.root.position.y + (effect.y - sprite.y)));
         }
       }
       surface.particleEffectSceneController?.setObjectAnchorOverrides(anchors);
@@ -1852,8 +1885,12 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       && !isPresentationCategoryEnabled(presentationIsolationSettings, "movement");
     const roomTransitionDisabled = previousSettings.enabled
       && !isPresentationCategoryEnabled(presentationIsolationSettings, "roomTransition");
-    const appearanceDisabled = previousSettings.enabled
-      && !isPresentationCategoryEnabled(presentationIsolationSettings, "appearance");
+    const highlightDisabled = previousSettings.enabled
+      && isPresentationCategoryEnabled(previousSettings, "highlight")
+      && !isPresentationCategoryEnabled(presentationIsolationSettings, "highlight");
+    const colorOverlayDisabled = previousSettings.enabled
+      && isPresentationCategoryEnabled(previousSettings, "colorOverlay")
+      && !isPresentationCategoryEnabled(presentationIsolationSettings, "colorOverlay");
     const styledPointDisabled = previousSettings.enabled
       && !isPresentationCategoryEnabled(presentationIsolationSettings, "styledPointEffect");
     const particleEffectsWereEnabled = previousSettings.enabled && previousSettings.particleEffectsEnabled;
@@ -1886,12 +1923,14 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       clearPreparedOutgoingSnapshot();
     }
 
-    if (appearanceDisabled || !presentationIsolationSettings.enabled) {
+    if (highlightDisabled || !presentationIsolationSettings.enabled) {
       activeRoomSurface.appearanceOutlineEffectController.clear();
       activeRoomSurface.appearanceSilhouetteEffectController.clear();
-      activeRoomSurface.appearanceColorOverlayTimelineController.clear();
       stagingRoomSurface.appearanceOutlineEffectController.clear();
       stagingRoomSurface.appearanceSilhouetteEffectController.clear();
+    }
+    if (colorOverlayDisabled || !presentationIsolationSettings.enabled) {
+      activeRoomSurface.appearanceColorOverlayTimelineController.clear();
       stagingRoomSurface.appearanceColorOverlayTimelineController.clear();
     }
 
@@ -1913,7 +1952,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       categories: presentationIsolationSettings.categories,
       movementEffectsCompleted: movementDisabled || !presentationIsolationSettings.enabled,
       roomTransitionCompleted: roomTransitionDisabled || !presentationIsolationSettings.enabled,
-      appearanceEffectsCleared: appearanceDisabled || !presentationIsolationSettings.enabled,
+      appearanceEffectsCleared: highlightDisabled || colorOverlayDisabled || !presentationIsolationSettings.enabled,
       styledPointEffectsCleared: styledPointDisabled || !presentationIsolationSettings.enabled
     });
   }
@@ -2131,7 +2170,6 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     previousScene: GameRenderSceneSnapshot | null,
     surface: RoomSurfaceState
   ): Promise<void> {
-    const appearanceEffectsEnabled = isPresentationCategoryEnabled(presentationIsolationSettings, "appearance");
     const movementEffectsEnabled = isPresentationCategoryEnabled(presentationIsolationSettings, "movement");
     const isBaseline = !previousScene || previousScene.roomId !== scene.roomId;
     const roomObjects = selectRenderableRoomObjects(scene);
@@ -2152,7 +2190,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     let objectsWithSilhouetteEffects = 0;
     let objectsWithSilhouetteStyle = 0;
     for (const roomObject of roomObjects) {
-      const appearanceCues = roomObject.activePresentationCues.filter((cue) => cue.category.toLowerCase() === "appearance");
+      const appearanceCues = roomObject.activePresentationCues.filter((cue) => cue.category.toLowerCase() === "highlight");
       if (appearanceCues.length > 0) {
         objectsWithAppearanceCues += 1;
       }
@@ -2322,7 +2360,15 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         const targetBaseScale = Number.isFinite(roomObject.scale) && roomObject.scale > 0 ? roomObject.scale : 1;
         const targetSituationalScale = normalizeSituationalScale(roomObject.additionalSituationalScale);
         const spatialFootprint = scene.objectsById[roomObject.objectId]?.lighting?.spatialFootprint;
-        if (Number.isFinite(spatialFootprint?.footprintCenterXpx)
+        const pivotOffsetX = roomObjectSpriteState.situationalScalePivotOffsetFromImageXPx;
+        const pivotOffsetY = roomObjectSpriteState.situationalScalePivotOffsetFromImageYPx;
+        if (pivotOffsetX !== null && pivotOffsetY !== null) {
+          const angle = toRadians(roomObject.rotationDegrees);
+          const cos = Math.cos(angle);
+          const sin = Math.sin(angle);
+          roomObjectSpriteState.scaleCenterX = ((pivotOffsetX * cos) + (pivotOffsetY * sin)) / targetBaseScale;
+          roomObjectSpriteState.scaleCenterY = ((pivotOffsetY * cos) - (pivotOffsetX * sin)) / targetBaseScale;
+        } else if (Number.isFinite(spatialFootprint?.footprintCenterXpx)
           && Number.isFinite(spatialFootprint?.footprintCenterYpx)) {
           const roomOffsetX = Number(spatialFootprint?.footprintCenterXpx) - roomObject.x;
           const roomOffsetY = Number(spatialFootprint?.footprintCenterYpx) - roomObject.y;
@@ -2345,20 +2391,27 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         roomObjectSpriteState.root.rotation = toRadians(roomObject.rotationDegrees);
         roomObjectSpriteState.root.zIndex = currentZOrder;
         applyScaleLayers(roomObjectSpriteState, currentBaseScale, currentSituationalScale);
+        const resolvedEffects = roomObject.resolvedObjectEffects ?? [];
+        const enabledShakeEffects = isPresentationCategoryEnabled(presentationIsolationSettings, "shake")
+          ? resolvedEffects.filter((effect) => effect.kind === "shakeStyle") : [];
+        const enabledScaleEffects = isPresentationCategoryEnabled(presentationIsolationSettings, "scale")
+          ? resolvedEffects.filter((effect) => effect.kind === "scaleStyle") : [];
         surface.shakeEffectController.reconcileObject(
           roomObject.objectId,
           roomObjectSpriteState.shakeStyleContainer,
-          roomObject.resolvedObjectEffects ?? []
+          enabledShakeEffects
         );
         surface.scaleEffectController.reconcileObject(
           roomObject.objectId,
           roomObjectSpriteState.scaleStyleContainer,
-          roomObject.resolvedObjectEffects ?? [],
+          enabledScaleEffects,
           isBaseline,
           previousRoomObject?.resolvedObjectEffects ?? []
         );
 
-        if (appearanceEffectsEnabled) {
+        const highlightEnabled = isPresentationCategoryEnabled(presentationIsolationSettings, "highlight");
+        const colorOverlayEnabled = isPresentationCategoryEnabled(presentationIsolationSettings, "colorOverlay");
+        if (highlightEnabled || colorOverlayEnabled) {
           const resolvedOutline = roomObject.resolvedObjectEffects?.find((effect) => effect.kind === "appearanceOutlineStyle");
           const resolvedSilhouette = roomObject.resolvedObjectEffects?.find((effect) => effect.kind === "appearanceSilhouetteStyle");
           surface.appearanceOutlineEffectController.applyForObject(
@@ -2366,7 +2419,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
             roomObject.objectName,
             roomObjectSpriteState.effectTransformHost,
             roomObjectSpriteState.sprite,
-            roomObject.resolvedObjectEffects
+            highlightEnabled && roomObject.resolvedObjectEffects
               ? (resolvedOutline?.kind === "appearanceOutlineStyle" ? resolvedOutline.style : undefined)
               : roomObject.appearanceOutlineStyle);
           surface.appearanceSilhouetteEffectController.applyForObject(
@@ -2374,10 +2427,10 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
             roomObject.objectName,
             roomObjectSpriteState.effectTransformHost,
             roomObjectSpriteState.sprite,
-            roomObject.resolvedObjectEffects
+            highlightEnabled && roomObject.resolvedObjectEffects
               ? (resolvedSilhouette?.kind === "appearanceSilhouetteStyle" ? resolvedSilhouette.style : undefined)
               : roomObject.appearanceSilhouetteStyle);
-          const overlayEffect = roomObject.resolvedObjectEffects?.find((effect) => effect.kind === "appearanceColorOverlayTimelineStyle");
+          const overlayEffect = colorOverlayEnabled ? roomObject.resolvedObjectEffects?.find((effect) => effect.kind === "appearanceColorOverlayTimelineStyle") : undefined;
           const eventStartAtMs = Math.max(-1, ...roomObject.activePresentationCues
             .filter((cue) => Number.isFinite(cue.timelineStartAtMs))
             .map((cue) => cue.timelineStartAtMs!));

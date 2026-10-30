@@ -66,6 +66,7 @@ export function createScaleEffectController(): ScaleEffectController {
         const existing = state.activations.get(key);
         state.activations.set(key, {
           startedAtMs: existing?.startedAtMs
+            ?? effect.activationStartAtMs
             ?? (isBaseline || previousKeys.has(key) ? nowMs - effect.style.transitionDurationMs : nowMs),
           fromMultiplier: existing?.fromMultiplier ?? 1,
           style: effect.style

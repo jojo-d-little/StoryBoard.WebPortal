@@ -16,7 +16,10 @@ describe("presentation isolation settings", () => {
       categories: {
         movement: true,
         roomTransition: true,
-        appearance: true,
+        scale: true,
+        shake: true,
+        highlight: true,
+        colorOverlay: true,
         styledPointEffect: true,
         text: true
       }
@@ -63,5 +66,21 @@ describe("presentation isolation settings", () => {
 
     expect(options.map((option) => option.key)).toEqual(["movement", "roomTransition"]);
     expect(options[1]?.catalogCategory).toBe("Room Transition");
+  });
+
+  it("keeps the four new cue categories independently controllable", () => {
+    const categories = { ...DEFAULT_PRESENTATION_ISOLATION_SETTINGS.categories, shake: false };
+    const settings = { ...DEFAULT_PRESENTATION_ISOLATION_SETTINGS, categories };
+    expect(isPresentationCategoryEnabled(settings, "Scale")).toBe(true);
+    expect(isPresentationCategoryEnabled(settings, "Shake")).toBe(false);
+    expect(isPresentationCategoryEnabled(settings, "Highlight")).toBe(true);
+    expect(isPresentationCategoryEnabled(settings, "ColorOverlay")).toBe(true);
+    const options = resolvePresentationIsolationCategoryOptions({ effects: [
+      { category: "Scale", effectKey: "scale.grow.large" },
+      { category: "Shake", effectKey: "shake.large.fast" },
+      { category: "Highlight", effectKey: "appearance.selection.outline.cyan" },
+      { category: "ColorOverlay", effectKey: "appearance.overlay.lightning" }
+    ] });
+    expect(options.map((option) => option.catalogCategory)).toEqual(["Scale", "Shake", "Highlight", "ColorOverlay"]);
   });
 });

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HostCommandSoundCue, HostSessionPresentationData } from "../hostApi/HostContracts";
 import type { GameRenderSceneSnapshot } from "../gameRenderer/contracts/sceneTypes";
-import { useHostRendererSessionWorkflow } from "./useHostRendererSessionWorkflow";
+import { buildParticleEffectCatalog, useHostRendererSessionWorkflow } from "./useHostRendererSessionWorkflow";
 import type { HostApiClient } from "../hostApi/client";
 import { webPortalAssetCache } from "../cache/webPortalAssetCache";
 
@@ -154,7 +154,7 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
         scale: 1
       },
       renderZOrder: 1,
-      activePresentationCues: [{ category: "Appearance" as const, effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
+      activePresentationCues: [{ category: "Highlight" as const, effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
     };
     const delta = (changeKind: "Shown" | "Hidden", watermark: string): HostSessionPresentationData => ({
       sessionDeltaWatermark: watermark,
@@ -585,5 +585,22 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
     });
     expect(pollingOptions.isPaused()).toBe(false);
     expect(consumeSessionDeltaPhasePresentation).toHaveBeenCalledWith(roomChange);
+  });
+});
+
+describe("particle catalog category consumption", () => {
+  it("discovers each new particle category while preserving recipe rendering modes", () => {
+    const renderingModes = ["point", "room", "overlay", "stain"] as const;
+    const categories = ["PointParticleEffect", "AtmosphericParticleEffect", "AtmosphericOverlayEffect", "StainEffect"];
+    const mapped = buildParticleEffectCatalog({
+      schemaVersion: "2.0",
+      effects: categories.map((category, index) => ({
+        category,
+        effectKey: `particle.test.${index}`,
+        particleEffect: { recipe: { renderingMode: renderingModes[index] } }
+      })) as never
+    });
+    expect(mapped?.map((effect) => effect.particleEffect.recipe.renderingMode)).toEqual(renderingModes);
+    expect(mapped?.map((effect) => effect.effectKey)).toEqual(["particle.test.0", "particle.test.1", "particle.test.2", "particle.test.3"]);
   });
 });

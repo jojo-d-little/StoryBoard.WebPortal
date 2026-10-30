@@ -7,6 +7,7 @@ import type { GameRenderScaleStyle } from "./GameRenderScaleStyle";
 export interface GameRenderResolvedObjectEffectIdentity {
   effectKey: string;
   activationId?: string;
+  activationStartAtMs?: number;
 }
 
 export interface GameRenderAppearanceOutlineEffect extends GameRenderResolvedObjectEffectIdentity {

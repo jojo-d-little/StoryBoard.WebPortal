@@ -21,6 +21,10 @@ export class PointLightTimelineController {
   private readonly lastReportedFrameByActivation = new Map<string, number>();
   constructor(private readonly diagnostics?: GameRendererDiagnosticsSink) {}
 
+  private completionKey(objectId: string, activationId: string): string {
+    return `${objectId}:${activationId}`;
+  }
+
   replaceEvent(objectId: string, timelineStartAtMs: number | undefined): void {
     const state = this.active.get(objectId);
     if (state && timelineStartAtMs !== undefined && state.effect.timelineStartAtMs !== timelineStartAtMs) this.remove(objectId);
@@ -29,7 +33,7 @@ export class PointLightTimelineController {
   apply(objectId: string, effect: GameRenderPointLightTimelineEffect | undefined, baseline: GameRenderPointLight | undefined): void {
     if (!effect) return;
     const activationId = effect.activationId ?? "";
-    if (this.completed.has(activationId)) return;
+    if (this.completed.has(this.completionKey(objectId, activationId))) return;
     if (!baseline) {
       this.diagnostics?.({ category: "scene", level: "warning", message: "Skipped point-light timeline because the target has no usable point light.", details: { objectId, effectKey: effect.effectKey, activationId } });
       return;
@@ -62,7 +66,7 @@ export class PointLightTimelineController {
 
   remove(objectId: string): void {
     const existing = this.active.get(objectId);
-    if (existing) this.completed.add(existing.activationId);
+    if (existing) this.completed.add(this.completionKey(objectId, existing.activationId));
     this.active.delete(objectId);
   }
   clear(): void { for (const objectId of [...this.active.keys()]) this.remove(objectId); }
@@ -77,7 +81,7 @@ export class PointLightTimelineController {
       const last = frames[frames.length - 1];
       if (elapsed >= last.atMs && active.finalFrameSampled) {
         this.active.delete(objectId);
-        this.completed.add(active.activationId);
+        this.completed.add(this.completionKey(objectId, active.activationId));
         if (this.completed.size > 4096) this.completed.delete(this.completed.values().next().value ?? "");
         continue;
       }

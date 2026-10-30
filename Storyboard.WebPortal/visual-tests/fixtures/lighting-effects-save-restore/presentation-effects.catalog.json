@@ -3,39 +3,93 @@
   "categories": [
     {
       "category": "Movement",
-      "objectCueEligible": true
+      "objectCueEligible": true,
+      "childCueInheritanceEligible": true,
+      "childCueInheritanceDefault": true
     },
     {
-      "category": "Appearance",
-      "objectCueEligible": true
+      "category": "Scale",
+      "objectCueEligible": true,
+      "childCueInheritanceEligible": true,
+      "childCueInheritanceDefault": true
+    },
+    {
+      "category": "Shake",
+      "objectCueEligible": true,
+      "childCueInheritanceEligible": true,
+      "childCueInheritanceDefault": false
+    },
+    {
+      "category": "Highlight",
+      "objectCueEligible": true,
+      "childCueInheritanceEligible": true,
+      "childCueInheritanceDefault": false
+    },
+    {
+      "category": "ColorOverlay",
+      "objectCueEligible": true,
+      "childCueInheritanceEligible": true,
+      "childCueInheritanceDefault": false
     },
     {
       "category": "Disappearance",
-      "objectCueEligible": true
+      "objectCueEligible": true,
+      "childCueInheritanceEligible": false,
+      "childCueInheritanceDefault": false
     },
     {
       "category": "Text",
-      "objectCueEligible": false
+      "objectCueEligible": false,
+      "childCueInheritanceEligible": false,
+      "childCueInheritanceDefault": false
     },
     {
       "category": "RoomTransition",
-      "objectCueEligible": false
+      "objectCueEligible": false,
+      "childCueInheritanceEligible": false,
+      "childCueInheritanceDefault": false
     },
     {
       "category": "StyledPointEffect",
-      "objectCueEligible": true
+      "objectCueEligible": true,
+      "childCueInheritanceEligible": false,
+      "childCueInheritanceDefault": false
     },
     {
       "category": "Custom",
-      "objectCueEligible": true
+      "objectCueEligible": true,
+      "childCueInheritanceEligible": false,
+      "childCueInheritanceDefault": false
     },
     {
       "category": "Lighting",
-      "objectCueEligible": true
+      "objectCueEligible": true,
+      "childCueInheritanceEligible": false,
+      "childCueInheritanceDefault": false
     },
     {
-      "category": "ParticleEffect",
-      "objectCueEligible": true
+      "category": "PointParticleEffect",
+      "objectCueEligible": true,
+      "childCueInheritanceEligible": false,
+      "childCueInheritanceDefault": false
+    },
+    {
+      "category": "AtmosphericParticleEffect",
+      "objectCueEligible": true,
+      "childCueInheritanceEligible": false,
+      "childCueInheritanceDefault": false
+    },
+    {
+      "category": "AtmosphericOverlayEffect",
+      "objectCueEligible": true,
+      "childCueInheritanceEligible": false,
+      "childCueInheritanceDefault": false
+    },
+    {
+      "category": "StainEffect",
+      "objectCueEligible": true,
+      "childCueInheritanceEligible": false,
+      "childCueInheritanceDefault": false
     }
   ],
   "effects": [
@@ -132,7 +186,7 @@
       }
     },
     {
-      "category": "Appearance",
+      "category": "Highlight",
       "effectKey": "appearance.selection.outline.cyan",
       "displayName": "Selection Outline - Cyan",
       "appearanceOutlineStyle": {
@@ -142,7 +196,7 @@
       }
     },
     {
-      "category": "Appearance",
+      "category": "Highlight",
       "effectKey": "appearance.selection.outline.amber",
       "displayName": "Selection Outline - Amber",
       "appearanceOutlineStyle": {
@@ -152,7 +206,7 @@
       }
     },
     {
-      "category": "Appearance",
+      "category": "Highlight",
       "effectKey": "appearance.selection.outline.green",
       "displayName": "Selection Outline - Green",
       "appearanceOutlineStyle": {
@@ -162,7 +216,7 @@
       }
     },
     {
-      "category": "Appearance",
+      "category": "Highlight",
       "effectKey": "appearance.selection.outline.danger",
       "displayName": "Selection Outline - Danger",
       "appearanceOutlineStyle": {
@@ -172,7 +226,7 @@
       }
     },
     {
-      "category": "Appearance",
+      "category": "Shake",
       "effectKey": "shake.slowgrind",
       "displayName": "Object Shake - Slow Grind",
       "shakeStyle": {
@@ -182,7 +236,7 @@
       }
     },
     {
-      "category": "Appearance",
+      "category": "Shake",
       "effectKey": "shake.small.quick",
       "displayName": "Object Shake - Small and Quick",
       "shakeStyle": {
@@ -192,7 +246,7 @@
       }
     },
     {
-      "category": "Appearance",
+      "category": "Shake",
       "effectKey": "shake.large.slow",
       "displayName": "Object Shake - Large and Slow",
       "shakeStyle": {
@@ -202,7 +256,7 @@
       }
     },
     {
-      "category": "Appearance",
+      "category": "Shake",
       "effectKey": "shake.large.fast",
       "displayName": "Object Shake - Large and Fast",
       "shakeStyle": {
@@ -212,7 +266,7 @@
       }
     },
     {
-      "category": "Appearance",
+      "category": "Scale",
       "effectKey": "scale.grow.medium",
       "displayName": "Object Scale Up - Medium",
       "scaleStyle": {
@@ -221,7 +275,7 @@
       }
     },
     {
-      "category": "Appearance",
+      "category": "Scale",
       "effectKey": "scale.grow.large",
       "displayName": "Object Scale Up - Large",
       "scaleStyle": {
@@ -230,7 +284,7 @@
       }
     },
     {
-      "category": "Appearance",
+      "category": "Scale",
       "effectKey": "scale.shrink.medium",
       "displayName": "Object Scale Down - Medium",
       "scaleStyle": {
@@ -239,7 +293,7 @@
       }
     },
     {
-      "category": "Appearance",
+      "category": "Scale",
       "effectKey": "scale.shrink.slow.deep",
       "displayName": "Object Scale Down - Slow and Deep",
       "scaleStyle": {
@@ -248,7 +302,7 @@
       }
     },
     {
-      "category": "Appearance",
+      "category": "Scale",
       "effectKey": "scale.grow.slow.deep",
       "displayName": "Object Scale Up - Slow and Deep",
       "scaleStyle": {
@@ -257,7 +311,7 @@
       }
     },
     {
-      "category": "Appearance",
+      "category": "Highlight",
       "effectKey": "appearance.selection.silhouette.cyan",
       "displayName": "Silhouette Pulse - Cyan",
       "fallbackEffectKey": "appearance.selection.outline.cyan",
@@ -306,7 +360,7 @@
       }
     },
     {
-      "category": "Appearance",
+      "category": "Highlight",
       "effectKey": "appearance.silhouette.green",
       "displayName": "Silhouette Pulse - Green",
       "fallbackEffectKey": "appearance.selection.outline.green",
@@ -355,7 +409,7 @@
       }
     },
     {
-      "category": "Appearance",
+      "category": "Highlight",
       "effectKey": "appearance.selection.silhouette.amber",
       "displayName": "Silhouette - Amber",
       "fallbackEffectKey": "appearance.selection.outline.amber",
@@ -784,7 +838,7 @@
       }
     },
     {
-      "category": "Appearance",
+      "category": "ColorOverlay",
       "effectKey": "appearance.overlay.lightning",
       "displayName": "Lightning Pane Flash",
       "appearanceColorOverlayTimelineStyle": {
@@ -1017,7 +1071,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "AtmosphericParticleEffect",
       "effectKey": "particle.rain",
       "displayName": "rain",
       "particleEffect": {
@@ -1112,7 +1166,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "PointParticleEffect",
       "effectKey": "particle.campfire",
       "displayName": "campfire",
       "particleEffect": {
@@ -1235,7 +1289,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "PointParticleEffect",
       "effectKey": "particle.campfire.smoke",
       "displayName": "campfire smoke",
       "particleEffect": {
@@ -1294,7 +1348,125 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "PointParticleEffect",
+      "effectKey": "particle.campfire.smoke.fade",
+      "displayName": "campfire smoke (fade)",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "point",
+          "family": "smoke",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": 2000
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "smoke",
+              "textureId": "smoke-puff",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 4,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 32,
+                "innerRadiusPx": 20
+              },
+              "lifeMinSeconds": 1.2,
+              "lifeMaxSeconds": 2.3,
+              "startElevationCells": 0.1,
+              "endElevationCells": 2,
+              "velocityXMinPxPerSecond": -9,
+              "velocityXMaxPxPerSecond": 9,
+              "velocityYMinPxPerSecond": -9,
+              "velocityYMaxPxPerSecond": 9,
+              "startWidthPx": 8,
+              "startHeightPx": 8,
+              "endWidthPx": 40,
+              "endHeightPx": 40,
+              "startColor": "#a5a1a0",
+              "endColor": "#d1ced0",
+              "startAlpha": 0.35,
+              "endAlpha": 0,
+              "occludeByCells": true,
+              "role": "smoke",
+              "isWindBlown": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              }
+            }
+          ]
+        },
+        "imageSlots": {
+          "candle-smoke": "candle-smoke",
+          "smoke-puff": "smoke-puff"
+        }
+      }
+    },
+    {
+      "category": "PointParticleEffect",
+      "effectKey": "particle.campfire.smoke.immediate",
+      "displayName": "campfire smoke (immediate)",
+      "particleEffect": {
+        "recipe": {
+          "renderingMode": "point",
+          "family": "smoke",
+          "lifecycle": {
+            "transitionTimeMs": 10000,
+            "removalDurationMs": 0
+          },
+          "presentation": {
+            "colorChangeMode": "birth-snapshot"
+          },
+          "streams": [
+            {
+              "id": "smoke",
+              "textureId": "smoke-puff",
+              "layer": "pre-light",
+              "blendMode": "normal",
+              "ratePerSecond": 4,
+              "spawn": {
+                "kind": "point",
+                "radiusPx": 32,
+                "innerRadiusPx": 20
+              },
+              "lifeMinSeconds": 1.2,
+              "lifeMaxSeconds": 2.3,
+              "startElevationCells": 0.1,
+              "endElevationCells": 2,
+              "velocityXMinPxPerSecond": -9,
+              "velocityXMaxPxPerSecond": 9,
+              "velocityYMinPxPerSecond": -9,
+              "velocityYMaxPxPerSecond": 9,
+              "startWidthPx": 8,
+              "startHeightPx": 8,
+              "endWidthPx": 40,
+              "endHeightPx": 40,
+              "startColor": "#a5a1a0",
+              "endColor": "#d1ced0",
+              "startAlpha": 0.35,
+              "endAlpha": 0,
+              "occludeByCells": true,
+              "role": "smoke",
+              "isWindBlown": true,
+              "colorBinding": {
+                "control": "Colors",
+                "mode": "transition"
+              }
+            }
+          ]
+        },
+        "imageSlots": {
+          "candle-smoke": "candle-smoke",
+          "smoke-puff": "smoke-puff"
+        }
+      }
+    },
+    {
+      "category": "PointParticleEffect",
       "effectKey": "particle.torch",
       "displayName": "torch",
       "particleEffect": {
@@ -1453,7 +1625,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "PointParticleEffect",
       "effectKey": "particle.torch.smoke",
       "displayName": "torch smoke",
       "particleEffect": {
@@ -1511,7 +1683,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "PointParticleEffect",
       "effectKey": "particle.candle",
       "displayName": "candle",
       "particleEffect": {
@@ -1637,7 +1809,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "PointParticleEffect",
       "effectKey": "particle.candle.smoke",
       "displayName": "candle smoke",
       "particleEffect": {
@@ -1698,7 +1870,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "PointParticleEffect",
       "effectKey": "particle.water-spatter",
       "displayName": "water-spatter",
       "particleEffect": {
@@ -1756,7 +1928,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "PointParticleEffect",
       "effectKey": "particle.electrical-sparks",
       "displayName": "electrical-sparks",
       "particleEffect": {
@@ -1816,7 +1988,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "PointParticleEffect",
       "effectKey": "particle.wall-debris",
       "displayName": "wall-debris",
       "particleEffect": {
@@ -1912,7 +2084,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "PointParticleEffect",
       "effectKey": "particle.pipe-steam",
       "displayName": "pipe-steam",
       "particleEffect": {
@@ -1968,7 +2140,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "PointParticleEffect",
       "effectKey": "particle.impact-dust",
       "displayName": "impact-dust",
       "particleEffect": {
@@ -2026,7 +2198,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "PointParticleEffect",
       "effectKey": "particle.leaking-drip",
       "displayName": "leaking-drip",
       "particleEffect": {
@@ -2082,7 +2254,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "PointParticleEffect",
       "effectKey": "particle.insect-orbit",
       "displayName": "insect-orbit",
       "particleEffect": {
@@ -2142,7 +2314,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "PointParticleEffect",
       "effectKey": "particle.magic-aura",
       "displayName": "magic-aura",
       "particleEffect": {
@@ -2198,7 +2370,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "PointParticleEffect",
       "effectKey": "particle.toxic-cloud",
       "displayName": "toxic-cloud",
       "particleEffect": {
@@ -2257,7 +2429,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "AtmosphericParticleEffect",
       "effectKey": "particle.snowfall",
       "displayName": "snowfall",
       "particleEffect": {
@@ -2316,7 +2488,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "AtmosphericParticleEffect",
       "effectKey": "particle.hail",
       "displayName": "hail",
       "particleEffect": {
@@ -2410,7 +2582,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "AtmosphericParticleEffect",
       "effectKey": "particle.ashfall",
       "displayName": "ashfall",
       "particleEffect": {
@@ -2469,7 +2641,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "AtmosphericParticleEffect",
       "effectKey": "particle.cinderfall",
       "displayName": "cinderfall",
       "particleEffect": {
@@ -2563,7 +2735,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "AtmosphericParticleEffect",
       "effectKey": "particle.drifting-motes",
       "displayName": "drifting-motes",
       "particleEffect": {
@@ -2623,7 +2795,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "AtmosphericParticleEffect",
       "effectKey": "particle.organic-motes",
       "displayName": "organic-motes",
       "particleEffect": {
@@ -2683,7 +2855,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "AtmosphericParticleEffect",
       "effectKey": "particle.oak-leaves",
       "displayName": "oak-leaves",
       "particleEffect": {
@@ -2753,7 +2925,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "AtmosphericParticleEffect",
       "effectKey": "particle.maple-leaves",
       "displayName": "maple-leaves",
       "particleEffect": {
@@ -2823,7 +2995,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "AtmosphericParticleEffect",
       "effectKey": "particle.oval-leaves",
       "displayName": "oval-leaves",
       "particleEffect": {
@@ -2893,7 +3065,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "AtmosphericParticleEffect",
       "effectKey": "particle.mixed-leaves",
       "displayName": "mixed-leaves",
       "particleEffect": {
@@ -3039,7 +3211,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "AtmosphericOverlayEffect",
       "effectKey": "particle.fog",
       "displayName": "fog",
       "particleEffect": {
@@ -3070,7 +3242,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "AtmosphericOverlayEffect",
       "effectKey": "particle.cloud",
       "displayName": "cloud",
       "particleEffect": {
@@ -3101,7 +3273,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "StainEffect",
       "effectKey": "particle.stain.splatter",
       "displayName": "splatter",
       "particleEffect": {
@@ -3153,7 +3325,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "StainEffect",
       "effectKey": "particle.stain.patch",
       "displayName": "patch",
       "particleEffect": {
@@ -3205,7 +3377,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "StainEffect",
       "effectKey": "particle.stain.streak",
       "displayName": "streak",
       "particleEffect": {
@@ -3257,7 +3429,7 @@
       }
     },
     {
-      "category": "ParticleEffect",
+      "category": "StainEffect",
       "effectKey": "particle.stain.directional-spray",
       "displayName": "directional-spray",
       "particleEffect": {

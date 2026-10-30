@@ -5,6 +5,8 @@ export interface GameRenderCueReference {
   category: string;
   effectKey: string;
   activationId?: string;
+  /** Shared origin for targets carrying the same Host activation ID. */
+  activationStartAtMs?: number;
 }
 
 /** Active cue state mapped into the Portal scene. */

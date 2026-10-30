@@ -322,23 +322,23 @@ export function usePresentationCueWorkflow(
           && (!cue.category || stringEqualsIgnoreCase(candidate.category ?? "", cue.category))
         );
         const category = (effect?.category ?? cue.category).trim().replace(/[\s_-]/g, "").toLowerCase();
-        return (category === "appearance" && Boolean(effect?.appearanceColorOverlayTimelineStyle))
+        return (category === "coloroverlay" && Boolean(effect?.appearanceColorOverlayTimelineStyle))
           || (category === "lighting" && Boolean(effect?.pointLightTimelineStyle));
       });
       const freshActivations = categorizedCues.filter((cue) => {
         if (!cue.activationId) return false;
-        const identity = `${activeSessionId}:${roomObject.objectId}:${cue.activationId}`;
+        const identity = `${activeSessionId}:${cue.activationId}`;
         return !activationOriginsByIdRef.current.has(identity);
       });
       const sharedStartAtMs = freshActivations.length > 0
         ? performance.now()
         : undefined;
       for (const cue of freshActivations) {
-        const identity = `${activeSessionId}:${roomObject.objectId}:${cue.activationId}`;
+        const identity = `${activeSessionId}:${cue.activationId}`;
         activationOriginsByIdRef.current.set(identity, sharedStartAtMs!);
       }
       for (const cue of timelineCues) {
-        const identity = `${activeSessionId}:${roomObject.objectId}:${cue.activationId}`;
+        const identity = `${activeSessionId}:${cue.activationId}`;
         const startAtMs = activationOriginsByIdRef.current.get(identity);
         if (!freshActivations.some((freshCue) => freshCue.activationId === cue.activationId)) continue;
         options.addDiagnostic?.("info", "presentation-cue-timeline", "Scheduled a newly observed active timeline cue.", {
@@ -352,7 +352,7 @@ export function usePresentationCueWorkflow(
       }
       const activePresentationCues = categorizedCues.map((cue) => {
         if (!cue.activationId) return cue;
-        const identity = `${activeSessionId}:${roomObject.objectId}:${cue.activationId}`;
+        const identity = `${activeSessionId}:${cue.activationId}`;
         const activationStartAtMs = activationOriginsByIdRef.current.get(identity);
         const timelineStartAtMs = timelineCues.some((timelineCue) => timelineCue.activationId === cue.activationId)
           ? activationStartAtMs

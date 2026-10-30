@@ -40,7 +40,7 @@ function toNonNegativeInt(value: number | undefined): number {
 }
 
 function isAppearanceCueCategory(value: string): boolean {
-  return value.trim().toLowerCase() === "appearance";
+  return value.trim().toLowerCase() === "highlight";
 }
 
 function normalizeCueToken(value: string | undefined): string {
@@ -95,9 +95,9 @@ function extractContentTypeFromDataUrl(dataUrl: string): string {
   return match?.[1] ?? "application/octet-stream";
 }
 
-function buildParticleEffectCatalog(catalog: PresentationCueCatalogDocument | null): GameRenderSceneSnapshot["particleEffectCatalog"] {
+export function buildParticleEffectCatalog(catalog: PresentationCueCatalogDocument | null): GameRenderSceneSnapshot["particleEffectCatalog"] {
   return (catalog?.effects ?? [])
-    .filter((effect) => effect.category === "ParticleEffect" && effect.particleEffect)
+    .filter((effect) => ["PointParticleEffect", "AtmosphericParticleEffect", "AtmosphericOverlayEffect", "StainEffect"].includes(effect.category ?? "") && effect.particleEffect)
     .map((effect) => ({
       category: "ParticleEffect" as const,
       effectKey: effect.effectKey ?? "",
@@ -542,7 +542,10 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   ): void => {
     const catalog = getCurrentPresentationCueCatalogRef.current();
     const appearanceEffects = (catalog?.effects ?? []).filter((effect) => {
-      return normalizeCueToken(effect.category) === "appearance";
+      return normalizeCueToken(effect.category) === "highlight"
+        || normalizeCueToken(effect.category) === "scale"
+        || normalizeCueToken(effect.category) === "shake"
+        || normalizeCueToken(effect.category) === "coloroverlay";
     });
     const appearanceEffectKeys = new Set(appearanceEffects.map((effect) => normalizeCueToken(effect.effectKey)));
     const changedObjectIds = new Set((sessionData?.roomObjectChanges ?? []).map((change) => change.objectId));

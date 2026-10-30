@@ -73,7 +73,7 @@ describe("resolveMovementCueDurationMs", () => {
         }
       },
       {
-        category: "Appearance",
+        category: "Highlight",
         effectKey: "appearance.selection.outline.cyan",
         appearanceOutlineStyle: {
           outlineColorHex: "#22D3EE",
@@ -82,7 +82,7 @@ describe("resolveMovementCueDurationMs", () => {
         }
       },
       {
-        category: "Appearance",
+        category: "Highlight",
         effectKey: "appearance.selection.silhouette.cyan",
         appearanceSilhouetteStyle: {
           sourceToSilhouette: {
@@ -110,7 +110,7 @@ describe("resolveMovementCueDurationMs", () => {
   it("returns undefined when movement cue is absent", () => {
     const duration = resolveMovementCueDurationMs([
       {
-        category: "Appearance",
+        category: "Highlight",
         effectKey: "appearance.selection.outline.cyan"
       }
     ], catalog);
@@ -121,7 +121,7 @@ describe("resolveMovementCueDurationMs", () => {
   it("resolves appearance outline style from appearance cue and catalog effect", () => {
     const style = resolveAppearanceOutlineStyle([
       {
-        category: "Appearance",
+        category: "Highlight",
         effectKey: "appearance.selection.outline.cyan"
       }
     ], catalog);
@@ -136,7 +136,7 @@ describe("resolveMovementCueDurationMs", () => {
   it("returns undefined when appearance cue has no matching outline style", () => {
     const style = resolveAppearanceOutlineStyle([
       {
-        category: "Appearance",
+        category: "Highlight",
         effectKey: "appearance.selection.outline.unknown"
       }
     ], catalog);
@@ -147,7 +147,7 @@ describe("resolveMovementCueDurationMs", () => {
   it("resolves appearance silhouette style stop arrays from cue catalog", () => {
     const style = resolveAppearanceSilhouetteStyle([
       {
-        category: "Appearance",
+        category: "Highlight",
         effectKey: "appearance.selection.silhouette.cyan"
       }
     ], catalog);
@@ -171,13 +171,13 @@ describe("resolveMovementCueDurationMs", () => {
   it("resolves explicit dual-pass silhouette style layout", () => {
     const style = resolveAppearanceSilhouetteStyle([
       {
-        category: "Appearance",
+        category: "Highlight",
         effectKey: "appearance.selection.silhouette.explicit"
       }
     ], {
       effects: [
         {
-          category: "Appearance",
+          category: "Highlight",
           effectKey: "appearance.selection.silhouette.explicit",
           appearanceSilhouetteStyle: {
             sourceToSilhouette: {
@@ -238,13 +238,13 @@ describe("resolveMovementCueDurationMs", () => {
   it("ignores legacy silhouette render mode and keeps solid-mask behavior", () => {
     const style = resolveAppearanceSilhouetteStyle([
       {
-        category: "Appearance",
+        category: "Highlight",
         effectKey: "appearance.selection.silhouette.tinted"
       }
     ], {
       effects: [
         {
-          category: "Appearance",
+          category: "Highlight",
           effectKey: "appearance.selection.silhouette.tinted",
           appearanceSilhouetteStyle: {
             sourceToSilhouette: {
@@ -288,13 +288,13 @@ describe("resolveMovementCueDurationMs", () => {
   it("resolves optional silhouette alpha stops when provided by catalog", () => {
     const style = resolveAppearanceSilhouetteStyle([
       {
-        category: "Appearance",
+        category: "Highlight",
         effectKey: "appearance.selection.silhouette.cyan"
       }
     ], {
       effects: [
         {
-          category: "Appearance",
+          category: "Highlight",
           effectKey: "appearance.selection.silhouette.cyan",
           appearanceSilhouetteStyle: {
             sourceToSilhouette: {},
@@ -335,13 +335,13 @@ describe("resolveMovementCueDurationMs", () => {
   it("resolves silhouette blend mode when provided by catalog", () => {
     const style = resolveAppearanceSilhouetteStyle([
       {
-        category: "Appearance",
+        category: "Highlight",
         effectKey: "appearance.selection.silhouette.cyan"
       }
     ], {
       effects: [
         {
-          category: "Appearance",
+          category: "Highlight",
           effectKey: "appearance.selection.silhouette.cyan",
           appearanceSilhouetteStyle: {
             sourceToSilhouette: {},
@@ -380,13 +380,13 @@ describe("resolveMovementCueDurationMs", () => {
   it("resolves binary silhouette mask alpha policy when provided by catalog", () => {
     const style = resolveAppearanceSilhouetteStyle([
       {
-        category: "Appearance",
+        category: "Highlight",
         effectKey: "appearance.selection.silhouette.cyan"
       }
     ], {
       effects: [
         {
-          category: "Appearance",
+          category: "Highlight",
           effectKey: "appearance.selection.silhouette.cyan",
           appearanceSilhouetteStyle: {
             sourceToSilhouette: {
@@ -430,13 +430,13 @@ describe("resolveMovementCueDurationMs", () => {
   it("falls back to normal blend when blend mode is invalid", () => {
     const addAlias = resolveAppearanceSilhouetteStyle([
       {
-        category: "Appearance",
+        category: "Highlight",
         effectKey: "appearance.selection.silhouette.cyan"
       }
     ], {
       effects: [
         {
-          category: "Appearance",
+          category: "Highlight",
           effectKey: "appearance.selection.silhouette.cyan",
           appearanceSilhouetteStyle: {
             sourceToSilhouette: {},
@@ -457,13 +457,13 @@ describe("resolveMovementCueDurationMs", () => {
 
     const screenAlias = resolveAppearanceSilhouetteStyle([
       {
-        category: "Appearance",
+        category: "Highlight",
         effectKey: "appearance.selection.silhouette.cyan"
       }
     ], {
       effects: [
         {
-          category: "Appearance",
+          category: "Highlight",
           effectKey: "appearance.selection.silhouette.cyan",
           appearanceSilhouetteStyle: {
             sourceToSilhouette: {},
@@ -489,13 +489,13 @@ describe("resolveMovementCueDurationMs", () => {
   it("ignores invalid silhouette alpha stops and keeps legacy alpha behavior", () => {
     const style = resolveAppearanceSilhouetteStyle([
       {
-        category: "Appearance",
+        category: "Highlight",
         effectKey: "appearance.selection.silhouette.cyan"
       }
     ], {
       effects: [
         {
-          category: "Appearance",
+          category: "Highlight",
           effectKey: "appearance.selection.silhouette.cyan",
           appearanceSilhouetteStyle: {
             sourceToSilhouette: {},
@@ -535,13 +535,13 @@ describe("resolveMovementCueDurationMs", () => {
   it("returns undefined when silhouette style lacks valid stops", () => {
     const style = resolveAppearanceSilhouetteStyle([
       {
-        category: "Appearance",
+        category: "Highlight",
         effectKey: "appearance.selection.silhouette.invalid"
       }
     ], {
       effects: [
         {
-          category: "Appearance",
+          category: "Highlight",
           effectKey: "appearance.selection.silhouette.invalid",
           appearanceSilhouetteStyle: {
             animation: {

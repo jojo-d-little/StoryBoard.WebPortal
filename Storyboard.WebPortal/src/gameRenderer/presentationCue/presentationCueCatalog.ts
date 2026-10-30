@@ -433,7 +433,7 @@ export function resolveAppearanceOutlineStyle(
   }
 
   for (const cue of cues) {
-    if (normalizeCategory(cue.category) !== "appearance") {
+    if (normalizeCategory(cue.category) !== "highlight") {
       continue;
     }
 
@@ -443,7 +443,7 @@ export function resolveAppearanceOutlineStyle(
     }
 
     const effect = catalog.effects.find((candidate) => {
-      return normalizeCategory(candidate.category) === "appearance"
+      return normalizeCategory(candidate.category) === "highlight"
         && normalizeEffectKey(candidate.effectKey) === cueEffectKey;
     });
 
@@ -949,7 +949,7 @@ export function resolveAppearanceSilhouetteStyle(
   }
 
   for (const cue of cues) {
-    if (normalizeCategory(cue.category) !== "appearance") {
+    if (normalizeCategory(cue.category) !== "highlight") {
       continue;
     }
 
@@ -959,7 +959,7 @@ export function resolveAppearanceSilhouetteStyle(
     }
 
     const effect = catalog.effects.find((candidate) => {
-      return normalizeCategory(candidate.category) === "appearance"
+      return normalizeCategory(candidate.category) === "highlight"
         && normalizeEffectKey(candidate.effectKey) === cueEffectKey;
     });
 

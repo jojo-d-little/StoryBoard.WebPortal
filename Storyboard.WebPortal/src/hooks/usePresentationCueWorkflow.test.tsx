@@ -94,7 +94,7 @@ describe("usePresentationCueWorkflow", () => {
   it("plays unseen active timeline activations from snapshots once and shares their start time", () => {
     const catalog = buildCatalog([
       {
-        category: "Appearance",
+        category: "ColorOverlay",
         effectKey: "appearance.overlay.lightning",
         appearanceColorOverlayTimelineStyle: {
           maskPolicy: "sourceCoverage",
@@ -139,6 +139,37 @@ describe("usePresentationCueWorkflow", () => {
     const newSessionStarts = readTimelineStarts(newSession);
     expect(newSessionStarts[0]).toBe(newSessionStarts[1]);
     expect(newSessionStarts[0]).toBeGreaterThan(200);
+    clock.mockRestore();
+  });
+
+  it("shares one activation timeline across targets, including a target that arrives later", () => {
+    const catalog = buildCatalog([{
+      category: "ColorOverlay",
+      effectKey: "appearance.overlay.lightning",
+      appearanceColorOverlayTimelineStyle: {
+        maskPolicy: "sourceCoverage",
+        blendMode: "add",
+        timeline: { frames: [{ atMs: 0, color: "#ffffff", strength: 1 }, { atMs: 120, color: "#ffffff", strength: 0 }] }
+      }
+    }]);
+    const { result } = renderHook(() => usePresentationCueWorkflow(buildOptions({ catalog })));
+    const clock = vi.spyOn(performance, "now").mockReturnValueOnce(1200);
+    const target = (objectId: string) => ({
+      objectId,
+      objectName: objectId,
+      sprite: { asset: { assetPath: `${objectId}.png`, cacheKey: objectId }, x: 10, y: 20, rotationDegrees: 0, scale: 1, zOrder: 1 },
+      activePresentationCues: [{ category: "ColorOverlay", effectKey: "appearance.overlay.lightning", activationId: "shared-activation" }]
+    });
+    const withTargets = (...objects: ReturnType<typeof target>[]): GameRenderSceneSnapshot => ({
+      ...buildSceneSnapshot("East"),
+      objectsById: Object.fromEntries(objects.map((object) => [object.objectId, object]))
+    });
+    const first = result.current.applyPresentationCues(withTargets(target("parent")));
+    const firstOrigin = first.objectsById.parent.activePresentationCues[0].activationStartAtMs;
+    const late = result.current.applyPresentationCues(withTargets(target("parent"), target("child")));
+    expect(late.objectsById.parent.resolvedObjectEffects?.[0]).toMatchObject({ activationId: "shared-activation", timelineStartAtMs: firstOrigin });
+    expect(late.objectsById.child.resolvedObjectEffects?.[0]).toMatchObject({ activationId: "shared-activation", timelineStartAtMs: firstOrigin });
+    expect(late.objectsById.child.activePresentationCues[0].activationStartAtMs).toBe(firstOrigin);
     clock.mockRestore();
   });
 

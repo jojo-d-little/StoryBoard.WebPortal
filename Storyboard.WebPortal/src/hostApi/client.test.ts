@@ -22,7 +22,7 @@ describe("HostApiClient", () => {
                 name: "Lantern",
                 renderableImage: { imagePath: "assets/images/lantern.png", x: 160, y: 80, rotationDegrees: 0, scale: 1 },
                 renderZOrder: 1002,
-                activePresentationCues: [{ category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
+                activePresentationCues: [{ category: "Highlight", effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
               },
             }
           ]
@@ -39,7 +39,7 @@ describe("HostApiClient", () => {
       expect(response.sessionData?.roomObjectChanges[1].renderableRoomObject).toMatchObject({
         objectId: "obj-1",
         renderableImage: { imagePath: "assets/images/lantern.png", x: 160 },
-        activePresentationCues: [{ category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
+        activePresentationCues: [{ category: "Highlight", effectKey: "appearance.selection.outline.cyan", activationId: "shown-1" }]
       });
     } finally {
       vi.unstubAllGlobals();
@@ -75,7 +75,7 @@ describe("HostApiClient", () => {
                   renderZOrder: 0,
                   pointLight: { x: 0, y: 0, radiusPx: 0, intensityScale: 0, motionMode: "sway", swayStyle: "breeze" },
                   spatialFootprint: { cellX: 2, cellY: 3 },
-                  activePresentationCues: [{ category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" }]
+                  activePresentationCues: [{ category: "Highlight", effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" }]
                 }
               ]
             }
@@ -142,7 +142,7 @@ describe("HostApiClient", () => {
       elevationCells: undefined
     });
     expect(sessionData?.roomChange?.newRoom?.renderableRoomObjects[0].activePresentationCues).toEqual([
-      { category: "Appearance", effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" }
+      { category: "Highlight", effectKey: "appearance.selection.outline.cyan", activationId: "activation-1" }
     ]);
     expect(sessionData?.roomObjectChanges[0].fromRenderableObject?.pointLight).toEqual({ x: 10, y: 20 });
     expect(sessionData?.roomObjectChanges[0].renderableRoomObject).toMatchObject({
