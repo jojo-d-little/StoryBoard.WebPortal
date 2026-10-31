@@ -187,13 +187,18 @@ describe("HostApiClient", () => {
     expect(payload.context.correlationId).toBeTruthy();
     expect(payload.context.requestId).toBeTruthy();
     expect(headers["X-Correlation-Id"]).toBe(payload.context.correlationId);
-    expect(traceEvents).toHaveLength(1);
+    expect(traceEvents).toHaveLength(2);
     expect(traceEvents[0]).toMatchObject({
+      phase: "started",
+      correlationId: payload.context.correlationId,
+      requestId: payload.context.requestId
+    });
+    expect(traceEvents[1]).toMatchObject({
       phase: "completed",
       correlationId: payload.context.correlationId,
       requestId: payload.context.requestId
     });
-    expect(traceEvents[0].durationMs).toBeGreaterThanOrEqual(0);
+    expect(traceEvents.every((event) => event.durationMs >= 0)).toBe(true);
 
     vi.unstubAllGlobals();
   });
