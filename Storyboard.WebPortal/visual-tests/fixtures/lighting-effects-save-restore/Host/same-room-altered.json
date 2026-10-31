@@ -106,6 +106,122 @@
           }
         },
         {
+          "objectId": "3db417c0-fdb8-4d9b-8dec-4a4b04e1dfc4",
+          "name": "Timed Fade Smoke",
+          "renderableImage": {
+            "imagePath": "assets/images/_shared/4b5972442ccdde319218920f3c46673d9c3b0a0287f6d9c0ed5afa2f601ee843__BrownCrate.png",
+            "anchorX": 400,
+            "anchorY": 160,
+            "iconOffsetX": 0,
+            "iconOffsetY": 0,
+            "x": 400,
+            "y": 160,
+            "rotationDegrees": 0,
+            "scale": 0.17,
+            "additionalSituationalScale": 1
+          },
+          "renderZOrder": 11002,
+          "imageTransparency": 0,
+          "spatialFootprint": {
+            "cellX": 10,
+            "cellY": 4,
+            "footprintCenterXpx": 420,
+            "footprintCenterYpx": 180,
+            "sizeXCells": 1,
+            "sizeYCells": 1,
+            "cornerStyle": "rounded",
+            "elevationCells": 1
+          },
+          "activePresentationCues": [],
+          "activeSoundCues": [],
+          "particleEffect": {
+            "effectKey": "particle.campfire.smoke.fade",
+            "x": 420,
+            "y": 180,
+            "isProducing": true,
+            "targetControls": {
+              "SizeMultiplier": {
+                "valueType": "Numeric",
+                "numericValue": 1.4
+              },
+              "EmissionRateMultiplier": {
+                "valueType": "Numeric",
+                "numericValue": 1.5
+              },
+              "LifetimeMultiplier": {
+                "valueType": "Numeric",
+                "numericValue": 1.5
+              },
+              "WindSpeedPxPerSecond": {
+                "valueType": "Numeric",
+                "numericValue": 0
+              },
+              "WindDirectionDegrees": {
+                "valueType": "Numeric",
+                "numericValue": 45
+              }
+            }
+          }
+        },
+        {
+          "objectId": "576c82fd-100c-4625-a6bb-79a6fabb3798",
+          "name": "Immediate Removal Smoke",
+          "renderableImage": {
+            "imagePath": "assets/images/_shared/4b5972442ccdde319218920f3c46673d9c3b0a0287f6d9c0ed5afa2f601ee843__BrownCrate.png",
+            "anchorX": 640,
+            "anchorY": 160,
+            "iconOffsetX": 0,
+            "iconOffsetY": 0,
+            "x": 640,
+            "y": 160,
+            "rotationDegrees": 0,
+            "scale": 0.17,
+            "additionalSituationalScale": 1
+          },
+          "renderZOrder": 11002,
+          "imageTransparency": 0,
+          "spatialFootprint": {
+            "cellX": 16,
+            "cellY": 4,
+            "footprintCenterXpx": 660,
+            "footprintCenterYpx": 180,
+            "sizeXCells": 1,
+            "sizeYCells": 1,
+            "cornerStyle": "rounded",
+            "elevationCells": 1
+          },
+          "activePresentationCues": [],
+          "activeSoundCues": [],
+          "particleEffect": {
+            "effectKey": "particle.campfire.smoke.immediate",
+            "x": 660,
+            "y": 180,
+            "isProducing": true,
+            "targetControls": {
+              "SizeMultiplier": {
+                "valueType": "Numeric",
+                "numericValue": 1.4
+              },
+              "EmissionRateMultiplier": {
+                "valueType": "Numeric",
+                "numericValue": 1.5
+              },
+              "LifetimeMultiplier": {
+                "valueType": "Numeric",
+                "numericValue": 1.5
+              },
+              "WindSpeedPxPerSecond": {
+                "valueType": "Numeric",
+                "numericValue": 0
+              },
+              "WindDirectionDegrees": {
+                "valueType": "Numeric",
+                "numericValue": 45
+              }
+            }
+          }
+        },
+        {
           "objectId": "d1db4cac-f3b7-4d3f-9df4-17182405ab11",
           "name": "Restore Beacon",
           "renderableImage": {
@@ -153,7 +269,7 @@
             {
               "category": "Movement",
               "effectKey": "movement.speed.slow",
-              "activationId": "fa8c29c7-c940-4aec-a9ff-5202773ff43d",
+              "activationId": "a9d0fe3f-d41e-4ec9-8ec5-48cfdb007919",
               "movement": {
                 "moveDirection": "North",
                 "movementDurationMs": 5000,

@@ -25,8 +25,8 @@
       "roomImageCanvasHeight": 600,
       "ambientLighting": {
         "transitionDurationMs": 0,
-        "ambient": 0.6240000000000001,
-        "ambientColor": "#FFE2B5"
+        "ambient": 0.6080000000000001,
+        "ambientColor": "#ACB7CC"
       },
       "roomDisplayMode": "Overlay",
       "directionalRenderableImages": [
@@ -47,6 +47,122 @@
         }
       ],
       "renderableRoomObjects": [
+        {
+          "objectId": "3db417c0-fdb8-4d9b-8dec-4a4b04e1dfc4",
+          "name": "Timed Fade Smoke",
+          "renderableImage": {
+            "imagePath": "assets/images/_shared/4b5972442ccdde319218920f3c46673d9c3b0a0287f6d9c0ed5afa2f601ee843__BrownCrate.png",
+            "anchorX": 400,
+            "anchorY": 160,
+            "iconOffsetX": 0,
+            "iconOffsetY": 0,
+            "x": 400,
+            "y": 160,
+            "rotationDegrees": 0,
+            "scale": 0.17,
+            "additionalSituationalScale": 1
+          },
+          "renderZOrder": 11002,
+          "imageTransparency": 0,
+          "spatialFootprint": {
+            "cellX": 10,
+            "cellY": 4,
+            "footprintCenterXpx": 420,
+            "footprintCenterYpx": 180,
+            "sizeXCells": 1,
+            "sizeYCells": 1,
+            "cornerStyle": "rounded",
+            "elevationCells": 1
+          },
+          "activePresentationCues": [],
+          "activeSoundCues": [],
+          "particleEffect": {
+            "effectKey": "particle.campfire.smoke.fade",
+            "x": 420,
+            "y": 180,
+            "isProducing": true,
+            "targetControls": {
+              "SizeMultiplier": {
+                "valueType": "Numeric",
+                "numericValue": 1.4
+              },
+              "EmissionRateMultiplier": {
+                "valueType": "Numeric",
+                "numericValue": 1.5
+              },
+              "LifetimeMultiplier": {
+                "valueType": "Numeric",
+                "numericValue": 1.5
+              },
+              "WindSpeedPxPerSecond": {
+                "valueType": "Numeric",
+                "numericValue": 100
+              },
+              "WindDirectionDegrees": {
+                "valueType": "Numeric",
+                "numericValue": 45
+              }
+            }
+          }
+        },
+        {
+          "objectId": "576c82fd-100c-4625-a6bb-79a6fabb3798",
+          "name": "Immediate Removal Smoke",
+          "renderableImage": {
+            "imagePath": "assets/images/_shared/4b5972442ccdde319218920f3c46673d9c3b0a0287f6d9c0ed5afa2f601ee843__BrownCrate.png",
+            "anchorX": 640,
+            "anchorY": 160,
+            "iconOffsetX": 0,
+            "iconOffsetY": 0,
+            "x": 640,
+            "y": 160,
+            "rotationDegrees": 0,
+            "scale": 0.17,
+            "additionalSituationalScale": 1
+          },
+          "renderZOrder": 11002,
+          "imageTransparency": 0,
+          "spatialFootprint": {
+            "cellX": 16,
+            "cellY": 4,
+            "footprintCenterXpx": 660,
+            "footprintCenterYpx": 180,
+            "sizeXCells": 1,
+            "sizeYCells": 1,
+            "cornerStyle": "rounded",
+            "elevationCells": 1
+          },
+          "activePresentationCues": [],
+          "activeSoundCues": [],
+          "particleEffect": {
+            "effectKey": "particle.campfire.smoke.immediate",
+            "x": 660,
+            "y": 180,
+            "isProducing": true,
+            "targetControls": {
+              "SizeMultiplier": {
+                "valueType": "Numeric",
+                "numericValue": 1.4
+              },
+              "EmissionRateMultiplier": {
+                "valueType": "Numeric",
+                "numericValue": 1.5
+              },
+              "LifetimeMultiplier": {
+                "valueType": "Numeric",
+                "numericValue": 1.5
+              },
+              "WindSpeedPxPerSecond": {
+                "valueType": "Numeric",
+                "numericValue": 100
+              },
+              "WindDirectionDegrees": {
+                "valueType": "Numeric",
+                "numericValue": 45
+              }
+            }
+          }
+        },
         {
           "objectId": "d1db4cac-f3b7-4d3f-9df4-17182405ab11",
           "name": "Restore Beacon",
@@ -149,7 +265,7 @@
           "targetControls": {
             "EmissionRateMultiplier": {
               "valueType": "Numeric",
-              "numericValue": 1
+              "numericValue": 2
             },
             "LifetimeMultiplier": {
               "valueType": "Numeric",
@@ -161,11 +277,11 @@
             },
             "WindSpeedPxPerSecond": {
               "valueType": "Numeric",
-              "numericValue": 40
+              "numericValue": 100
             },
             "WindDirectionDegrees": {
               "valueType": "Numeric",
-              "numericValue": 0
+              "numericValue": 45
             },
             "WindSpeedMultiplier": {
               "valueType": "Numeric",
@@ -305,15 +421,15 @@
           "targetControls": {
             "EmissionRateMultiplier": {
               "valueType": "Numeric",
-              "numericValue": 1
+              "numericValue": 2
             },
             "WindSpeedPxPerSecond": {
               "valueType": "Numeric",
-              "numericValue": 40
+              "numericValue": 100
             },
             "WindDirectionDegrees": {
               "valueType": "Numeric",
-              "numericValue": 0
+              "numericValue": 45
             },
             "WindSpeedMultiplier": {
               "valueType": "Numeric",
@@ -333,15 +449,15 @@
           "targetControls": {
             "EmissionRateMultiplier": {
               "valueType": "Numeric",
-              "numericValue": 1
+              "numericValue": 2
             },
             "WindSpeedPxPerSecond": {
               "valueType": "Numeric",
-              "numericValue": 40
+              "numericValue": 100
             },
             "WindDirectionDegrees": {
               "valueType": "Numeric",
-              "numericValue": 0
+              "numericValue": 45
             },
             "WindSpeedMultiplier": {
               "valueType": "Numeric",
@@ -369,11 +485,11 @@
             },
             "WindSpeedPxPerSecond": {
               "valueType": "Numeric",
-              "numericValue": 40
+              "numericValue": 100
             },
             "WindDirectionDegrees": {
               "valueType": "Numeric",
-              "numericValue": 0
+              "numericValue": 45
             },
             "WindSpeedMultiplier": {
               "valueType": "Numeric",
@@ -405,11 +521,11 @@
             },
             "WindSpeedPxPerSecond": {
               "valueType": "Numeric",
-              "numericValue": 40
+              "numericValue": 100
             },
             "WindDirectionDegrees": {
               "valueType": "Numeric",
-              "numericValue": 0
+              "numericValue": 45
             },
             "WindSpeedMultiplier": {
               "valueType": "Numeric",
@@ -441,11 +557,11 @@
             },
             "WindSpeedPxPerSecond": {
               "valueType": "Numeric",
-              "numericValue": 40
+              "numericValue": 100
             },
             "WindDirectionDegrees": {
               "valueType": "Numeric",
-              "numericValue": 0
+              "numericValue": 45
             },
             "WindSpeedMultiplier": {
               "valueType": "Numeric",
@@ -477,11 +593,11 @@
             },
             "WindSpeedPxPerSecond": {
               "valueType": "Numeric",
-              "numericValue": 40
+              "numericValue": 100
             },
             "WindDirectionDegrees": {
               "valueType": "Numeric",
-              "numericValue": 0
+              "numericValue": 45
             },
             "WindSpeedMultiplier": {
               "valueType": "Numeric",
@@ -513,11 +629,11 @@
             },
             "WindSpeedPxPerSecond": {
               "valueType": "Numeric",
-              "numericValue": 40
+              "numericValue": 100
             },
             "WindDirectionDegrees": {
               "valueType": "Numeric",
-              "numericValue": 0
+              "numericValue": 45
             },
             "WindSpeedMultiplier": {
               "valueType": "Numeric",
@@ -549,11 +665,11 @@
             },
             "WindSpeedPxPerSecond": {
               "valueType": "Numeric",
-              "numericValue": 40
+              "numericValue": 100
             },
             "WindDirectionDegrees": {
               "valueType": "Numeric",
-              "numericValue": 0
+              "numericValue": 45
             },
             "WindSpeedMultiplier": {
               "valueType": "Numeric",
@@ -583,15 +699,15 @@
         "narrative": "Use the control room and traverse the connected test stations."
       },
       "chapter": {
-        "key": "season-spring",
-        "displayName": "Spring"
+        "key": "season-winter",
+        "displayName": "Winter"
       },
       "page": {
-        "key": "spring-dawn",
-        "displayName": "Spring \u2014 Dawn"
+        "key": "winter-evening",
+        "displayName": "Winter \u2014 Evening"
       },
-      "pathKey": "lighting-effects-test.season-spring.spring-dawn",
-      "pathDisplayName": "Lighting Effects Test / Spring / Spring \u2014 Dawn"
+      "pathKey": "lighting-effects-test.season-winter.winter-evening",
+      "pathDisplayName": "Lighting Effects Test / Winter / Winter \u2014 Evening"
     },
     "reason": "resume",
     "isResume": true,

@@ -108,6 +108,54 @@
       ],
       "renderableRoomObjects": [
         {
+          "objectId": "0f119046-a6f4-43f6-8c22-e27131a54412",
+          "name": "Restore Smoke",
+          "renderableImage": {
+            "imagePath": "",
+            "anchorX": 560,
+            "anchorY": 160,
+            "iconOffsetX": 0,
+            "iconOffsetY": 0,
+            "situationalScalePivotOffsetXPx": -20,
+            "situationalScalePivotOffsetYPx": 20,
+            "x": 560,
+            "y": 160,
+            "rotationDegrees": 0,
+            "scale": 1,
+            "additionalSituationalScale": 1
+          },
+          "renderZOrder": 11003,
+          "imageTransparency": 0,
+          "spatialFootprint": {
+            "cellX": 14,
+            "cellY": 4,
+            "footprintCenterXpx": 580,
+            "footprintCenterYpx": 180,
+            "sizeXCells": 1,
+            "sizeYCells": 1,
+            "cornerStyle": "rounded",
+            "elevationCells": 1
+          },
+          "activePresentationCues": [],
+          "activeSoundCues": [],
+          "particleEffect": {
+            "effectKey": "particle.torch.smoke",
+            "x": 600,
+            "y": 160,
+            "isProducing": true,
+            "targetControls": {
+              "WindSpeedPxPerSecond": {
+                "valueType": "Numeric",
+                "numericValue": 0
+              },
+              "WindDirectionDegrees": {
+                "valueType": "Numeric",
+                "numericValue": 45
+              }
+            }
+          }
+        },
+        {
           "objectId": "75ffa3ee-e6d4-4f41-815a-16b2a63d9b1f",
           "name": "Player",
           "renderableImage": {
@@ -175,52 +223,6 @@
             "y": 197.79,
             "isProducing": true,
             "targetControls": {}
-          }
-        },
-        {
-          "objectId": "0f119046-a6f4-43f6-8c22-e27131a54412",
-          "name": "Restore Smoke",
-          "renderableImage": {
-            "imagePath": "",
-            "anchorX": 560,
-            "anchorY": 160,
-            "iconOffsetX": 0,
-            "iconOffsetY": 0,
-            "x": 560,
-            "y": 160,
-            "rotationDegrees": 0,
-            "scale": 0.17,
-            "additionalSituationalScale": 1
-          },
-          "renderZOrder": 10001,
-          "imageTransparency": 0,
-          "spatialFootprint": {
-            "cellX": 14,
-            "cellY": 4,
-            "footprintCenterXpx": 580,
-            "footprintCenterYpx": 180,
-            "sizeXCells": 1,
-            "sizeYCells": 1,
-            "cornerStyle": "rounded",
-            "elevationCells": 1
-          },
-          "activePresentationCues": [],
-          "activeSoundCues": [],
-          "particleEffect": {
-            "effectKey": "particle.torch.smoke",
-            "x": 600,
-            "y": 160,
-            "isProducing": true,
-            "targetControls": {
-              "WindSpeedPxPerSecond": {
-                "valueType": "Numeric",
-                "numericValue": 0
-              },
-              "WindDirectionDegrees": {
-                "valueType": "Numeric",
-                "numericValue": 45
-              }
-            }
           }
         }
       ],
