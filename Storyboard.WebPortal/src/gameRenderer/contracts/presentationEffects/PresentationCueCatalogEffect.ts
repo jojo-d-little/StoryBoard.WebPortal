@@ -124,6 +124,11 @@ export interface CatalogPointLightTimelineStyle {
   }> };
 }
 
+export interface CatalogOpacityStyle {
+  initialAlpha?: number;
+  steps?: Array<{ alpha?: number; durationMs?: number; transition?: string }>;
+}
+
 export interface PresentationCueCatalogEffect {
   category?: string;
   effectKey?: string;
@@ -138,6 +143,7 @@ export interface PresentationCueCatalogEffect {
   scaleStyle?: CatalogScaleStyle;
   appearanceColorOverlayTimelineStyle?: CatalogAppearanceColorOverlayTimelineStyle;
   pointLightTimelineStyle?: CatalogPointLightTimelineStyle;
+  opacityStyle?: CatalogOpacityStyle;
   particleEffect?: CatalogParticleEffect["particleEffect"];
 }
 

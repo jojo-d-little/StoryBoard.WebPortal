@@ -3,6 +3,7 @@ import {
   DEFAULT_PRESENTATION_ISOLATION_SETTINGS,
   isLightingPresentationEnabled,
   isPresentationCategoryEnabled,
+  normalizePresentationIsolationSettings,
   resolvePresentationIsolationCategoryOptions
 } from "./presentationIsolation";
 
@@ -20,6 +21,8 @@ describe("presentation isolation settings", () => {
         shake: true,
         highlight: true,
         colorOverlay: true,
+        appearance: true,
+        disappearance: true,
         styledPointEffect: true,
         text: true
       }
@@ -41,6 +44,13 @@ describe("presentation isolation settings", () => {
     expect(isPresentationCategoryEnabled(settings, "RoomTransition")).toBe(false);
     expect(isPresentationCategoryEnabled(settings, "room_transition")).toBe(false);
     expect(isPresentationCategoryEnabled({ ...settings, enabled: false }, "Movement")).toBe(false);
+  });
+
+  it("fills newly added isolation categories when normalizing older saved settings", () => {
+    const normalized = normalizePresentationIsolationSettings({ categories: { movement: false } });
+    expect(normalized.categories.movement).toBe(false);
+    expect(normalized.categories.appearance).toBe(true);
+    expect(normalized.categories.disappearance).toBe(true);
   });
 
   it("defaults lighting on while keeping its checkbox and the master effects switch authoritative", () => {
@@ -75,12 +85,17 @@ describe("presentation isolation settings", () => {
     expect(isPresentationCategoryEnabled(settings, "Shake")).toBe(false);
     expect(isPresentationCategoryEnabled(settings, "Highlight")).toBe(true);
     expect(isPresentationCategoryEnabled(settings, "ColorOverlay")).toBe(true);
+    expect(isPresentationCategoryEnabled(settings, "Appearance")).toBe(true);
+    expect(isPresentationCategoryEnabled({ ...settings, categories: { ...settings.categories, appearance: false } }, "Appearance")).toBe(false);
+    expect(isPresentationCategoryEnabled(settings, "Disappearance")).toBe(true);
     const options = resolvePresentationIsolationCategoryOptions({ effects: [
       { category: "Scale", effectKey: "scale.grow.large" },
       { category: "Shake", effectKey: "shake.large.fast" },
       { category: "Highlight", effectKey: "appearance.selection.outline.cyan" },
-      { category: "ColorOverlay", effectKey: "appearance.overlay.lightning" }
+      { category: "ColorOverlay", effectKey: "appearance.overlay.lightning" },
+      { category: "Appearance", effectKey: "appearance.fade.in" },
+      { category: "Disappearance", effectKey: "disappearance.fade.out" }
     ] });
-    expect(options.map((option) => option.catalogCategory)).toEqual(["Scale", "Shake", "Highlight", "ColorOverlay"]);
+    expect(options.map((option) => option.catalogCategory)).toEqual(["Scale", "Shake", "Highlight", "ColorOverlay", "Appearance", "Disappearance"]);
   });
 });

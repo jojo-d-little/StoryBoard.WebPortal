@@ -38,6 +38,7 @@ export {
   DEFAULT_PRESENTATION_ISOLATION_SETTINGS,
   isLightingPresentationEnabled,
   isPresentationCategoryEnabled,
+  normalizePresentationIsolationSettings,
   normalizePresentationCategory,
   resolvePresentationIsolationCategoryOptions
 } from "./presentationIsolation";

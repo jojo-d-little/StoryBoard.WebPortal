@@ -53,6 +53,12 @@ export interface GameRenderPointLightTimelineEffect extends GameRenderResolvedOb
   style: { frames: Array<{ atMs: number; enabled?: boolean; intensity?: number; color?: string; radius?: number }> };
 }
 
+export interface GameRenderOpacityEffect extends GameRenderResolvedObjectEffectIdentity {
+  kind: "opacityStyle";
+  category: "appearance" | "disappearance";
+  style: { initialAlpha: number; steps: Array<{ alpha: number; durationMs: number; transition: "linear" | "immediate" }> };
+}
+
 export type GameRenderResolvedObjectEffect =
   | GameRenderAppearanceOutlineEffect
   | GameRenderAppearanceSilhouetteEffect
@@ -60,4 +66,5 @@ export type GameRenderResolvedObjectEffect =
   | GameRenderScaleEffect
   | GameRenderStyledPointEffect
   | GameRenderAppearanceColorOverlayTimelineEffect
-  | GameRenderPointLightTimelineEffect;
+  | GameRenderPointLightTimelineEffect
+  | GameRenderOpacityEffect;

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Appearance and Disappearance Visual Fixture</title>
+  <style>
+    body { margin: 0; background: #0b1220; color: #e2e8f0; font: 14px Segoe UI, sans-serif; }
+    .controls { min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 16px; }
+    #mount { width: min(100vw, 1024px); height: min(calc(100vh - 44px), 768px); margin: 0 auto; background: #111827; }
+    #mount canvas { display: block; }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <strong>Opacity catalog fixture</strong>
+    <label for="appearance-toggle">Appearance</label>
+    <input id="appearance-toggle" type="checkbox" checked />
+    <output id="catalog-identity">appearance.fade.in · appearance.flicker.in · disappearance.fade.out · disappearance.flicker.out</output>
+  </div>
+  <div id="mount"></div>
+  <script type="module" src="/src/gameRenderer/testing/opacityVisualHarness.ts"></script>
+</body>
+</html>

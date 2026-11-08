@@ -13,13 +13,47 @@ export function resolveObjectVisualEffects(
   const effects: GameRenderResolvedObjectEffect[] = [];
   for (const cue of cues) {
     const category = normalizePresentationCategory(cue.category);
-    if (category !== "highlight" && category !== "coloroverlay" && category !== "scale" && category !== "shake" && category !== "lighting") continue;
+    if (category !== "highlight" && category !== "coloroverlay" && category !== "scale" && category !== "shake" && category !== "lighting" && category !== "appearance" && category !== "disappearance") continue;
     const catalogEffect = catalog?.effects?.find((candidate) =>
       normalizePresentationCategory(candidate.category ?? "") === category
       && candidate.effectKey?.trim().toLowerCase() === cue.effectKey.trim().toLowerCase()
     );
     if (!catalogEffect) continue;
     const identity = { effectKey: cue.effectKey, activationId: cue.activationId, activationStartAtMs: cue.activationStartAtMs };
+
+    if ((category === "appearance" || category === "disappearance") && catalogEffect.opacityStyle) {
+      const source = catalogEffect.opacityStyle;
+      const steps = source.steps;
+      const hasOnlyKeys = (value: object, allowed: string[]): boolean => Object.keys(value).every((key) => allowed.includes(key));
+      const validStyleShape = typeof source === "object" && source !== null && !Array.isArray(source)
+        && hasOnlyKeys(source, ["initialAlpha", "steps"]);
+      let totalDurationMs = 0;
+      const validSteps = validStyleShape && Array.isArray(steps) && steps.length >= 1 && steps.length <= 256
+        && steps.every((step) => {
+          const valid = typeof step === "object" && step !== null && !Array.isArray(step)
+            && hasOnlyKeys(step, ["alpha", "durationMs", "transition"])
+            && Number.isFinite(step.alpha) && step.alpha! >= 0 && step.alpha! <= 1
+            && Number.isInteger(step.durationMs) && step.durationMs! >= 0
+            && (step.transition === "immediate" || (step.transition === "linear" && step.durationMs! > 0));
+          if (valid) totalDurationMs += step.durationMs!;
+          return valid;
+        }) && totalDurationMs <= 120000;
+      if (cue.activationId && Number.isFinite(cue.activationStartAtMs)
+        && Number.isFinite(source.initialAlpha) && source.initialAlpha! >= 0 && source.initialAlpha! <= 1
+        && validSteps) {
+        effects.push({
+          ...identity,
+          kind: "opacityStyle",
+          category,
+          style: {
+            initialAlpha: source.initialAlpha!,
+            steps: steps!.map((step) => ({
+              alpha: step.alpha!, durationMs: step.durationMs!, transition: step.transition as "linear" | "immediate"
+            }))
+          }
+        });
+      }
+    }
 
     if (category === "coloroverlay" && catalogEffect.appearanceColorOverlayTimelineStyle) {
       const source = catalogEffect.appearanceColorOverlayTimelineStyle;

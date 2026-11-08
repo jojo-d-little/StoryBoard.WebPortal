@@ -4,7 +4,7 @@
     "configVersion": "1.0.0"
   },
   "devToolsDefaults": {
-    "pollIntervalMs": 750,
+    "pollIntervalMs": 333,
     "heartbeatEveryNPolls": 100,
     "echoOutputRetentionLines": 400
   },

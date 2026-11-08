@@ -10,6 +10,7 @@ import { areHudOverlayEntriesEquivalent, createHudOverlayController } from "./hu
 import { createAppearanceOutlineEffectController, type AppearanceOutlineEffectController } from "./effects/appearanceOutlineStyle/AppearanceOutlineEffectController";
 import { createAppearanceSilhouetteEffectController, type AppearanceSilhouetteEffectController } from "./effects/appearanceSilhouetteStyle/AppearanceSilhouetteEffectController";
 import { AppearanceColorOverlayTimelineController } from "./effects/appearanceColorOverlayTimelineStyle/AppearanceColorOverlayTimelineController";
+import { OpacityEffectController } from "./effects/opacityStyle/OpacityEffectController";
 import { PointLightTimelineController } from "./effects/pointLightTimelineStyle/PointLightTimelineController";
 import { createShakeEffectController, type ShakeEffectController } from "./effects/shakeStyle/ShakeEffectController";
 import { createScaleEffectController, type ScaleEffectController } from "./effects/scaleStyle/ScaleEffectController";
@@ -38,6 +39,7 @@ import {
   DEFAULT_PRESENTATION_ISOLATION_SETTINGS,
   isLightingPresentationEnabled,
   isPresentationCategoryEnabled,
+  normalizePresentationIsolationSettings,
   type PresentationIsolationSettings
 } from "../presentationIsolation";
 import type { Ticker } from "pixi.js";
@@ -108,6 +110,7 @@ interface RoomObjectSpriteState {
   shakeStyleContainer: Container;
   scaleStyleContainer: Container;
   baseScaleContainer: Container;
+  opacityContainer: Container;
   situationalScaleContainer: Container | null;
   sprite: Sprite;
   effectTransformHost: Container;
@@ -135,6 +138,7 @@ interface RoomSurfaceState {
   appearanceOutlineEffectController: AppearanceOutlineEffectController;
   appearanceSilhouetteEffectController: AppearanceSilhouetteEffectController;
   appearanceColorOverlayTimelineController: AppearanceColorOverlayTimelineController;
+  opacityEffectController: OpacityEffectController;
   pointLightTimelineController: PointLightTimelineController;
   shakeEffectController: ShakeEffectController;
   scaleEffectController: ScaleEffectController;
@@ -267,21 +271,9 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   const diagnostics = options.diagnosticsSink;
   void options.intentSink;
 
-  let presentationIsolationSettings: PresentationIsolationSettings = options.presentationIsolationSettings
-    ? {
-        enabled: options.presentationIsolationSettings.enabled,
-        lightingEnabled: options.presentationIsolationSettings.lightingEnabled ?? DEFAULT_PRESENTATION_ISOLATION_SETTINGS.lightingEnabled,
-        particleEffectsEnabled: options.presentationIsolationSettings.particleEffectsEnabled ?? DEFAULT_PRESENTATION_ISOLATION_SETTINGS.particleEffectsEnabled,
-        lightingGridEnabled: options.presentationIsolationSettings.lightingGridEnabled ?? false,
-        categories: { ...options.presentationIsolationSettings.categories }
-      }
-    : {
-        enabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.enabled,
-        lightingEnabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.lightingEnabled,
-        particleEffectsEnabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.particleEffectsEnabled,
-        lightingGridEnabled: DEFAULT_PRESENTATION_ISOLATION_SETTINGS.lightingGridEnabled,
-        categories: { ...DEFAULT_PRESENTATION_ISOLATION_SETTINGS.categories }
-      };
+  let presentationIsolationSettings = normalizePresentationIsolationSettings(
+    options.presentationIsolationSettings ?? DEFAULT_PRESENTATION_ISOLATION_SETTINGS
+  );
 
   const app = new Application();
   const fpsListeners = new Set<(fps: number) => void>();
@@ -401,6 +393,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         diagnostics
       }),
       appearanceColorOverlayTimelineController: new AppearanceColorOverlayTimelineController(),
+      opacityEffectController: new OpacityEffectController(),
       pointLightTimelineController: new PointLightTimelineController(diagnostics),
       shakeEffectController: createShakeEffectController(),
       scaleEffectController: createScaleEffectController(),
@@ -970,6 +963,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     surface.activeMovementTweensByObjectId.delete(objectId);
     surface.shakeEffectController.removeObject(objectId);
     surface.scaleEffectController.removeObject(objectId);
+    surface.opacityEffectController.removeObject(objectId);
     surface.appearanceColorOverlayTimelineController.remove(objectId);
     surface.pointLightTimelineController.remove(objectId);
     pendingSpriteLightingMovementIds.delete(objectId);
@@ -1319,6 +1313,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     activeRoomSurface.appearanceOutlineEffectController.tick(performance.now());
     activeRoomSurface.appearanceSilhouetteEffectController.tick(performance.now());
     activeRoomSurface.appearanceColorOverlayTimelineController.tick(performance.now());
+    activeRoomSurface.opacityEffectController.tick(performance.now());
     activeRoomSurface.styledPointEffectController.tick(performance.now());
   }
 
@@ -1873,13 +1868,14 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
 
   function applyPresentationIsolationSettings(settings: PresentationIsolationSettings): void {
     const previousSettings = presentationIsolationSettings;
-    presentationIsolationSettings = {
-      enabled: settings.enabled,
-      lightingEnabled: settings.lightingEnabled,
-      particleEffectsEnabled: settings.particleEffectsEnabled ?? DEFAULT_PRESENTATION_ISOLATION_SETTINGS.particleEffectsEnabled,
-      lightingGridEnabled: settings.lightingGridEnabled ?? false,
-      categories: { ...settings.categories }
+    presentationIsolationSettings = normalizePresentationIsolationSettings(settings);
+    const opacityCategories = {
+      appearance: isPresentationCategoryEnabled(presentationIsolationSettings, "appearance"),
+      disappearance: isPresentationCategoryEnabled(presentationIsolationSettings, "disappearance")
     };
+    for (const surface of [activeRoomSurface, stagingRoomSurface]) {
+      surface.opacityEffectController.setEnabled(presentationIsolationSettings.enabled, opacityCategories);
+    }
 
     const movementDisabled = previousSettings.enabled
       && !isPresentationCategoryEnabled(presentationIsolationSettings, "movement");
@@ -2301,10 +2297,14 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
           baseScaleContainer.sortableChildren = true;
           scaleStyleContainer.addChild(baseScaleContainer);
 
+          const opacityContainer = new Container();
+          opacityContainer.sortableChildren = true;
+          baseScaleContainer.addChild(opacityContainer);
+
           sprite = new Sprite(texture);
           sprite.anchor.set(0, 0);
           sprite.position.set(0, 0);
-          baseScaleContainer.addChild(sprite);
+          opacityContainer.addChild(sprite);
 
           const fallbackX = Number.isFinite(previousX) ? previousX : roomObject.x;
           const fallbackY = Number.isFinite(previousY) ? previousY : roomObject.y;
@@ -2316,9 +2316,10 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
             shakeStyleContainer,
             scaleStyleContainer,
             baseScaleContainer,
+            opacityContainer,
             situationalScaleContainer: null,
             sprite,
-            effectTransformHost: baseScaleContainer,
+            effectTransformHost: opacityContainer,
             assetPath: assetUrl,
             scaleCenterX: texture.width * 0.5,
             scaleCenterY: texture.height * 0.5,
@@ -2392,6 +2393,15 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         roomObjectSpriteState.root.zIndex = currentZOrder;
         applyScaleLayers(roomObjectSpriteState, currentBaseScale, currentSituationalScale);
         const resolvedEffects = roomObject.resolvedObjectEffects ?? [];
+        surface.opacityEffectController.setEnabled(presentationIsolationSettings.enabled, {
+          appearance: isPresentationCategoryEnabled(presentationIsolationSettings, "appearance"),
+          disappearance: isPresentationCategoryEnabled(presentationIsolationSettings, "disappearance")
+        });
+        surface.opacityEffectController.reconcileObject(
+          roomObject.objectId,
+          roomObjectSpriteState.opacityContainer,
+          resolvedEffects.filter((effect) => effect.kind === "opacityStyle")
+        );
         const enabledShakeEffects = isPresentationCategoryEnabled(presentationIsolationSettings, "shake")
           ? resolvedEffects.filter((effect) => effect.kind === "shakeStyle") : [];
         const enabledScaleEffects = isPresentationCategoryEnabled(presentationIsolationSettings, "scale")

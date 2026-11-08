@@ -7,6 +7,8 @@ export type PresentationIsolationCategory =
   | "shake"
   | "highlight"
   | "colorOverlay"
+  | "appearance"
+  | "disappearance"
   | "styledPointEffect"
   | "text";
 
@@ -16,6 +18,17 @@ export interface PresentationIsolationSettings {
   particleEffectsEnabled: boolean;
   lightingGridEnabled: boolean;
   categories: Record<PresentationIsolationCategory, boolean>;
+}
+
+export function normalizePresentationIsolationSettings(
+  settings: Omit<Partial<PresentationIsolationSettings>, "categories">
+    & { categories?: Partial<Record<PresentationIsolationCategory, boolean>> }
+): PresentationIsolationSettings {
+  return {
+    ...DEFAULT_PRESENTATION_ISOLATION_SETTINGS,
+    ...settings,
+    categories: { ...DEFAULT_PRESENTATION_ISOLATION_SETTINGS.categories, ...settings.categories }
+  };
 }
 
 export interface PresentationIsolationCategoryOption {
@@ -36,6 +49,8 @@ export const DEFAULT_PRESENTATION_ISOLATION_SETTINGS: PresentationIsolationSetti
     shake: true,
     highlight: true,
     colorOverlay: true,
+    appearance: true,
+    disappearance: true,
     styledPointEffect: true,
     text: true
   }
@@ -48,6 +63,8 @@ const APPROVED_PRESENTATION_ISOLATION_CATEGORIES: readonly PresentationIsolation
   { key: "shake", label: "Shake", catalogCategory: "Shake" },
   { key: "highlight", label: "Highlight", catalogCategory: "Highlight" },
   { key: "colorOverlay", label: "Color Overlay", catalogCategory: "ColorOverlay" },
+  { key: "appearance", label: "Appearance", catalogCategory: "Appearance" },
+  { key: "disappearance", label: "Disappearance", catalogCategory: "Disappearance" },
   { key: "styledPointEffect", label: "Styled Point Effect", catalogCategory: "StyledPointEffect" },
   { key: "text", label: "Text", catalogCategory: "Text" }
 ];
