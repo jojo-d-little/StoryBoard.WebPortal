@@ -483,30 +483,11 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     state.scaleStyleContainer.pivot.set(pivotX, pivotY);
     state.scaleStyleContainer.position.set(pivotX, pivotY);
 
-    if (situationalScale === 1) {
-      if (state.situationalScaleContainer) {
-        const wrapper = state.situationalScaleContainer;
-        if (state.sprite.parent === wrapper) {
-          wrapper.removeChild(state.sprite);
-        }
-
-        state.baseScaleContainer.addChild(state.sprite);
-        state.sprite.position.set(0, 0);
-        state.sprite.anchor.set(0, 0);
-        state.situationalScaleContainer = null;
-        state.effectTransformHost = state.baseScaleContainer;
-        wrapper.destroy({ children: false });
-      } else {
-        state.effectTransformHost = state.baseScaleContainer;
-      }
-
-      return;
-    }
-
     let wrapper = state.situationalScaleContainer;
     if (!wrapper) {
       wrapper = new Container();
-      state.baseScaleContainer.addChild(wrapper);
+      wrapper.sortableChildren = true;
+      state.opacityContainer.addChild(wrapper);
       state.situationalScaleContainer = wrapper;
     }
 
@@ -2300,11 +2281,14 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
           const opacityContainer = new Container();
           opacityContainer.sortableChildren = true;
           baseScaleContainer.addChild(opacityContainer);
+          const situationalScaleContainer = new Container();
+          situationalScaleContainer.sortableChildren = true;
+          opacityContainer.addChild(situationalScaleContainer);
 
           sprite = new Sprite(texture);
           sprite.anchor.set(0, 0);
           sprite.position.set(0, 0);
-          opacityContainer.addChild(sprite);
+          situationalScaleContainer.addChild(sprite);
 
           const fallbackX = Number.isFinite(previousX) ? previousX : roomObject.x;
           const fallbackY = Number.isFinite(previousY) ? previousY : roomObject.y;
@@ -2317,9 +2301,9 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
             scaleStyleContainer,
             baseScaleContainer,
             opacityContainer,
-            situationalScaleContainer: null,
+            situationalScaleContainer,
             sprite,
-            effectTransformHost: opacityContainer,
+            effectTransformHost: situationalScaleContainer,
             assetPath: assetUrl,
             scaleCenterX: texture.width * 0.5,
             scaleCenterY: texture.height * 0.5,

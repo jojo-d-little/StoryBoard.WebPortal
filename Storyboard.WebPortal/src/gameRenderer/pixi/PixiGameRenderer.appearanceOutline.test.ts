@@ -202,8 +202,10 @@ const pixiMocks = vi.hoisted(() => {
 vi.mock("pixi.js", () => pixiMocks);
 
 import { createGameRenderer, type GameRenderSceneSnapshot, type GameRendererDiagnosticsEvent } from "../index";
+import type { PresentationCueCatalogDocument } from "../contracts/presentationEffects/PresentationCueCatalogEffect";
 import { DEFAULT_PRESENTATION_ISOLATION_SETTINGS } from "../presentationIsolation";
 import { createSceneObjectsFromRoomObjects } from "../scene/sceneObjects";
+import { resolveObjectVisualEffects } from "../presentationCue/resolveObjectVisualEffects";
 
 function buildScene(withOutline: boolean): GameRenderSceneSnapshot {
   return {
@@ -1045,8 +1047,10 @@ describe("PixiGameRenderer appearance outline cues", () => {
 });
 
 type TransformNode = {
+  constructor?: { name?: string };
   children: TransformNode[];
   parent: TransformNode | null;
+  alpha?: number;
   position: { x: number; y: number };
   pivot: { x: number; y: number };
   scale: { x: number; y: number };
@@ -1174,12 +1178,56 @@ function buildSituationalPivotScene(scale: number, pivotOffset?: { x: number; y:
   };
 }
 
+function buildSituationalOpacityScene(scale: number): GameRenderSceneSnapshot {
+  const opacityCue = {
+    category: "Disappearance",
+    effectKey: "disappearance.fade.out",
+    activationId: "held-zero-fade",
+    activationStartAtMs: 100
+  };
+  const opacityCatalog: PresentationCueCatalogDocument = {
+    effects: [{
+      category: "Disappearance",
+      effectKey: "disappearance.fade.out",
+      opacityStyle: { initialAlpha: 1, steps: [{ alpha: 0, durationMs: 2000, transition: "linear" }] }
+    }]
+  };
+  const scene = buildScene(false);
+  const selected = scene.objectsById["selected-object"];
+  if (!selected?.sprite) throw new Error("Expected the situational-scale test object to have a sprite.");
+  selected.resolvedObjectEffects = resolveObjectVisualEffects([opacityCue], opacityCatalog);
+  selected.sprite = {
+    ...selected.sprite,
+    x: 250,
+    y: 235,
+    scale: 0.5,
+    imageTransparency: 0.25,
+    additionalSituationalScale: scale,
+    situationalScalePivotOffsetFromImageXPx: 30,
+    situationalScalePivotOffsetFromImageYPx: 45
+  };
+  return scene;
+}
+
+function effectiveAlpha(node: TransformNode): number {
+  let alpha = 1;
+  let current: TransformNode | null = node;
+  while (current) {
+    alpha *= current.alpha ?? 1;
+    current = current.parent;
+  }
+  return alpha;
+}
+
 function getSingleRoomObjectNodes(): {
   roomLayer: TransformNode;
   root: TransformNode;
   scaleStyle: TransformNode;
   baseScale: TransformNode;
+  opacity: TransformNode;
+  situationalScale: TransformNode;
   image: TransformNode;
+  outline?: TransformNode;
 } {
   const apps = pixiMocks.__appInstances as Array<{ stage: { children: TransformNode[] } }>;
   const app = apps[apps.length - 1];
@@ -1190,10 +1238,14 @@ function getSingleRoomObjectNodes(): {
   if (!scaleStyle) throw new Error("Expected the room object's scale style container.");
   const baseScale = scaleStyle.children[0];
   if (!baseScale) throw new Error("Expected the room object's artwork-fit container.");
-  const imageOrSituationalWrapper = baseScale.children[0];
-  if (!imageOrSituationalWrapper) throw new Error("Expected the room object's image.");
-  const image = imageOrSituationalWrapper.children[0] ?? imageOrSituationalWrapper;
-  return { roomLayer, root, scaleStyle, baseScale, image };
+  const opacity = baseScale.children[0];
+  if (!opacity) throw new Error("Expected the room object's opacity layer.");
+  const situationalScale = opacity.children[0];
+  if (!situationalScale) throw new Error("Expected the room object's situational scale wrapper.");
+  const image = situationalScale.children.find((child) => child !== undefined && child.constructor?.name !== "MockGraphics") ?? situationalScale.children[0];
+  if (!image) throw new Error("Expected the room object's image.");
+  const outline = situationalScale.children.find((child) => child.constructor?.name === "MockGraphics");
+  return { roomLayer, root, scaleStyle, baseScale, opacity, situationalScale, image, outline };
 }
 
 function hasSingleRoomObject(): boolean {
@@ -1222,7 +1274,7 @@ function scaleContainer(root: TransformNode): TransformNode {
 }
 
 function sprite(root: TransformNode): TransformNode {
-  return scaleContainer(root).children[0].children[0];
+  return scaleContainer(root).children[0].children[0].children[0].children[0];
 }
 
 function imageBounds(root: TransformNode, roomLayer: TransformNode): { left: number; top: number; right: number; bottom: number } {
@@ -1253,8 +1305,7 @@ describe("PixiGameRenderer situational scale pivots", () => {
       renderer.updateScene(buildSituationalPivotScene(2));
       await waitFor(() => hasSingleRoomObject() && getSingleRoomObjectNodes().baseScale.children[0]?.children?.length === 1, 1000);
 
-      const { roomLayer, root, baseScale, image } = getSingleRoomObjectNodes();
-      const wrapper = baseScale.children[0];
+      const { roomLayer, root, baseScale, situationalScale: wrapper, image } = getSingleRoomObjectNodes();
       expect(root.position).toMatchObject({ x: 250, y: 235 });
       expect(baseScale.scale.x).toBe(0.5);
       expect(wrapper.pivot).toMatchObject({ x: 60, y: 40 });
@@ -1295,7 +1346,7 @@ describe("PixiGameRenderer situational scale pivots", () => {
       renderer.updateScene(buildSituationalPivotScene(2, { x: 30, y: 45 }));
       await waitFor(() => hasSingleRoomObject() && getSingleRoomObjectNodes().baseScale.children[0]?.children?.length === 1, 1000);
       const doubled = getSingleRoomObjectNodes();
-      const wrapper = doubled.baseScale.children[0];
+      const wrapper = doubled.situationalScale;
       expect(doubled.root.position).toMatchObject({ x: 250, y: 235 });
       expect(doubled.baseScale.scale.x).toBe(0.5);
       expect(wrapper.pivot).toMatchObject({ x: 60, y: 90 });
@@ -1309,7 +1360,7 @@ describe("PixiGameRenderer situational scale pivots", () => {
       renderer.updateScene(buildSituationalPivotScene(1.5, { x: 30, y: 45 }));
       await new Promise((resolve) => setTimeout(resolve, 0));
       const scaled = getSingleRoomObjectNodes();
-      const scaledWrapper = scaled.baseScale.children[0];
+      const scaledWrapper = scaled.situationalScale;
       expect(scaled.baseScale.scale.x).toBe(0.5);
       expect(scaledWrapper.pivot).toMatchObject({ x: 60, y: 90 });
       expectRoomPoint(toRoomPoint(scaledWrapper, scaledWrapper.position, scaled.roomLayer), 280, 280);
@@ -1319,13 +1370,62 @@ describe("PixiGameRenderer situational scale pivots", () => {
       renderer.updateScene(buildSituationalPivotScene(1.5, { x: 20, y: 30 }));
       await new Promise((resolve) => setTimeout(resolve, 0));
       const movedPivot = getSingleRoomObjectNodes();
-      const movedPivotWrapper = movedPivot.baseScale.children[0];
+      const movedPivotWrapper = movedPivot.situationalScale;
       expect(movedPivot.baseScale.scale.x).toBe(0.5);
       expect(movedPivotWrapper.pivot).toMatchObject({ x: 40, y: 60 });
       expectRoomPoint(toRoomPoint(movedPivotWrapper, movedPivotWrapper.position, movedPivot.roomLayer), 270, 265);
       expectRoomPoint(toRoomPoint(movedPivot.image, { x: 0, y: 0 }, movedPivot.roomLayer), 240, 220);
       expectRoomPoint(toRoomPoint(movedPivot.image, { x: 120, y: 80 }, movedPivot.roomLayer), 330, 280);
     } finally {
+      renderer.dispose();
+      mount.remove();
+    }
+  });
+
+  it("keeps faded artwork and its attached overlay inside opacity at situational scales 0.5, 1, and 2", async () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const renderer = createGameRenderer(mount);
+    (pixiMocks.Assets.load as ReturnType<typeof vi.fn>).mockImplementation(async () => ({ width: 120, height: 80 }));
+    const now = vi.spyOn(performance, "now").mockReturnValue(3000);
+    try {
+      renderer.resize(640, 480);
+      await waitFor(() => {
+        const apps = pixiMocks.__appInstances as Array<{ stage: { children: unknown[] } }>;
+        return apps[apps.length - 1]?.stage.children.length > 0;
+      }, 1000);
+      let attachedOverlay: TransformNode | undefined;
+      for (const situationalScale of [0.5, 2, 0.5, 1]) {
+        renderer.updateScene(buildSituationalOpacityScene(situationalScale));
+        await waitFor(() => hasSingleRoomObject(), 1000);
+
+        const { roomLayer, root, baseScale, opacity, situationalScale: wrapper, image } = getSingleRoomObjectNodes();
+        if (!attachedOverlay) {
+          attachedOverlay = new pixiMocks.Graphics();
+          (wrapper as TransformNode & { addChild: (child: TransformNode) => void }).addChild(attachedOverlay);
+        }
+        expect(opacity.alpha).toBe(0);
+        expect(baseScale.scale.x).toBe(0.5);
+        expect(wrapper.scale.x).toBeCloseTo(situationalScale, 6);
+        expect(wrapper.parent).toBe(opacity);
+        expect(image.parent).toBe(wrapper);
+        expect(attachedOverlay.parent).toBe(wrapper);
+        expect(effectiveAlpha(opacity)).toBe(0);
+        expect(effectiveAlpha(image)).toBe(0);
+        expect(effectiveAlpha(attachedOverlay)).toBe(0);
+        expect((image as typeof image & { alpha: number }).alpha).toBeCloseTo(0.75);
+        expect(root.position).toMatchObject({ x: 250, y: 235 });
+
+        if (situationalScale === 0.5) {
+          expectRoomPoint(toRoomPoint(image, { x: 0, y: 0 }, roomLayer), 265, 257.5);
+        } else if (situationalScale === 2) {
+          expectRoomPoint(toRoomPoint(image, { x: 0, y: 0 }, roomLayer), 220, 190);
+        } else {
+          expectRoomPoint(toRoomPoint(image, { x: 0, y: 0 }, roomLayer), 250, 235);
+        }
+      }
+    } finally {
+      now.mockRestore();
       renderer.dispose();
       mount.remove();
     }

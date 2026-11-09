@@ -117,7 +117,7 @@ export function createAppearanceOutlineEffectController(
       let state = statesByObjectId.get(objectId);
       if (!state) {
         const graphics = new Graphics();
-        options.roomObjectLayer.addChild(graphics);
+        transformHost.addChild(graphics);
 
         state = {
           objectId,

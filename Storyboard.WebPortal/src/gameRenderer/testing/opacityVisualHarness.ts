@@ -9,6 +9,8 @@ import { resolveObjectVisualEffects } from "../presentationCue/resolveObjectVisu
 
 interface OpacityVisualHarness {
   setAppearanceEnabled: (enabled: boolean) => void;
+  setDisappearanceEnabled: (enabled: boolean) => void;
+  setSituationalScale: (scale: number) => void;
   setTiming: () => void;
   dispose: () => void;
 }
@@ -22,7 +24,8 @@ declare global {
 
 const mount = document.querySelector<HTMLElement>("#mount");
 const toggle = document.querySelector<HTMLInputElement>("#appearance-toggle");
-if (!mount || !toggle) throw new Error("Opacity visual fixture markup is incomplete.");
+const disappearanceToggle = document.querySelector<HTMLInputElement>("#disappearance-toggle");
+if (!mount || !toggle || !disappearanceToggle) throw new Error("Opacity visual fixture markup is incomplete.");
 
 const catalog = {
   effects: [
@@ -81,6 +84,9 @@ const objects = Object.fromEntries(rows.map(([id, name, color, x, y]) => {
       rotationDegrees: id === "fadeIn" ? -8 : 0,
       scale: 1,
       imageTransparency: 0.25,
+      additionalSituationalScale: 1,
+      situationalScalePivotOffsetFromImageXPx: 30,
+      situationalScalePivotOffsetFromImageYPx: 45,
       zOrder: 1
     },
     activePresentationCues: cues,
@@ -110,13 +116,28 @@ function setAppearanceEnabled(enabled: boolean): void {
   renderer.setPresentationIsolationSettings(settings);
 }
 
+function setDisappearanceEnabled(enabled: boolean): void {
+  settings = { ...settings, categories: { ...settings.categories, disappearance: enabled } };
+  disappearanceToggle!.checked = enabled;
+  renderer.setPresentationIsolationSettings(settings);
+}
+
+function setSituationalScale(scale: number): void {
+  const objectsById = Object.fromEntries(Object.entries(scene.objectsById).map(([id, object]) => [id, {
+    ...object,
+    sprite: object.sprite ? { ...object.sprite, additionalSituationalScale: scale } : undefined
+  }]));
+  scene = { ...scene, objectsById };
+  renderer.updateScene(scene);
+}
+
 function setTiming(): void {
   const startedAt = performance.now();
   const elapsedByEffect: Record<string, number> = {
     "appearance.fade.in": 800,
     "scale.grow.visual": 800,
     "appearance.flicker.in": 450,
-    "disappearance.fade.out": 800,
+    "disappearance.fade.out": 3000,
     "disappearance.flicker.out": 240
   };
   const objectsById = Object.fromEntries(Object.entries(scene.objectsById).map(([id, object]) => {
@@ -135,6 +156,7 @@ function setTiming(): void {
 }
 
 toggle.addEventListener("change", () => setAppearanceEnabled(toggle.checked));
+disappearanceToggle.addEventListener("change", () => setDisappearanceEnabled(disappearanceToggle.checked));
 window.addEventListener("resize", () => renderer.resize(mount!.clientWidth, mount!.clientHeight));
-window.__opacityHarness = { setAppearanceEnabled, setTiming, dispose: () => renderer.dispose() };
+window.__opacityHarness = { setAppearanceEnabled, setDisappearanceEnabled, setSituationalScale, setTiming, dispose: () => renderer.dispose() };
 window.setTimeout(() => { window.__opacityReady = Boolean(mount!.querySelector("canvas")); }, 700);
