@@ -172,6 +172,10 @@ export function createAppearanceOutlineEffectController(
         syncGraphicsTransformWithSprite(state);
       }
     },
+    startTimingAt: (nowMs) => {
+      for (const state of statesByObjectId.values()) state.pulseStartAtMs = nowMs;
+      for (const state of statesByObjectId.values()) redrawOutline(state);
+    },
     removeObject,
     clear: () => {
       for (const objectId of [...statesByObjectId.keys()]) {

@@ -39,6 +39,7 @@ export type StyledPointEffectIntent =
 export interface StyledPointEffectController {
   applyIntent: (input: StyledPointEffectIntent) => void;
   tick: (nowMs: number) => void;
+  startTimingAt: (nowMs: number) => void;
   syncObjectCueEffects: (effects: StyledPointObjectCueEffect[]) => void;
   clear: () => void;
   dispose: () => void;
@@ -476,6 +477,9 @@ export function createStyledPointEffectController(
             });
         }
       }
+    },
+    startTimingAt: (nowMs) => {
+      for (const instance of activeByHandle.values()) instance.createdAtMs = nowMs;
     },
     clear,
     dispose: () => {

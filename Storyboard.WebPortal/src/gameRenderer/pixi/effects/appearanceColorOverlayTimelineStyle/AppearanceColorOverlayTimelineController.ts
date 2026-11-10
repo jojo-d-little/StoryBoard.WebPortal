@@ -114,6 +114,15 @@ export class AppearanceColorOverlayTimelineController {
     }
   }
 
+  startTimingAt(nowMs: number): void {
+    for (const state of this.active.values()) {
+      state.effect = { ...state.effect, timelineStartAtMs: nowMs };
+      const value = sample(state.effect, nowMs);
+      setSample(state, value.color, value.strength);
+      this.sync(state);
+    }
+  }
+
   remove(objectId: string): void {
     const state = this.active.get(objectId);
     if (!state) return;

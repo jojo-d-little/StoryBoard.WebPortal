@@ -623,6 +623,15 @@ export function createAppearanceSilhouetteEffectController(
         }
       }
     },
+    startTimingAt: (nowMs) => {
+      for (const state of statesByObjectId.values()) {
+        state.pulseStartAtMs = nowMs;
+        for (let index = 0; index < state.silhouettes.length; index += 1) {
+          const passStyle = state.passStyles[index];
+          if (passStyle) syncSilhouetteTransform(options.roomObjectLayer, state, state.silhouettes[index], passStyle, nowMs);
+        }
+      }
+    },
     removeObject,
     clear: () => {
       for (const objectId of [...statesByObjectId.keys()]) {

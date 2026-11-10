@@ -30,6 +30,13 @@ export class PointLightTimelineController {
     if (state && timelineStartAtMs !== undefined && state.effect.timelineStartAtMs !== timelineStartAtMs) this.remove(objectId);
   }
 
+  startTimingAt(nowMs: number): void {
+    for (const active of this.active.values()) {
+      active.effect = { ...active.effect, timelineStartAtMs: nowMs };
+      active.finalFrameSampled = false;
+    }
+  }
+
   apply(objectId: string, effect: GameRenderPointLightTimelineEffect | undefined, baseline: GameRenderPointLight | undefined): void {
     if (!effect) return;
     const activationId = effect.activationId ?? "";

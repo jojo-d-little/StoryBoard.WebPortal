@@ -11,6 +11,7 @@ interface ScaleActivationState {
 interface ObjectScaleState {
   container: Container;
   activations: Map<string, ScaleActivationState>;
+  timingPaused: boolean;
 }
 
 export interface ScaleEffectController {
@@ -19,9 +20,11 @@ export interface ScaleEffectController {
     container: Container,
     effects: GameRenderResolvedObjectEffect[],
     isBaseline: boolean,
-    previousEffects: GameRenderResolvedObjectEffect[]
+    previousEffects: GameRenderResolvedObjectEffect[],
+    timingPaused?: boolean
   ) => void;
   tick: (nowMs: number, enabled: boolean) => void;
+  startTimingAt: (nowMs: number) => void;
   removeObject: (objectId: string) => void;
   clear: () => void;
 }
@@ -33,7 +36,7 @@ function update(state: ObjectScaleState, nowMs: number): void {
       multiplier *= activation.style.targetScaleMultiplier;
       continue;
     }
-    const progress = Math.max(0, Math.min(1,
+    const progress = state.timingPaused ? 0 : Math.max(0, Math.min(1,
       (nowMs - activation.startedAtMs) / activation.style.transitionDurationMs
     ));
     const eased = progress * (2 - progress);
@@ -46,7 +49,7 @@ function update(state: ObjectScaleState, nowMs: number): void {
 export function createScaleEffectController(): ScaleEffectController {
   const objects = new Map<string, ObjectScaleState>();
   return {
-    reconcileObject: (objectId, container, effects, isBaseline, previousEffects) => {
+    reconcileObject: (objectId, container, effects, isBaseline, previousEffects, timingPaused = false) => {
       const scaleEffects = effects.filter((effect): effect is GameRenderScaleEffect => effect.kind === "scaleStyle");
       if (scaleEffects.length === 0) {
         container.scale.set(1);
@@ -56,9 +59,10 @@ export function createScaleEffectController(): ScaleEffectController {
 
       let state = objects.get(objectId);
       if (!state || state.container !== container) {
-        state = { container, activations: new Map() };
+        state = { container, activations: new Map(), timingPaused };
         objects.set(objectId, state);
       }
+      state.timingPaused = timingPaused;
       const activeKeys = new Set(scaleEffects.map(cueActivationKey));
       const previousKeys = new Set(previousEffects.map(cueActivationKey));
       for (const key of state.activations.keys()) {
@@ -82,6 +86,13 @@ export function createScaleEffectController(): ScaleEffectController {
       for (const state of objects.values()) {
         if (enabled) update(state, nowMs);
         else state.container.scale.set(1);
+      }
+    },
+    startTimingAt: (nowMs) => {
+      for (const state of objects.values()) {
+        for (const activation of state.activations.values()) activation.startedAtMs = nowMs;
+        state.timingPaused = false;
+        update(state, nowMs);
       }
     },
     removeObject: (objectId) => { objects.delete(objectId); },

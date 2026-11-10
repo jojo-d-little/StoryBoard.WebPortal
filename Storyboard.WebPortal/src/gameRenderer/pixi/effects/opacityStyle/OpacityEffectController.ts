@@ -63,6 +63,13 @@ export class OpacityEffectController {
     for (const objectId of this.objects.keys()) this.applyObject(objectId, nowMs);
   }
 
+  startTimingAt(nowMs: number): void {
+    for (const [objectId, object] of this.objects) {
+      object.effects = object.effects.map((effect) => ({ ...effect, activationStartAtMs: nowMs }));
+      this.applyObject(objectId, nowMs);
+    }
+  }
+
   removeObject(objectId: string): void {
     const object = this.objects.get(objectId);
     if (object) object.host.alpha = 1;

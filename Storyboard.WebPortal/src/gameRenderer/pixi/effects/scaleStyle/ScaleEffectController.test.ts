@@ -16,6 +16,47 @@ function scaleEffect(effectKey: string, targetScaleMultiplier: number, transitio
 }
 
 describe("ScaleEffectController immediate effects", () => {
+  it("holds a staged half-to-full composition at its initial value across delayed reconciliations", () => {
+    const clock = vi.spyOn(performance, "now").mockReturnValue(1000);
+    try {
+      const controller = createScaleEffectController();
+      const container = host();
+      const effects = [scaleEffect("scale.half.immediate", 0.5, 0), scaleEffect("scale.grow.slow.deep", 2, 5000)];
+      controller.reconcileObject("rider", container, effects, true, [], true);
+      expect(container.scale.x).toBe(0.5);
+
+      for (const nowMs of [1250, 1500, 1750]) {
+        clock.mockReturnValue(nowMs);
+        controller.reconcileObject("rider", container, effects, false, effects, true);
+        expect(container.scale.x).toBe(0.5);
+      }
+
+      controller.startTimingAt(1750);
+      expect(container.scale.x).toBe(0.5);
+      controller.tick(2500, true);
+      expect(container.scale.x).toBeGreaterThan(0.5);
+      expect(container.scale.x).toBeLessThan(1);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it("keeps scale cues on a visible room running across reconciliations", () => {
+    const clock = vi.spyOn(performance, "now").mockReturnValue(1000);
+    try {
+      const controller = createScaleEffectController();
+      const container = host();
+      const effect = scaleEffect("scale.grow.visible", 2, 1000);
+      controller.reconcileObject("object", container, [effect], true, []);
+      clock.mockReturnValue(1500);
+      controller.reconcileObject("object", container, [effect], false, [effect]);
+      expect(container.scale.x).toBeGreaterThan(1);
+      expect(container.scale.x).toBeLessThan(2);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it.each([
     ["double", 2, true], ["half", 0.5, true],
     ["double", 2, false], ["half", 0.5, false]

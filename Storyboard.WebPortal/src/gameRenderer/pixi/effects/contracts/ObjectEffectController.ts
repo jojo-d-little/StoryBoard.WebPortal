@@ -10,6 +10,7 @@ export interface ObjectEffectController<TStyle> {
   ) => void;
   syncObjectTransform: (objectId: string, transformHost: Container, sprite: Sprite) => void;
   tick: (nowMs: number) => void;
+  startTimingAt: (nowMs: number) => void;
   removeObject: (objectId: string) => void;
   clear: () => void;
 }

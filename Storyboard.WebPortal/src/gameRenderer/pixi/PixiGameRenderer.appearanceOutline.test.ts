@@ -1269,6 +1269,12 @@ function getElevatorNodes(): {
   return { app, roomLayer, floor: roomLayer.children[0], elevator: roomLayer.children[1] };
 }
 
+function getSurfaceRoomLayer(surfaceIndex: 0 | 1): TransformNode {
+  const apps = pixiMocks.__appInstances as Array<{ stage: { children: TransformNode[] } }>;
+  const app = apps[apps.length - 1];
+  return app.stage.children[0].children[surfaceIndex].children[0].children[1];
+}
+
 function scaleContainer(root: TransformNode): TransformNode {
   return root.children[0].children[0];
 }
@@ -1493,6 +1499,158 @@ describe("PixiGameRenderer scale cue pivots", () => {
       expect(prepared[0].scale * prepared[0].base * prepared[0].situational).toBeCloseTo(1.2);
     } finally {
       clock.mockRestore();
+      renderer.dispose();
+      mount.remove();
+    }
+  });
+
+  it("holds staged scale, opacity, and movement until first visibility, then starts both arrival directions together", async () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const transitionStates: string[] = [];
+    const renderer = createGameRenderer(mount, {
+      onRoomTransitionStateChanged: (state) => transitionStates.push(state)
+    });
+    const loadMock = pixiMocks.Assets.load as ReturnType<typeof vi.fn>;
+    let releaseBlocker: ((texture: { width: number; height: number }) => void) | undefined;
+    let blockerRequested = false;
+    const blockedTexture = new Promise<{ width: number; height: number }>((resolve) => { releaseBlocker = resolve; });
+    loadMock.mockImplementation(async (assetPath: string) => {
+      if (assetPath.includes("blocked-arrival")) {
+        blockerRequested = true;
+        return blockedTexture;
+      }
+      return { width: 64, height: 64 };
+    });
+    const now = vi.spyOn(performance, "now").mockReturnValue(1000);
+    const arrivalObject = (id: "below" | "above", x: number) => {
+      const isBelow = id === "below";
+      const immediateId = `${id}-immediate`;
+      const timedId = `${id}-timed`;
+      const fadeId = `${id}-fade`;
+      const moveId = `${id}-move`;
+      const shakeId = `${id}-shake`;
+      const immediateMultiplier = isBelow ? 0.5 : 2;
+      const timedMultiplier = isBelow ? 2 : 0.5;
+      const immediateKey = isBelow ? "scale.half.immediate" : "scale.double.immediate";
+      const timedKey = isBelow ? "scale.grow.slow.deep" : "scale.shrink.slow.deep";
+      const cues = [
+        { category: "Scale", effectKey: immediateKey, activationId: immediateId, activationStartAtMs: 100 },
+        { category: "Scale", effectKey: timedKey, activationId: timedId, activationStartAtMs: 100 },
+        { category: "Appearance", effectKey: "appearance.fade.synthetic", activationId: fadeId, activationStartAtMs: 100 },
+        { category: "Movement", effectKey: "movement.arrival.synthetic", activationId: moveId, activationStartAtMs: 100 },
+        { category: "Shake", effectKey: "shake.arrival.synthetic", activationId: shakeId, activationStartAtMs: 100 }
+      ];
+      return {
+        objectId: id,
+        objectName: id,
+        asset: { assetPath: `data:image/mock;arrival-${id}` },
+        x, y: 100, rotationDegrees: 0, scale: 0.8, additionalSituationalScale: 0.75, zOrder: 1,
+        activePresentationCues: cues,
+        movementDurationMs: 1000,
+        resolvedObjectEffects: [
+          { kind: "scaleStyle" as const, effectKey: immediateKey, activationId: immediateId, activationStartAtMs: 100,
+            style: { targetScaleMultiplier: immediateMultiplier, transitionDurationMs: 0 } },
+          { kind: "scaleStyle" as const, effectKey: timedKey, activationId: timedId, activationStartAtMs: 100,
+            style: { targetScaleMultiplier: timedMultiplier, transitionDurationMs: 5000 } },
+          { kind: "opacityStyle" as const, category: "appearance" as const, effectKey: "appearance.fade.synthetic",
+            activationId: fadeId, activationStartAtMs: 100,
+            style: { initialAlpha: 0, steps: [{ alpha: 1, durationMs: 2000, transition: "linear" as const }] } },
+          { kind: "shakeStyle" as const, effectKey: "shake.arrival.synthetic", activationId: shakeId, activationStartAtMs: 100,
+            style: { horizontalDisplacementPx: 0, verticalDisplacementPx: 12, speedHz: 1 } }
+        ]
+      };
+    };
+    const destinationScene = (includeOrdinary = false): GameRenderSceneSnapshot => ({
+      roomId: "arrival-destination", displayMode: "composed", bounds: { width: 800, height: 600 },
+      directionalOverlays: [], roomTransition: { mode: "slide", travelDirection: "East", durationMs: 1000 },
+      objectsById: createSceneObjectsFromRoomObjects([
+        arrivalObject("below", 110), arrivalObject("above", 130),
+        {
+          objectId: "blocker", objectName: "Blocker", asset: { assetPath: "data:image/mock;blocked-arrival" },
+          x: 200, y: 100, rotationDegrees: 0, scale: 1, zOrder: 2, activePresentationCues: []
+        },
+        ...(includeOrdinary ? [{
+          objectId: "ordinary", objectName: "Ordinary", asset: { assetPath: "data:image/mock;ordinary-visible" },
+          x: 300, y: 100, rotationDegrees: 0, scale: 1, zOrder: 3,
+          activePresentationCues: [{ category: "Appearance", effectKey: "appearance.fade.synthetic", activationId: "ordinary-fade", activationStartAtMs: 6500 }],
+          resolvedObjectEffects: [{ kind: "opacityStyle" as const, category: "appearance" as const,
+            effectKey: "appearance.fade.synthetic", activationId: "ordinary-fade", activationStartAtMs: 6500,
+            style: { initialAlpha: 0, steps: [{ alpha: 1, durationMs: 2000, transition: "linear" as const }] } }]
+        }] : [])
+      ])
+    });
+
+    try {
+      renderer.resize(800, 600);
+      await waitFor(() => pixiMocks.__appInstances[pixiMocks.__appInstances.length - 1]?.stage.children.length > 0, 1000);
+      renderer.updateScene({
+        roomId: "arrival-source", displayMode: "composed", bounds: { width: 800, height: 600 },
+        directionalOverlays: [],
+        objectsById: createSceneObjectsFromRoomObjects([
+          { objectId: "below", objectName: "below", asset: { assetPath: "data:image/mock;source-below" }, x: 10, y: 100, rotationDegrees: 0, scale: 0.8, zOrder: 1, activePresentationCues: [] },
+          { objectId: "above", objectName: "above", asset: { assetPath: "data:image/mock;source-above" }, x: 30, y: 100, rotationDegrees: 0, scale: 0.8, zOrder: 2, activePresentationCues: [] }
+        ])
+      });
+      await waitFor(() => getSurfaceRoomLayer(0).children.length === 2, 1000);
+
+      renderer.updateScene(destinationScene());
+      await waitFor(() => blockerRequested && getSurfaceRoomLayer(1).children.length === 2, 1000);
+      const stagedLayer = getSurfaceRoomLayer(1);
+      const stagedBelow = stagedLayer.children.find((node) => scaleContainer(node).scale.x === 0.5)!;
+      const stagedAbove = stagedLayer.children.find((node) => scaleContainer(node).scale.x === 2)!;
+      const belowStartX = stagedBelow.position.x;
+      const aboveStartX = stagedAbove.position.x;
+      const opacityLayer = (root: TransformNode) => root.children[0].children[0].children[0].children[0];
+      now.mockReturnValue(6000);
+      const app = pixiMocks.__appInstances[pixiMocks.__appInstances.length - 1];
+      app?.ticker.tick(3000);
+      app?.ticker.tick(2000);
+      expect(scaleContainer(stagedBelow).scale.x).toBe(0.5);
+      expect(scaleContainer(stagedAbove).scale.x).toBe(2);
+      expect(opacityLayer(stagedBelow).alpha).toBe(0);
+      expect(opacityLayer(stagedAbove).alpha).toBe(0);
+      expect(stagedBelow.children[0].position.y).toBe(12);
+      expect(stagedAbove.children[0].position.y).toBe(12);
+      expect(stagedBelow.position.x).toBe(belowStartX);
+      expect(stagedAbove.position.x).toBe(aboveStartX);
+
+      releaseBlocker?.({ width: 64, height: 64 });
+      await waitFor(() => transitionStates.includes("running"), 1000);
+      app?.ticker.tick(500);
+      expect(scaleContainer(stagedBelow).scale.x).toBe(0.5);
+      expect(scaleContainer(stagedAbove).scale.x).toBe(2);
+      expect(opacityLayer(stagedBelow).alpha).toBe(0);
+      expect(opacityLayer(stagedAbove).alpha).toBe(0);
+      expect(stagedBelow.children[0].position.y).toBe(12);
+      expect(stagedAbove.children[0].position.y).toBe(12);
+      expect(stagedBelow.position.x).toBe(belowStartX);
+      expect(stagedAbove.position.x).toBe(aboveStartX);
+
+      now.mockReturnValue(6500);
+      app?.ticker.tick(500);
+      const activeBelow = stagedBelow;
+      const activeAbove = stagedAbove;
+      expect(scaleContainer(activeBelow).scale.x).toBeGreaterThan(0.5);
+      expect(scaleContainer(activeBelow).scale.x).toBeLessThan(1);
+      expect(scaleContainer(activeAbove).scale.x).toBeGreaterThan(1);
+      expect(scaleContainer(activeAbove).scale.x).toBeLessThan(2);
+      expect(activeBelow.position.x).toBeGreaterThan(belowStartX);
+      expect(activeBelow.position.x).toBeLessThan(110);
+      expect(activeAbove.position.x).toBeGreaterThan(aboveStartX);
+      expect(activeAbove.position.x).toBeLessThan(130);
+      expect(opacityLayer(activeBelow).alpha).toBeGreaterThan(0);
+      expect(opacityLayer(activeBelow).alpha).toBeLessThan(1);
+      expect(activeBelow.children[0].position.y).toBe(-12);
+      expect(activeAbove.children[0].position.y).toBe(-12);
+
+      renderer.updateScene(destinationScene(true));
+      await waitFor(() => getSurfaceRoomLayer(1).children.length === 4, 1000);
+      const ordinary = getSurfaceRoomLayer(1).children.find((node) => node.position.x === 300)!;
+      expect(opacityLayer(ordinary).alpha).toBe(0);
+    } finally {
+      releaseBlocker?.({ width: 64, height: 64 });
+      now.mockRestore();
       renderer.dispose();
       mount.remove();
     }

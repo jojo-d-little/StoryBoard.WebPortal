@@ -562,4 +562,27 @@ describe("ParticleEffectSceneController", () => {
     }));
     now.mockRestore();
   });
+
+  it("starts staged tuning without moving the particle simulation clock backwards", () => {
+    let lastTimeSeconds = Number.NEGATIVE_INFINITY;
+    const effects = buildEffects();
+    const update = vi.fn((timeSeconds: number) => {
+      if (timeSeconds < lastTimeSeconds) throw new RangeError("Particle time moved backwards");
+      lastTimeSeconds = timeSeconds;
+    });
+    (effects as unknown as { update: typeof update }).update = update;
+    const controller = new ParticleEffectSceneController(effects);
+    controller.reconcile(scene({
+      environmentalParticleEffects: [{
+        id: "room-effect-1", effectKey: catalogEffect.effectKey, enabled: true, order: 1, tuning: {}
+      }]
+    }));
+
+    controller.update(10);
+    expect(() => controller.startTimingAt(9_999)).not.toThrow();
+    controller.update(10.016);
+
+    expect(update.mock.calls.map(([timeSeconds]) => timeSeconds)).toEqual([10, 10.016]);
+    controller.dispose();
+  });
 });

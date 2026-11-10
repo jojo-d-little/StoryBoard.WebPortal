@@ -1,6 +1,6 @@
 import type { GameRendererDiagnosticsSink } from "../diagnostics/RendererDiagnostics";
 import type { GameRendererIntentSink } from "../contracts/intents";
-import type { GameRenderObjectStyledPointEffect, GameRenderResolvedObjectEffect } from "../contracts/presentationEffects";
+import type { GameRenderObjectStyledPointEffect, GameRenderPresentationCue, GameRenderResolvedObjectEffect } from "../contracts/presentationEffects";
 import type { GameRenderRoomObject, GameRenderSceneObject, GameRenderSceneSnapshot } from "../contracts/sceneTypes";
 import { computeContainTransform } from "../scaling/containScaling";
 import { selectRenderableRoomObjects } from "../scene/sceneObjects";
@@ -81,6 +81,7 @@ export interface GameRendererHandle {
 }
 
 interface MovementTween {
+  source: "moveLegTelemetry" | "movementCue" | "positionDelta";
   objectId: string;
   activationId?: string;
   activationStartAtMs?: number;
@@ -123,6 +124,8 @@ interface RoomObjectSpriteState {
 
 interface RoomSurfaceState {
   label: "active" | "staging";
+  presentationClockStarted: boolean;
+  presentationClockJustStarted: boolean;
   root: Container;
   clipMask: Graphics;
   directionalOverlayLayer: Container;
@@ -372,6 +375,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
 
     return {
       label,
+      presentationClockStarted: label === "active",
+      presentationClockJustStarted: false,
       root,
       clipMask: surfaceClipMask,
       directionalOverlayLayer,
@@ -441,6 +446,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   const lightingMovementTweensByObjectId = new Map<string, LightingMovementTween>();
   const pendingSpriteLightingMovementIds = new Set<string>();
   const processedMovementActivationKeys = new Set<string>();
+  const visibleActivationStartAtById = new Map<string, number>();
   let interactionMode: GameRendererInteractionMode = "CommandClick";
   const waypointDraft: GameRendererRoomPoint[] = [];
   const hudOverlayController = createHudOverlayController(() => isDisposed);
@@ -456,6 +462,100 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
 
     const normalized = Number(value);
     return Math.abs(normalized - 1) <= 0.0001 ? 1 : normalized;
+  }
+
+  function applyVisibleActivationStarts(scene: GameRenderSceneSnapshot): GameRenderSceneSnapshot {
+    if (visibleActivationStartAtById.size === 0) return scene;
+    let changed = false;
+    const objectsById = Object.fromEntries(Object.entries(scene.objectsById).map(([objectId, object]) => {
+      const activePresentationCues = object.activePresentationCues.map((cue) => {
+        const startAtMs = cue.activationId ? visibleActivationStartAtById.get(cue.activationId) : undefined;
+        if (startAtMs === undefined) return cue;
+        changed = true;
+        return {
+          ...cue,
+          activationStartAtMs: startAtMs,
+          ...(cue.timelineStartAtMs === undefined ? {} : { timelineStartAtMs: startAtMs })
+        };
+      });
+      const resolvedObjectEffects = object.resolvedObjectEffects?.map((effect) => {
+        const startAtMs = effect.activationId ? visibleActivationStartAtById.get(effect.activationId) : undefined;
+        if (startAtMs === undefined) return effect;
+        changed = true;
+        return "timelineStartAtMs" in effect
+          ? { ...effect, activationStartAtMs: startAtMs, timelineStartAtMs: startAtMs }
+          : { ...effect, activationStartAtMs: startAtMs };
+      });
+      return [objectId, {
+        ...object,
+        activePresentationCues,
+        ...(resolvedObjectEffects ? { resolvedObjectEffects } : {})
+      }];
+    }));
+    return changed ? { ...scene, objectsById } : scene;
+  }
+
+  function setObjectPresentationInitialTime<T extends {
+    activePresentationCues: GameRenderPresentationCue[];
+    resolvedObjectEffects?: GameRenderResolvedObjectEffect[];
+  }>(object: T, nowMs: number): T {
+    return {
+      ...object,
+      activePresentationCues: object.activePresentationCues.map((cue) => cue.activationId
+        ? { ...cue, activationStartAtMs: nowMs, ...(cue.timelineStartAtMs === undefined ? {} : { timelineStartAtMs: nowMs }) }
+        : cue),
+      ...(object.resolvedObjectEffects ? {
+        resolvedObjectEffects: object.resolvedObjectEffects.map((effect) => {
+          if (!effect.activationId) return effect;
+          return "timelineStartAtMs" in effect
+            ? { ...effect, activationStartAtMs: nowMs, timelineStartAtMs: nowMs }
+            : { ...effect, activationStartAtMs: nowMs };
+        })
+      } : {})
+    };
+  }
+
+  function startSurfaceEffectsAt(surface: RoomSurfaceState, nowMs: number): void {
+    surface.scaleEffectController.startTimingAt(nowMs);
+    surface.shakeEffectController.startTimingAt(nowMs);
+    surface.opacityEffectController.startTimingAt(nowMs);
+    surface.appearanceOutlineEffectController.startTimingAt(nowMs);
+    surface.appearanceSilhouetteEffectController.startTimingAt(nowMs);
+    surface.appearanceColorOverlayTimelineController.startTimingAt(nowMs);
+    surface.pointLightTimelineController.startTimingAt(nowMs);
+    surface.styledPointEffectController.startTimingAt(nowMs);
+    surface.particleEffectSceneController?.startTimingAt(nowMs);
+  }
+
+  function startSurfacePresentationClock(
+    surface: RoomSurfaceState,
+    scene: GameRenderSceneSnapshot | null,
+    nowMs = performance.now(),
+    justStartedThisFrame = false
+  ): void {
+    if (surface.presentationClockStarted) return;
+    if (scene) {
+      for (const object of Object.values(scene.objectsById)) {
+        for (const cue of object.activePresentationCues) {
+          if (cue.activationId) visibleActivationStartAtById.set(cue.activationId, nowMs);
+        }
+      }
+    }
+    startSurfaceEffectsAt(surface, nowMs);
+    for (const tween of surface.activeMovementTweensByObjectId.values()) {
+      tween.elapsedMs = 0;
+      tween.totalElapsedMs = 0;
+      const cue = scene?.objectsById[tween.objectId]?.activePresentationCues.find((candidate) =>
+        candidate.category.trim().replace(/[\\s_-]/g, "").toLowerCase() === "movement"
+        && candidate.activationId === tween.activationId);
+      if (cue?.activationId) {
+        tween.activationStartAtMs = nowMs;
+        processedMovementActivationKeys.add(`${tween.objectId}:${cue.activationId}:${nowMs}`);
+      }
+    }
+    for (const tween of surface.particleEffectAnchorTweensByObjectId.values()) tween.elapsedMs = 0;
+    surface.presentationClockStarted = true;
+    surface.presentationClockJustStarted = justStartedThisFrame;
   }
 
   function resolveCurrentSituationalScale(state: RoomObjectSpriteState): number {
@@ -553,8 +653,10 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     const scaleEnabled = isPresentationCategoryEnabled(presentationIsolationSettings, "scale");
     activeRoomSurface.shakeEffectController.tick(nowMs, shakeEnabled);
     activeRoomSurface.scaleEffectController.tick(nowMs, scaleEnabled);
-    stagingRoomSurface.shakeEffectController.tick(nowMs, shakeEnabled);
-    stagingRoomSurface.scaleEffectController.tick(nowMs, scaleEnabled);
+    if (stagingRoomSurface.presentationClockStarted && !stagingRoomSurface.presentationClockJustStarted) {
+      stagingRoomSurface.shakeEffectController.tick(nowMs, shakeEnabled);
+      stagingRoomSurface.scaleEffectController.tick(nowMs, scaleEnabled);
+    }
   }
   function emit(level: "debug" | "info" | "warning" | "error", message: string, details?: unknown): void {
     diagnostics?.({
@@ -924,6 +1026,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   }
 
   function clearSurfaceSprites(surface: RoomSurfaceState): void {
+    surface.presentationClockStarted = false;
+    surface.presentationClockJustStarted = false;
     clearDirectionalOverlaySprites(surface);
     clearRoomObjectSprites(surface);
     surface.appearanceColorOverlayTimelineController.clear();
@@ -935,6 +1039,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   function clearAllSceneSprites(): void {
     lightingMovementTweensByObjectId.clear();
     pendingSpriteLightingMovementIds.clear();
+    visibleActivationStartAtById.clear();
     clearSurfaceSprites(activeRoomSurface);
     clearSurfaceSprites(stagingRoomSurface);
     hudOverlayController.clear();
@@ -968,6 +1073,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   }
 
   function activateStagedSurface(): void {
+    startSurfacePresentationClock(stagingRoomSurface, currentScene);
     const previousActiveSurface = activeRoomSurface;
     activeRoomSurface = stagingRoomSurface;
     stagingRoomSurface = previousActiveSurface;
@@ -1233,69 +1339,76 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         ...pendingSpriteLightingMovementIds
       ])
     );
-    for (const [objectId, tween] of activeRoomSurface.activeMovementTweensByObjectId) {
-      const activeSegment = tween.segments[tween.segmentIndex];
-      if (!activeSegment) {
-        activeRoomSurface.activeMovementTweensByObjectId.delete(objectId);
-        continue;
-      }
-
-      tween.elapsedMs += deltaMs;
-      tween.totalElapsedMs += deltaMs;
-
-      const progress = activeSegment.durationMs <= 0
-        ? 1
-        : Math.min(1, tween.elapsedMs / activeSegment.durationMs);
-      const easedProgress = progress * (2 - progress);
-      const nextX = activeSegment.fromX + ((activeSegment.toX - activeSegment.fromX) * easedProgress);
-      const nextY = activeSegment.fromY + ((activeSegment.toY - activeSegment.fromY) * easedProgress);
-      tween.state.root.position.set(nextX, nextY);
-      const scaleProgress = tween.totalDurationMs <= 0
-        ? 1
-        : Math.min(1, tween.totalElapsedMs / tween.totalDurationMs);
-      const easedScaleProgress = scaleProgress * (2 - scaleProgress);
-      const nextBaseScale = tween.baseScale;
-      const nextSituationalScale = tween.fromSituationalScale + ((tween.toSituationalScale - tween.fromSituationalScale) * easedScaleProgress);
-      applyScaleLayers(tween.state, nextBaseScale, nextSituationalScale);
-      syncRoomObjectAppearanceEffects(activeRoomSurface, objectId);
-
-      if (progress >= 1) {
-        tween.state.root.position.set(activeSegment.toX, activeSegment.toY);
-        applyScaleLayers(tween.state, tween.baseScale, tween.toSituationalScale);
-        syncRoomObjectAppearanceEffects(activeRoomSurface, objectId);
-        const hasNextSegment = tween.segmentIndex + 1 < tween.segments.length;
-        if (hasNextSegment) {
-          tween.segmentIndex += 1;
-          tween.elapsedMs = 0;
+    const movementSurfaces = [activeRoomSurface, ...(stagingRoomSurface.presentationClockStarted ? [stagingRoomSurface] : [])];
+    for (const surface of movementSurfaces) {
+      if (surface.presentationClockJustStarted) continue;
+      for (const [objectId, tween] of surface.activeMovementTweensByObjectId) {
+        const activeSegment = tween.segments[tween.segmentIndex];
+        if (!activeSegment) {
+          surface.activeMovementTweensByObjectId.delete(objectId);
           continue;
         }
 
-        diagnostics?.({
-          category: "scene",
-          level: "debug",
-          message: "Room object movement animation completed.",
-          details: {
-            objectId,
-            fromX: tween.segments[0]?.fromX,
-            fromY: tween.segments[0]?.fromY,
-            toX: activeSegment.toX,
-            toY: activeSegment.toY,
-            durationMs: tween.segments.reduce((sum, segment) => sum + segment.durationMs, 0),
-            elapsedMs: tween.elapsedMs,
-            segmentCount: tween.segments.length
+        tween.elapsedMs += deltaMs;
+        tween.totalElapsedMs += deltaMs;
+
+        const progress = activeSegment.durationMs <= 0
+          ? 1
+          : Math.min(1, tween.elapsedMs / activeSegment.durationMs);
+        const easedProgress = progress * (2 - progress);
+        const nextX = activeSegment.fromX + ((activeSegment.toX - activeSegment.fromX) * easedProgress);
+        const nextY = activeSegment.fromY + ((activeSegment.toY - activeSegment.fromY) * easedProgress);
+        tween.state.root.position.set(nextX, nextY);
+        const scaleProgress = tween.totalDurationMs <= 0
+          ? 1
+          : Math.min(1, tween.totalElapsedMs / tween.totalDurationMs);
+        const easedScaleProgress = scaleProgress * (2 - scaleProgress);
+        const nextBaseScale = tween.baseScale;
+        const nextSituationalScale = tween.fromSituationalScale + ((tween.toSituationalScale - tween.fromSituationalScale) * easedScaleProgress);
+        applyScaleLayers(tween.state, nextBaseScale, nextSituationalScale);
+        syncRoomObjectAppearanceEffects(surface, objectId);
+
+        if (progress >= 1) {
+          tween.state.root.position.set(activeSegment.toX, activeSegment.toY);
+          applyScaleLayers(tween.state, tween.baseScale, tween.toSituationalScale);
+          syncRoomObjectAppearanceEffects(surface, objectId);
+          const hasNextSegment = tween.segmentIndex + 1 < tween.segments.length;
+          if (hasNextSegment) {
+            tween.segmentIndex += 1;
+            tween.elapsedMs = 0;
+            continue;
           }
-        });
-        tween.state.root.zIndex = tween.toZOrder;
-        activeRoomSurface.activeMovementTweensByObjectId.delete(objectId);
-        lightingMovementTweensByObjectId.delete(objectId);
+
+          diagnostics?.({
+            category: "scene",
+            level: "debug",
+            message: "Room object movement animation completed.",
+            details: {
+              objectId,
+              fromX: tween.segments[0]?.fromX,
+              fromY: tween.segments[0]?.fromY,
+              toX: activeSegment.toX,
+              toY: activeSegment.toY,
+              durationMs: tween.segments.reduce((sum, segment) => sum + segment.durationMs, 0),
+              elapsedMs: tween.elapsedMs,
+              segmentCount: tween.segments.length
+            }
+          });
+          tween.state.root.zIndex = tween.toZOrder;
+          surface.activeMovementTweensByObjectId.delete(objectId);
+          lightingMovementTweensByObjectId.delete(objectId);
+        }
       }
     }
 
-    activeRoomSurface.appearanceOutlineEffectController.tick(performance.now());
-    activeRoomSurface.appearanceSilhouetteEffectController.tick(performance.now());
-    activeRoomSurface.appearanceColorOverlayTimelineController.tick(performance.now());
-    activeRoomSurface.opacityEffectController.tick(performance.now());
-    activeRoomSurface.styledPointEffectController.tick(performance.now());
+    const nowMs = performance.now();
+    for (const surface of [activeRoomSurface, ...(stagingRoomSurface.presentationClockStarted ? [stagingRoomSurface] : [])]) {
+      surface.appearanceOutlineEffectController.tick(nowMs);
+      surface.appearanceSilhouetteEffectController.tick(nowMs);
+      surface.appearanceColorOverlayTimelineController.tick(nowMs);
+      surface.opacityEffectController.tick(nowMs);
+      surface.styledPointEffectController.tick(nowMs);
+    }
   }
 
   function syncLightingMovementTweens(
@@ -1527,6 +1640,13 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       stagingRoomSurface.root.alpha = 1;
     }
 
+    const incomingSnapshotVisible = tween.usesSnapshotFrames && snapshotTransitionState
+      ? (tween.mode === "slide" ? progress > 0 : snapshotTransitionState.incomingFrame.alpha > 0)
+      : stagingRoomSurface.root.visible && stagingRoomSurface.root.alpha > 0;
+    if (incomingSnapshotVisible && !stagingRoomSurface.presentationClockStarted) {
+      startSurfacePresentationClock(stagingRoomSurface, currentScene, performance.now(), true);
+    }
+
     if (progress < 1) {
       return;
     }
@@ -1538,7 +1658,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     blackoutOverlay.alpha = 0;
     blackoutOverlay.visible = false;
     activateStagedSurface();
-    activeSurfaceScene = currentScene;
+    activeSurfaceScene = currentScene ? applyVisibleActivationStarts(currentScene) : null;
     if (currentScene) {
       hudOverlayController.reconcile(currentScene, viewportWidth, viewportHeight);
     }
@@ -1712,9 +1832,14 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
   }
 
   function updateParticleEffects(ticker: Ticker): void {
-    if (!presentationIsolationSettings.enabled || !presentationIsolationSettings.particleEffectsEnabled) return;
+    if (!presentationIsolationSettings.enabled || !presentationIsolationSettings.particleEffectsEnabled) {
+      activeRoomSurface.presentationClockJustStarted = false;
+      stagingRoomSurface.presentationClockJustStarted = false;
+      return;
+    }
     const timeSeconds = ticker.lastTime / 1000;
     for (const surface of [activeRoomSurface, stagingRoomSurface]) {
+      if (surface === stagingRoomSurface && (!surface.presentationClockStarted || surface.presentationClockJustStarted)) continue;
       const scene = surface === activeRoomSurface
         ? activeSurfaceScene
         : currentScene?.roomId !== activeSurfaceScene?.roomId ? currentScene : null;
@@ -1762,6 +1887,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       surface.particleEffectSceneController?.setObjectAnchorOverrides(anchors);
       surface.particleEffectSceneController?.update(timeSeconds);
     }
+    activeRoomSurface.presentationClockJustStarted = false;
+    stagingRoomSurface.presentationClockJustStarted = false;
   }
 
   function syncParticleEffectLayers(): void {
@@ -1813,7 +1940,10 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     // A room-boundary scene is rendered into a fresh staging surface at its authoritative
     // coordinates. Move-leg telemetry belongs to the delta that led to that room and must not
     // replay after the already-correct incoming snapshot hands off to the live surface.
-    stagingRoomSurface.activeMovementTweensByObjectId.clear();
+    for (const [objectId, tween] of stagingRoomSurface.activeMovementTweensByObjectId) {
+      if (tween.source !== "moveLegTelemetry") continue;
+      stagingRoomSurface.activeMovementTweensByObjectId.delete(objectId);
+    }
     for (const objectId of stagingRoomSurface.roomObjectSpritesById.keys()) {
       syncRoomObjectAppearanceEffects(stagingRoomSurface, objectId);
     }
@@ -1832,7 +1962,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     blackoutOverlay.alpha = 0;
     blackoutOverlay.visible = false;
     activateStagedSurface();
-    activeSurfaceScene = currentScene;
+    activeSurfaceScene = currentScene ? applyVisibleActivationStarts(currentScene) : null;
     if (currentScene) {
       hudOverlayController.reconcile(currentScene, viewportWidth, viewportHeight);
     }
@@ -2197,7 +2327,14 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       }
     });
 
-    for (const roomObject of roomObjects) {
+    for (const sourceRoomObject of roomObjects) {
+      const roomObject = surface === stagingRoomSurface && !surface.presentationClockStarted
+        ? setObjectPresentationInitialTime(sourceRoomObject, performance.now())
+        : sourceRoomObject;
+      const sourceSceneObject = scene.objectsById[roomObject.objectId];
+      const sceneObject = sourceSceneObject && surface === stagingRoomSurface && !surface.presentationClockStarted
+        ? setObjectPresentationInitialTime(sourceSceneObject, performance.now())
+        : sourceSceneObject;
       const assetUrl = roomObject.asset.assetPath.trim();
       if (!assetUrl) {
         removeRoomObjectSprite(surface, roomObject.objectId);
@@ -2255,6 +2392,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
               : Math.max(0, Math.round(roomObject.movementDurationMs ?? 0))
             : Math.max(0, Math.round(roomObject.movementDurationMs ?? 0))
           : 0;
+        const previousRoomObject = previousRoomObjectsById.get(roomObject.objectId);
         let roomObjectSpriteState = surface.roomObjectSpritesById.get(roomObject.objectId);
         let sprite = roomObjectSpriteState?.sprite;
 
@@ -2290,8 +2428,11 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
           sprite.position.set(0, 0);
           situationalScaleContainer.addChild(sprite);
 
-          const fallbackX = Number.isFinite(previousX) ? previousX : roomObject.x;
-          const fallbackY = Number.isFinite(previousY) ? previousY : roomObject.y;
+          const usePriorPositionForIncomingMovement = movementCue && movementDurationMs > 0 && previousRoomObject;
+          const fallbackX = Number.isFinite(previousX) ? previousX
+            : usePriorPositionForIncomingMovement && Number.isFinite(previousRoomObject.x) ? previousRoomObject.x : roomObject.x;
+          const fallbackY = Number.isFinite(previousY) ? previousY
+            : usePriorPositionForIncomingMovement && Number.isFinite(previousRoomObject.y) ? previousRoomObject.y : roomObject.y;
           root.position.set(fallbackX, fallbackY);
           surface.roomObjectLayer.addChild(root);
 
@@ -2344,7 +2485,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         const currentSituationalScale = resolveCurrentSituationalScale(roomObjectSpriteState);
         const targetBaseScale = Number.isFinite(roomObject.scale) && roomObject.scale > 0 ? roomObject.scale : 1;
         const targetSituationalScale = normalizeSituationalScale(roomObject.additionalSituationalScale);
-        const spatialFootprint = scene.objectsById[roomObject.objectId]?.lighting?.spatialFootprint;
+        const spatialFootprint = sceneObject?.lighting?.spatialFootprint;
         const pivotOffsetX = roomObjectSpriteState.situationalScalePivotOffsetFromImageXPx;
         const pivotOffsetY = roomObjectSpriteState.situationalScalePivotOffsetFromImageYPx;
         if (pivotOffsetX !== null && pivotOffsetY !== null) {
@@ -2371,8 +2512,6 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         const currentZOrder = Number.isFinite(roomObjectSpriteState.root.zIndex)
           ? roomObjectSpriteState.root.zIndex
           : targetZOrder;
-        const previousRoomObject = previousRoomObjectsById.get(roomObject.objectId);
-
         roomObjectSpriteState.root.rotation = toRadians(roomObject.rotationDegrees);
         roomObjectSpriteState.root.zIndex = currentZOrder;
         applyScaleLayers(roomObjectSpriteState, currentBaseScale, currentSituationalScale);
@@ -2400,7 +2539,8 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
           roomObjectSpriteState.scaleStyleContainer,
           enabledScaleEffects,
           isBaseline,
-          previousRoomObject?.resolvedObjectEffects ?? []
+          previousRoomObject?.resolvedObjectEffects ?? [],
+          surface === stagingRoomSurface && !surface.presentationClockStarted
         );
 
         const highlightEnabled = isPresentationCategoryEnabled(presentationIsolationSettings, "highlight");
@@ -2440,9 +2580,9 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
           surface.appearanceSilhouetteEffectController.removeObject(roomObject.objectId);
           surface.appearanceColorOverlayTimelineController.remove(roomObject.objectId);
         }
-        const pointLightTimeline = scene.objectsById[roomObject.objectId]?.resolvedObjectEffects
+        const pointLightTimeline = sceneObject?.resolvedObjectEffects
           ?.find((effect) => effect.kind === "pointLightTimelineStyle");
-        const pointLightEventStartAtMs = Math.max(-1, ...(scene.objectsById[roomObject.objectId]?.activePresentationCues ?? [])
+        const pointLightEventStartAtMs = Math.max(-1, ...(sceneObject?.activePresentationCues ?? [])
           .filter((cue) => Number.isFinite(cue.timelineStartAtMs))
           .map((cue) => cue.timelineStartAtMs!));
         surface.pointLightTimelineController.replaceEvent(
@@ -2453,7 +2593,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
           surface.pointLightTimelineController.apply(
             roomObject.objectId,
             pointLightTimeline?.kind === "pointLightTimelineStyle" ? pointLightTimeline : undefined,
-            scene.objectsById[roomObject.objectId]?.lighting?.pointLight
+            sceneObject?.lighting?.pointLight
           );
         } else {
           surface.pointLightTimelineController.remove(roomObject.objectId);
@@ -2512,6 +2652,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
           syncRoomObjectAppearanceEffects(surface, roomObject.objectId);
           const totalDurationMs = legByLegSegments.reduce((sum, segment) => sum + segment.durationMs, 0);
           surface.activeMovementTweensByObjectId.set(roomObject.objectId, {
+            source: "moveLegTelemetry",
             objectId: roomObject.objectId,
             ...(movementCue?.activationId ? { activationId: movementCue.activationId } : {}),
             ...(movementCue?.activationStartAtMs === undefined ? {} : { activationStartAtMs: movementCue.activationStartAtMs }),
@@ -2610,6 +2751,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         applyScaleLayers(roomObjectSpriteState, targetBaseScale, currentSituationalScale);
         syncRoomObjectAppearanceEffects(surface, roomObject.objectId);
         surface.activeMovementTweensByObjectId.set(roomObject.objectId, {
+          source: movementCue ? "movementCue" : "positionDelta",
           objectId: roomObject.objectId,
           ...(movementCue?.activationId ? { activationId: movementCue.activationId } : {}),
           ...(movementCue?.activationStartAtMs === undefined ? {} : { activationStartAtMs: movementCue.activationStartAtMs }),
@@ -2699,6 +2841,10 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     surface: RoomSurfaceState,
     reconcileHud = true
   ): Promise<void> {
+    if (!surface.presentationClockStarted && surface === activeRoomSurface) {
+      startSurfacePresentationClock(surface, scene);
+    }
+    if (surface.presentationClockStarted) scene = applyVisibleActivationStarts(scene);
     await reconcileDirectionalOverlays(scene, generation, surface);
     if (isDisposed || generation !== renderGeneration) {
       return;
@@ -2852,9 +2998,9 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         details: error instanceof Error ? error.message : String(error)
       });
     }
+    app.ticker.add(updateRoomSwapTween);
     app.ticker.add(updateMovementTweens);
     app.ticker.add(updateObjectCueAnimations);
-    app.ticker.add(updateRoomSwapTween);
     app.ticker.add(hudOverlayController.update);
     app.ticker.add(updateLightingPresentation);
     app.ticker.add(updateParticleEffects);
@@ -2878,7 +3024,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         hudOverlayController.reconcile(currentScene, viewportWidth, viewportHeight);
       }
       await renderScene(currentScene, generation, null, activeRoomSurface);
-      activeSurfaceScene = currentScene;
+    activeSurfaceScene = currentScene ? applyVisibleActivationStarts(currentScene) : null;
       reportRoomTransitionState("complete");
     }
   }
@@ -2945,13 +3091,15 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     },
     updateScene: (scene) => {
       const previousScene = currentScene;
-      const isRoomChanged = previousScene !== null && previousScene.roomId !== scene.roomId;
+      const isRoomChanged = previousScene !== null && (previousScene.roomId !== scene.roomId
+        || (roomTransitionPending && activeSurfaceScene?.roomId !== scene.roomId));
+      if (isRoomChanged) visibleActivationStartAtById.clear();
       if (!isRoomChanged) {
         syncLightingMovementTweens(previousScene, scene, false);
       }
       if (currentScene && areScenesRenderEquivalent(currentScene, scene)) {
         currentScene = scene;
-        activeSurfaceScene = scene;
+        activeSurfaceScene = applyVisibleActivationStarts(scene);
         if (roomTransitionPending && !activeRoomSwapTween) {
           emit("info", "Completed pending room transition because the equivalent destination scene is already active.", {
             roomId: scene.roomId || "(unknown)",
@@ -3106,7 +3254,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
               applyViewportTransform();
             }
             activateStagedSurface();
-            activeSurfaceScene = scene;
+            activeSurfaceScene = applyVisibleActivationStarts(scene);
             hudOverlayController.reconcile(scene, viewportWidth, viewportHeight);
             reportRoomTransitionState("complete");
             emit("debug", "Committed staged room surface after room-boundary render.", {
@@ -3137,7 +3285,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       } else {
         void renderScene(scene, generation, previousScene, activeRoomSurface).then(() => {
           if (!isDisposed && generation === renderGeneration) {
-            activeSurfaceScene = scene;
+            activeSurfaceScene = applyVisibleActivationStarts(scene);
             if (roomTransitionPending && !activeRoomSwapTween) {
               emit("info", "Completed pending room transition after the active destination scene rendered.", {
                 roomId: scene.roomId || "(unknown)",

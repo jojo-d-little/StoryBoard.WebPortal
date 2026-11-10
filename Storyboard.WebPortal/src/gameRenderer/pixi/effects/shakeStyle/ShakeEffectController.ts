@@ -15,6 +15,7 @@ interface ObjectShakeState {
 export interface ShakeEffectController {
   reconcileObject: (objectId: string, container: Container, effects: GameRenderResolvedObjectEffect[]) => void;
   tick: (nowMs: number, enabled: boolean) => void;
+  startTimingAt: (nowMs: number) => void;
   removeObject: (objectId: string) => void;
   clear: () => void;
 }
@@ -67,6 +68,12 @@ export function createShakeEffectController(): ShakeEffectController {
       for (const state of objects.values()) {
         if (enabled) update(state, nowMs);
         else state.container.position.set(0, 0);
+      }
+    },
+    startTimingAt: (nowMs) => {
+      for (const state of objects.values()) {
+        for (const activation of state.activations.values()) activation.startedAtMs = nowMs;
+        update(state, nowMs);
       }
     },
     removeObject: (objectId) => { objects.delete(objectId); },

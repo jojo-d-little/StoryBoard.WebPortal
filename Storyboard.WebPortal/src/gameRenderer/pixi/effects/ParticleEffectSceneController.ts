@@ -271,6 +271,10 @@ export class ParticleEffectSceneController {
 
   }
 
+  startTimingAt(nowMs: number): void {
+    for (const state of this.instanceStates.values()) state.transitionStartMs = nowMs;
+  }
+
   clearRoom(): void {
     this.effects.clear();
     this.activeIds.clear();
