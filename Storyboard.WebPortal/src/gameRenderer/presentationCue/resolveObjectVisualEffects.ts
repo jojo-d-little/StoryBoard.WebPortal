@@ -133,7 +133,7 @@ export function resolveObjectVisualEffects(
     const targetScaleMultiplier = catalogEffect.scaleStyle?.targetScaleMultiplier;
     const transitionDurationMs = catalogEffect.scaleStyle?.transitionDurationMs;
     if (Number.isFinite(targetScaleMultiplier) && targetScaleMultiplier! >= 0.1 && targetScaleMultiplier! <= 8
-      && Number.isInteger(transitionDurationMs) && transitionDurationMs! >= 1 && transitionDurationMs! <= 10000) {
+      && Number.isInteger(transitionDurationMs) && transitionDurationMs! >= 0 && transitionDurationMs! <= 10000) {
       effects.push({
         ...identity,
         kind: "scaleStyle",

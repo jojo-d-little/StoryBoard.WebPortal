@@ -1433,6 +1433,71 @@ describe("PixiGameRenderer situational scale pivots", () => {
 });
 
 describe("PixiGameRenderer scale cue pivots", () => {
+  it("prepares an immediate Scale and opacity on the hidden destination surface before exposure", async () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const prepared: Array<{ visible: boolean; scale: number; base: number; situational: number; alpha: number; imageAlpha: number }> = [];
+    const renderer = createGameRenderer(mount, {
+      onRoomTransitionStateChanged: (state) => {
+        if (state !== "running") return;
+        const app = pixiMocks.__appInstances[pixiMocks.__appInstances.length - 1] as { stage: TransformNode };
+        const staging = app.stage.children[0].children[1];
+        const root = staging.children[0].children[1].children[0];
+        const scaleStyle = root.children[0].children[0];
+        const base = scaleStyle.children[0];
+        const opacity = base.children[0];
+        const situational = opacity.children[0];
+        const image = situational.children[0];
+        prepared.push({
+          visible: (staging as typeof staging & { visible: boolean }).visible,
+          scale: scaleStyle.scale.x,
+          base: base.scale.x,
+          situational: situational.scale.x,
+          alpha: opacity.alpha ?? 1,
+          imageAlpha: image.alpha ?? 1
+        });
+      }
+    });
+    (pixiMocks.Assets.load as ReturnType<typeof vi.fn>).mockImplementation(async () => ({ width: 64, height: 64 }));
+    const clock = vi.spyOn(performance, "now").mockReturnValue(1000);
+    try {
+      renderer.resize(800, 600);
+      await waitFor(() => pixiMocks.__appInstances[pixiMocks.__appInstances.length - 1]?.stage.children.length > 0, 1000);
+      renderer.updateScene({
+        roomId: "source", displayMode: "composed", bounds: { width: 800, height: 600 },
+        directionalOverlays: [], objectsById: {}
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const resolvedObjectEffects = resolveObjectVisualEffects([
+        { category: "Scale", effectKey: "scale.double.synthetic", activationId: "scale-on", activationStartAtMs: 1000 },
+        { category: "Appearance", effectKey: "appearance.synthetic", activationId: "opacity-on", activationStartAtMs: 1000 }
+      ], { effects: [
+        { category: "Scale", effectKey: "scale.double.synthetic", scaleStyle: { targetScaleMultiplier: 2, transitionDurationMs: 0 } },
+        { category: "Appearance", effectKey: "appearance.synthetic", opacityStyle: {
+          initialAlpha: 1, steps: [{ alpha: 0.4, durationMs: 0, transition: "immediate" }]
+        } }
+      ] });
+      renderer.updateScene({
+        roomId: "destination", displayMode: "composed", bounds: { width: 800, height: 600 },
+        directionalOverlays: [], roomTransition: { mode: "fade-blackout", durationMs: 1000 },
+        objectsById: createSceneObjectsFromRoomObjects([{
+          objectId: "rider", objectName: "Rider", asset: { assetPath: "data:image/mock;rider" },
+          x: 100, y: 120, rotationDegrees: 0, scale: 0.75, additionalSituationalScale: 0.8,
+          imageTransparency: 0.25, zOrder: 1, activePresentationCues: [], resolvedObjectEffects
+        }])
+      });
+      await waitFor(() => prepared.length === 1, 1000);
+      expect(prepared).toEqual([{
+        visible: false, scale: 2, base: 0.75, situational: 0.8, alpha: 0.4, imageAlpha: 0.75
+      }]);
+      expect(prepared[0].scale * prepared[0].base * prepared[0].situational).toBeCloseTo(1.2);
+    } finally {
+      clock.mockRestore();
+      renderer.dispose();
+      mount.remove();
+    }
+  });
+
   it("keeps the floor and rotated elevator aligned through shrink, hold, shake, and cue removal", async () => {
     const mount = document.createElement("div");
     document.body.appendChild(mount);

@@ -29,6 +29,10 @@ export interface ScaleEffectController {
 function update(state: ObjectScaleState, nowMs: number): void {
   let multiplier = 1;
   for (const activation of state.activations.values()) {
+    if (activation.style.transitionDurationMs === 0) {
+      multiplier *= activation.style.targetScaleMultiplier;
+      continue;
+    }
     const progress = Math.max(0, Math.min(1,
       (nowMs - activation.startedAtMs) / activation.style.transitionDurationMs
     ));
