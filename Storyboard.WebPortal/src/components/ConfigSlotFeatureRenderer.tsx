@@ -54,7 +54,6 @@ interface ConfigSlotFeatureRendererProps {
   diagnosticsExportMetadata: PortalTraceExportMetadata;
   onClearDiagnostics: () => void;
   onDiagnosticsEnabledChange: (value: boolean) => void;
-  onDiagnosticsVerboseChange: (value: boolean) => void;
   onHostApiBaseUrlOverrideChange: (value: string) => void;
   onMaxDiagnosticsEntriesChange: (value: number) => void;
   onDiagnosticsCategoryEnabledChange: (category: string, enabled: boolean) => void;
@@ -103,7 +102,6 @@ export function ConfigSlotFeatureRenderer(props: ConfigSlotFeatureRendererProps)
     diagnosticsExportMetadata,
     onClearDiagnostics,
     onDiagnosticsEnabledChange,
-    onDiagnosticsVerboseChange,
     onHostApiBaseUrlOverrideChange,
     onMaxDiagnosticsEntriesChange,
     onDiagnosticsCategoryEnabledChange,
@@ -196,7 +194,7 @@ export function ConfigSlotFeatureRenderer(props: ConfigSlotFeatureRendererProps)
   }
 
   if (slot.featureKey === "sessionPlaySurface") {
-    return <SessionPlaySurfaceHostV1 hostWorkflow={hostWorkflow} />;
+    return <SessionPlaySurfaceHostV1 hostWorkflow={hostWorkflow} diagnosticsVerbose={diagnosticsVerbose} />;
   }
 
   if (slot.featureKey === "inGameToolsMenu") {
@@ -241,7 +239,6 @@ export function ConfigSlotFeatureRenderer(props: ConfigSlotFeatureRendererProps)
         submitCommand={hostWorkflow.submitCommand}
         sessionDeltaRevision={hostWorkflow.sessionDeltaRevision}
         diagnosticsEnabled={diagnosticsEnabled}
-        diagnosticsVerbose={diagnosticsVerbose}
         hostApiBaseUrlOverride={hostApiBaseUrlOverride}
         maxDiagnosticsEntries={maxDiagnosticsEntries}
         diagnosticsCategoryOptions={diagnosticsCategoryOptions}
@@ -249,7 +246,6 @@ export function ConfigSlotFeatureRenderer(props: ConfigSlotFeatureRendererProps)
         pollIntervalMs={pollIntervalMs}
         heartbeatEveryNPolls={heartbeatEveryNPolls}
         onDiagnosticsEnabledChange={onDiagnosticsEnabledChange}
-        onDiagnosticsVerboseChange={onDiagnosticsVerboseChange}
         onHostApiBaseUrlOverrideChange={onHostApiBaseUrlOverrideChange}
         onMaxDiagnosticsEntriesChange={onMaxDiagnosticsEntriesChange}
         onDiagnosticsCategoryEnabledChange={onDiagnosticsCategoryEnabledChange}

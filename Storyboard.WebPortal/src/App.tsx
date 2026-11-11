@@ -26,7 +26,6 @@ import {
 
 const DEV_TOOLS_STORAGE_KEYS = {
   diagnosticsEnabled: "shellLab.devTools.diagnosticsEnabled",
-  diagnosticsVerbose: "shellLab.devTools.diagnosticsVerbose",
   diagnosticsCategoryFilters: "shellLab.devTools.diagnosticsCategoryFilters",
   pollingSettingsOverrideEnabled: "shellLab.devTools.pollingSettingsOverrideEnabled",
   hostApiBaseUrlOverride: "shellLab.devTools.hostApiBaseUrlOverride",
@@ -310,7 +309,6 @@ export default function App(props: AppProps): JSX.Element {
   const queryOverrides = useMemo<QueryOverrides>(() => readQueryOverrides(), []);
   const [state, setState] = useState<string>("");
   const [diagnosticsEnabled, setDiagnosticsEnabled] = useState<boolean>(false);
-  const [diagnosticsVerbose, setDiagnosticsVerbose] = useState<boolean>(() => readBooleanSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsVerbose, false));
   const [diagnosticsCategoryFilters, setDiagnosticsCategoryFilters] = useState<Record<string, boolean>>(() => {
     const persisted = readDiagnosticsCategoryFilterSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsCategoryFilters);
     const initialProfile = readDiagnosticsProfileSetting(DEV_TOOLS_STORAGE_KEYS.diagnosticsProfile, settings.diagnosticsProfiles.defaultProfile, settings.diagnosticsProfiles.profiles);
@@ -916,10 +914,6 @@ export default function App(props: AppProps): JSX.Element {
   }, [contracts]);
 
   useEffect(() => {
-    window.localStorage.setItem(DEV_TOOLS_STORAGE_KEYS.diagnosticsVerbose, String(diagnosticsVerbose));
-  }, [diagnosticsVerbose]);
-
-  useEffect(() => {
     window.localStorage.setItem(DEV_TOOLS_STORAGE_KEYS.diagnosticsCategoryFilters, JSON.stringify(diagnosticsCategoryFilters));
   }, [diagnosticsCategoryFilters]);
 
@@ -1112,7 +1106,7 @@ export default function App(props: AppProps): JSX.Element {
         hostWorkflow={hostWorkflow}
           onCommandSubmitCompleted={handleCommandSubmitCompleted}
         diagnosticsEnabled={diagnosticsEnabled}
-        diagnosticsVerbose={diagnosticsVerbose}
+        diagnosticsVerbose={diagnosticsProfile === "Verbose"}
         hostApiBaseUrlOverride={hostApiBaseUrlOverride}
         maxDiagnosticsEntries={maxDiagnosticsEntries}
         diagnosticsCategoryOptions={diagnosticsCategoryOptions}
@@ -1126,7 +1120,6 @@ export default function App(props: AppProps): JSX.Element {
         diagnosticsExportMetadata={diagnosticsExportMetadata}
         onClearDiagnostics={clearDiagnostics}
         onDiagnosticsEnabledChange={setDiagnosticsEnabled}
-        onDiagnosticsVerboseChange={setDiagnosticsVerbose}
         onHostApiBaseUrlOverrideChange={setHostApiBaseUrlOverride}
         onMaxDiagnosticsEntriesChange={setMaxDiagnosticsEntries}
         onDiagnosticsCategoryEnabledChange={(category, enabled) => {
@@ -1222,7 +1215,6 @@ export default function App(props: AppProps): JSX.Element {
     diagnosticsExportMetadata,
     diagnosticsCategoryFilters,
     diagnosticsWorkspace,
-    diagnosticsVerbose,
     hostApiBaseUrlOverride,
     hostWorkflow,
     maxDiagnosticsEntries,

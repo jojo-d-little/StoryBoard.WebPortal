@@ -131,7 +131,6 @@ const HUD_THEME_TYPOGRAPHY_DESCRIPTIONS: Record<HudThemeTypographyTokenKey, { la
 interface DevToolsPanelProps {
   gameScopeDump: GameScopeDumpWorkflow;
   diagnosticsEnabled: boolean;
-  diagnosticsVerbose: boolean;
   hostApiBaseUrlOverride: string;
   maxDiagnosticsEntries: number;
   diagnosticsCategoryOptions: Array<{
@@ -143,7 +142,6 @@ interface DevToolsPanelProps {
   pollIntervalMs: number;
   heartbeatEveryNPolls: number;
   onDiagnosticsEnabledChange: (value: boolean) => void;
-  onDiagnosticsVerboseChange: (value: boolean) => void;
   onHostApiBaseUrlOverrideChange: (value: string) => void;
   onMaxDiagnosticsEntriesChange: (value: number) => void;
   onDiagnosticsCategoryEnabledChange: (category: string, enabled: boolean) => void;

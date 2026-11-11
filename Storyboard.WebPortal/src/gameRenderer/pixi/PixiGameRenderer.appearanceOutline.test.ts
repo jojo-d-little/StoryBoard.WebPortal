@@ -27,6 +27,7 @@ const pixiMocks = vi.hoisted(() => {
     zIndex = 0;
     rotation = 0;
     parent: MockContainer | null = null;
+    worldTransform = { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 };
 
     constructor() {
       this.scale.set(1);
@@ -58,6 +59,10 @@ const pixiMocks = vi.hoisted(() => {
       }
 
       return removed;
+    }
+
+    getBounds(): { x: number; y: number; width: number; height: number } {
+      return { x: this.position.x, y: this.position.y, width: 0, height: 0 };
     }
 
     destroy(): void {
@@ -295,6 +300,51 @@ async function waitFor(predicate: () => boolean, timeoutMs = 500): Promise<void>
 }
 
 describe("PixiGameRenderer appearance outline cues", () => {
+  it("emits a bounded motion trace for moving objects only when verbose diagnostics are enabled", async () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const diagnostics: GameRendererDiagnosticsEvent[] = [];
+    const renderer = createGameRenderer(mount, {
+      verboseDiagnostics: true,
+      diagnosticsSink: (event) => diagnostics.push(event)
+    });
+    const scene: GameRenderSceneSnapshot = {
+      roomId: "motion-trace-room",
+      displayMode: "composed",
+      bounds: { width: 800, height: 600 },
+      directionalOverlays: [],
+      objectsById: createSceneObjectsFromRoomObjects([{
+        objectId: "elevator-car",
+        objectName: "Elevator Car",
+        asset: { assetPath: "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='64'%20height='64'%3E%3Crect%20width='100%25'%20height='100%25'/%3E%3C/svg%3E" },
+        x: 120,
+        y: 240,
+        rotationDegrees: 0,
+        scale: 1,
+        zOrder: 1,
+        movementDurationMs: 900,
+        activePresentationCues: [{ category: "Movement", effectKey: "movement.elevator" }]
+      }])
+    };
+
+    try {
+      renderer.updateScene(scene);
+      await waitFor(() => diagnostics.some((event) => event.message === "Presentation motion trace."), 800);
+      const trace = diagnostics.find((event) => event.message === "Presentation motion trace.");
+      expect(trace?.category).toBe("frame");
+      expect(trace?.details).toMatchObject({
+        event: "scene-reconciliation",
+        roomId: "motion-trace-room",
+        objectId: "elevator-car",
+        objectName: "Elevator Car",
+        incomingScenePosition: { x: 120, y: 240 }
+      });
+    } finally {
+      renderer.dispose();
+      mount.remove();
+    }
+  });
+
   it("releases the room-transition callback when the destination transition finishes", async () => {
     const mount = document.createElement("div");
     document.body.appendChild(mount);

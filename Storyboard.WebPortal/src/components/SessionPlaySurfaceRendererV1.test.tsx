@@ -9,7 +9,7 @@ import { SessionPlaySurfaceRendererV1 } from "./SessionPlaySurfaceRendererV1";
 
 const rendererMock = vi.hoisted(() => ({
   create: vi.fn(),
-  handles: [] as Array<{ diagnosticsSink: (event: GameRendererDiagnosticsEvent) => void }>
+  handles: [] as Array<{ diagnosticsSink: (event: GameRendererDiagnosticsEvent) => void; verboseDiagnostics?: boolean }>
 }));
 
 vi.mock("../gameRenderer", () => ({
@@ -29,6 +29,7 @@ describe("SessionPlaySurfaceRendererV1 renderer diagnostics", () => {
       dispose: vi.fn(),
       updateScene: vi.fn(),
       setPresentationIsolationSettings: vi.fn(),
+      setVerboseDiagnostics: vi.fn(),
       prepareRoomTransitionSnapshot: vi.fn(),
       setInteractionMode: vi.fn(),
       resize: vi.fn(),
@@ -51,6 +52,7 @@ describe("SessionPlaySurfaceRendererV1 renderer diagnostics", () => {
       sceneSnapshot: null,
       loadParticleEffectImage: async () => null,
       presentationIsolationSettings: DEFAULT_PRESENTATION_ISOLATION_SETTINGS,
+      diagnosticsVerbose: false,
       roomTransitionPreparationEpoch: 0,
       gameplayInteractionSubstate: "DefaultClick" as const,
       waypointDraftCount: 0,
@@ -68,12 +70,17 @@ describe("SessionPlaySurfaceRendererV1 renderer diagnostics", () => {
 
     const { rerender } = render(<SessionPlaySurfaceRendererV1 {...props} />);
     expect(rendererMock.create).toHaveBeenCalledTimes(1);
+    expect(rendererMock.handles[0].verboseDiagnostics).toBe(false);
     const originalSink = rendererMock.handles[0].diagnosticsSink;
 
     rerender(<SessionPlaySurfaceRendererV1 {...props} onReportRendererDiagnostic={enabledCaptureSink} />);
     originalSink({ category: "scene", level: "info", message: "capture enabled" });
     expect(enabledCaptureSink).toHaveBeenCalledTimes(1);
     expect(disabledCaptureSink).not.toHaveBeenCalled();
+
+    rerender(<SessionPlaySurfaceRendererV1 {...props} diagnosticsVerbose onReportRendererDiagnostic={enabledCaptureSink} />);
+    expect(rendererHandle.setVerboseDiagnostics).toHaveBeenCalledWith(true);
+    expect(rendererMock.create).toHaveBeenCalledTimes(1);
 
     rerender(<SessionPlaySurfaceRendererV1 {...props} onReportRendererDiagnostic={stoppedCaptureSink} />);
     originalSink({ category: "scene", level: "info", message: "capture stopped" });

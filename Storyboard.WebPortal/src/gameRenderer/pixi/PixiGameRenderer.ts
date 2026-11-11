@@ -50,6 +50,7 @@ export type GameRendererRoomTransitionState = "preparing" | "running" | "complet
 export interface CreateGameRendererOptions {
   loadParticleEffectImage?: (relativeLocator: string) => Promise<string | null>;
   diagnosticsSink?: GameRendererDiagnosticsSink;
+  verboseDiagnostics?: boolean;
   intentSink?: GameRendererIntentSink;
   onRoomTransitionStateChanged?: (state: GameRendererRoomTransitionState) => void;
   presentationIsolationSettings?: PresentationIsolationSettings;
@@ -77,6 +78,7 @@ export interface GameRendererHandle {
   removeLastWaypoint: () => boolean;
   applyStyledPointEffectIntent: (input: StyledPointEffectIntent) => void;
   setPresentationIsolationSettings: (settings: PresentationIsolationSettings) => void;
+  setVerboseDiagnostics: (enabled: boolean) => void;
   dispose: () => void;
 }
 
@@ -272,6 +274,8 @@ function selectObjectPointEffects(object: GameRenderSceneObject): GameRenderObje
 
 export function createGameRenderer(mountElement: HTMLElement, options: CreateGameRendererOptions = {}): GameRendererHandle {
   const diagnostics = options.diagnosticsSink;
+  let verboseDiagnostics = options.verboseDiagnostics ?? false;
+  const motionTraceSamplesByKey = new Map<string, { count: number; lastAtMs: number }>();
   void options.intentSink;
 
   let presentationIsolationSettings = normalizePresentationIsolationSettings(
@@ -540,6 +544,13 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
           if (cue.activationId) visibleActivationStartAtById.set(cue.activationId, nowMs);
         }
       }
+      emitMotionTrace("first-visible-clock-start", {
+        roomId: scene.roomId ?? "(unknown)",
+        surface: surface.label,
+        cueActivationCount: visibleActivationStartAtById.size,
+        trigger: justStartedThisFrame ? "room-swap-first-visible-pixels" : "surface-activation"
+      }, `${surface.label}:${scene.roomId ?? ""}:first-visible`, nowMs);
+      traceMotionObjects("first-visible-frame", surface, scene, nowMs);
     }
     startSurfaceEffectsAt(surface, nowMs);
     for (const tween of surface.activeMovementTweensByObjectId.values()) {
@@ -657,6 +668,10 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       stagingRoomSurface.shakeEffectController.tick(nowMs, shakeEnabled);
       stagingRoomSurface.scaleEffectController.tick(nowMs, scaleEnabled);
     }
+    if (activeSurfaceScene) traceMotionObjects("visible-tick", activeRoomSurface, activeSurfaceScene, nowMs);
+    if (stagingRoomSurface.presentationClockStarted && !stagingRoomSurface.presentationClockJustStarted && currentScene) {
+      traceMotionObjects("visible-tick", stagingRoomSurface, currentScene, nowMs);
+    }
   }
   function emit(level: "debug" | "info" | "warning" | "error", message: string, details?: unknown): void {
     diagnostics?.({
@@ -665,6 +680,167 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       message,
       details
     });
+  }
+
+  function emitMotionTrace(
+    event: string,
+    details: Record<string, unknown>,
+    sampleKey?: string,
+    nowMs = performance.now()
+  ): void {
+    if (!verboseDiagnostics || !diagnostics) return;
+    if (sampleKey) {
+      const previous = motionTraceSamplesByKey.get(sampleKey) ?? { count: 0, lastAtMs: Number.NEGATIVE_INFINITY };
+      if (previous.count >= 40 || (previous.count >= 6 && nowMs - previous.lastAtMs < 250)) return;
+      motionTraceSamplesByKey.set(sampleKey, { count: previous.count + 1, lastAtMs: nowMs });
+    }
+    diagnostics({
+      category: "frame",
+      level: "debug",
+      message: "Presentation motion trace.",
+      details: { event, atMs: nowMs, ...details }
+    });
+  }
+
+  function isMotionTraceObject(object: GameRenderSceneObject): boolean {
+    return (object.movementDurationMs ?? 0) > 0 || object.activePresentationCues.some((cue) => {
+      const category = cue.category.trim().replace(/[\s_-]/g, "").toLowerCase();
+      return category === "movement" || category === "scale";
+    });
+  }
+
+  function traceMotionObject(
+    event: string,
+    surface: RoomSurfaceState,
+    scene: GameRenderSceneSnapshot,
+    objectId: string,
+    nowMs = performance.now(),
+    extraDetails: Record<string, unknown> = {}
+  ): void {
+    const object = scene.objectsById[objectId];
+    if (!object || !isMotionTraceObject(object)) return;
+    const state = surface.roomObjectSpritesById.get(objectId);
+    const tween = surface.activeMovementTweensByObjectId.get(objectId);
+    let renderedBounds: { x: number; y: number; width: number; height: number } | null = null;
+    if (state) {
+      const bounds = state.root.getBounds();
+      renderedBounds = { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
+    }
+    emitMotionTrace(event, {
+      roomId: scene.roomId ?? "(unknown)",
+      objectId,
+      objectName: object.objectName,
+      surface: surface.label,
+      surfaceVisible: surface.root.visible,
+      surfaceAlpha: surface.root.alpha,
+      surfacePosition: { x: surface.root.position.x, y: surface.root.position.y },
+      surfaceWorldTransform: {
+        a: surface.root.worldTransform.a,
+        b: surface.root.worldTransform.b,
+        c: surface.root.worldTransform.c,
+        d: surface.root.worldTransform.d,
+        tx: surface.root.worldTransform.tx,
+        ty: surface.root.worldTransform.ty
+      },
+      scenePosition: object.sprite ? { x: object.sprite.x, y: object.sprite.y } : null,
+      sceneScale: object.sprite?.scale ?? null,
+      sceneRotationDegrees: object.sprite?.rotationDegrees ?? null,
+      sceneSituationalScale: object.sprite?.additionalSituationalScale ?? null,
+      movementDurationMs: object.movementDurationMs,
+      cues: object.activePresentationCues
+        .filter((cue) => {
+          const category = cue.category.trim().replace(/[\s_-]/g, "").toLowerCase();
+          return category === "movement" || category === "scale";
+        })
+        .map((cue) => ({
+          category: cue.category,
+          effectKey: cue.effectKey,
+          activationId: cue.activationId ?? null,
+          activationStartAtMs: cue.activationStartAtMs ?? null,
+          movementDurationMs: cue.movementDurationMs ?? null
+        })),
+      resolvedEffects: object.resolvedObjectEffects
+        ?.filter((effect) => effect.kind === "scaleStyle" || effect.kind === "opacityStyle" || effect.kind === "shakeStyle")
+        .map((effect) => effect.kind === "scaleStyle"
+          ? {
+              kind: effect.kind,
+              effectKey: effect.effectKey,
+              activationId: effect.activationId ?? null,
+              activationStartAtMs: effect.activationStartAtMs ?? null,
+              targetScaleMultiplier: effect.style.targetScaleMultiplier,
+              transitionDurationMs: effect.style.transitionDurationMs
+            }
+          : effect.kind === "opacityStyle"
+            ? {
+                kind: effect.kind,
+                effectKey: effect.effectKey,
+                activationId: effect.activationId ?? null,
+                activationStartAtMs: effect.activationStartAtMs ?? null,
+                category: effect.category,
+                steps: effect.style.steps
+              }
+            : {
+                kind: effect.kind,
+                effectKey: effect.effectKey,
+                activationId: effect.activationId ?? null,
+                activationStartAtMs: effect.activationStartAtMs ?? null,
+                style: effect.style
+              }) ?? [],
+      tween: tween ? {
+        source: tween.source,
+        activationId: tween.activationId ?? null,
+        activationStartAtMs: tween.activationStartAtMs ?? null,
+        segmentIndex: tween.segmentIndex,
+        elapsedMs: tween.elapsedMs,
+        totalElapsedMs: tween.totalElapsedMs,
+        totalDurationMs: tween.totalDurationMs,
+        segment: tween.segments[tween.segmentIndex] ?? null
+      } : null,
+      pixi: state ? {
+        localPosition: { x: state.root.position.x, y: state.root.position.y },
+        baseScale: { x: state.baseScaleContainer.scale.x, y: state.baseScaleContainer.scale.y },
+        presentationScale: { x: state.scaleStyleContainer.scale.x, y: state.scaleStyleContainer.scale.y },
+        situationalScale: state.situationalScaleContainer
+          ? { x: state.situationalScaleContainer.scale.x, y: state.situationalScaleContainer.scale.y }
+          : { x: 1, y: 1 },
+        shakeOffset: { x: state.shakeStyleContainer.position.x, y: state.shakeStyleContainer.position.y },
+        opacityAlpha: state.opacityContainer.alpha,
+        rootRotationRadians: state.root.rotation,
+        worldTransform: {
+          a: state.root.worldTransform.a,
+          b: state.root.worldTransform.b,
+          c: state.root.worldTransform.c,
+          d: state.root.worldTransform.d,
+          tx: state.root.worldTransform.tx,
+          ty: state.root.worldTransform.ty
+        },
+        alpha: state.root.alpha,
+        visible: state.root.visible,
+        renderedBounds
+      } : null,
+      roomSwap: activeRoomSwapTween ? {
+        mode: activeRoomSwapTween.mode,
+        generation: activeRoomSwapTween.generation,
+        elapsedMs: activeRoomSwapTween.elapsedMs,
+        durationMs: activeRoomSwapTween.durationMs,
+        progress: activeRoomSwapTween.durationMs <= 0
+          ? 1
+          : Math.min(1, activeRoomSwapTween.elapsedMs / activeRoomSwapTween.durationMs)
+      } : null,
+      ...extraDetails
+    }, `${surface.label}:${scene.roomId ?? ""}:${objectId}:${object.activePresentationCues.map((cue) => cue.activationId ?? cue.effectKey).join(",") || "position"}`, nowMs);
+  }
+
+  function traceMotionObjects(
+    event: string,
+    surface: RoomSurfaceState,
+    scene: GameRenderSceneSnapshot,
+    nowMs = performance.now()
+  ): void {
+    if (!verboseDiagnostics) return;
+    for (const objectId of Object.keys(scene.objectsById)) {
+      traceMotionObject(event, surface, scene, objectId, nowMs);
+    }
   }
 
   function reportRoomTransitionState(state: GameRendererRoomTransitionState): void {
@@ -742,6 +918,7 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       viewportWidth,
       viewportHeight
     });
+    traceMotionObjects("snapshot-capture", surface, scene, captureStartedAt);
 
     const transform = computeContainTransform(
       scene.bounds.width,
@@ -1643,6 +1820,36 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     const incomingSnapshotVisible = tween.usesSnapshotFrames && snapshotTransitionState
       ? (tween.mode === "slide" ? progress > 0 : snapshotTransitionState.incomingFrame.alpha > 0)
       : stagingRoomSurface.root.visible && stagingRoomSurface.root.alpha > 0;
+    const traceAtMs = performance.now();
+    emitMotionTrace("room-swap-frame", {
+      roomId: currentScene?.roomId ?? "(unknown)",
+      generation: tween.generation,
+      mode: tween.mode,
+      cueEffectKey: tween.cueEffectKey,
+      elapsedMs: tween.elapsedMs,
+      durationMs: tween.durationMs,
+      progress,
+      incomingSnapshotVisible,
+      activeSurface: {
+        visible: activeRoomSurface.root.visible,
+        alpha: activeRoomSurface.root.alpha,
+        x: activeRoomSurface.root.position.x,
+        y: activeRoomSurface.root.position.y
+      },
+      stagingSurface: {
+        visible: stagingRoomSurface.root.visible,
+        alpha: stagingRoomSurface.root.alpha,
+        x: stagingRoomSurface.root.position.x,
+        y: stagingRoomSurface.root.position.y
+      },
+      incomingSnapshot: snapshotTransitionState ? {
+        visible: snapshotTransitionLayer.visible,
+        alpha: snapshotTransitionState.incomingFrame.alpha,
+        x: snapshotTransitionState.incomingFrame.position.x,
+        y: snapshotTransitionState.incomingFrame.position.y
+      } : null
+    }, `room-swap:${tween.generation}`, traceAtMs);
+    if (currentScene) traceMotionObjects("room-swap-frame", stagingRoomSurface, currentScene, traceAtMs);
     if (incomingSnapshotVisible && !stagingRoomSurface.presentationClockStarted) {
       startSurfacePresentationClock(stagingRoomSurface, currentScene, performance.now(), true);
     }
@@ -2395,6 +2602,21 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         const previousRoomObject = previousRoomObjectsById.get(roomObject.objectId);
         let roomObjectSpriteState = surface.roomObjectSpritesById.get(roomObject.objectId);
         let sprite = roomObjectSpriteState?.sprite;
+        if (verboseDiagnostics && (movementDurationMs > 0 || roomObject.activePresentationCues.some((cue) => {
+          const category = cue.category.trim().replace(/[\s_-]/g, "").toLowerCase();
+          return category === "movement" || category === "scale";
+        }))) {
+          traceMotionObject("scene-reconciliation", surface, scene, roomObject.objectId, performance.now(), {
+            previousScenePosition: previousRoomObject ? { x: previousRoomObject.x, y: previousRoomObject.y } : null,
+            incomingScenePosition: { x: roomObject.x, y: roomObject.y },
+            incomingSpritePosition: { x: roomObject.x, y: roomObject.y },
+            movementDurationMs,
+            movementCueActivationKey: movementActivationKey ?? null,
+            movementActivationWasProcessed,
+            sameActivationTween,
+            generation
+          });
+        }
 
         if (!roomObjectSpriteState || roomObjectSpriteState.assetPath !== assetUrl || !sprite) {
           const previousX = roomObjectSpriteState?.root.position.x;
@@ -3422,6 +3644,10 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       }
 
       applyPresentationIsolationSettings(settings);
+    },
+    setVerboseDiagnostics: (enabled) => {
+      verboseDiagnostics = enabled;
+      if (!enabled) motionTraceSamplesByKey.clear();
     },
     dispose: () => {
       if (isDisposed) {

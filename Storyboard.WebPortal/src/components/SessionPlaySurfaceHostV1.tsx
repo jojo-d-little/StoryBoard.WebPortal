@@ -5,6 +5,7 @@ import { SessionPlaySurfaceRendererV1 } from "./SessionPlaySurfaceRendererV1";
 
 interface SessionPlaySurfaceHostV1Props {
   hostWorkflow: HostWorkflowState;
+  diagnosticsVerbose?: boolean;
 }
 
 export function SessionPlaySurfaceHostV1(props: SessionPlaySurfaceHostV1Props): JSX.Element {
@@ -30,6 +31,7 @@ export function SessionPlaySurfaceHostV1(props: SessionPlaySurfaceHostV1Props): 
       sceneSnapshot={props.hostWorkflow.rendererSceneSnapshot}
       loadParticleEffectImage={props.hostWorkflow.loadParticleEffectImage}
       presentationIsolationSettings={props.hostWorkflow.presentationIsolationSettings}
+      diagnosticsVerbose={props.diagnosticsVerbose ?? false}
       roomTransitionPreparationEpoch={props.hostWorkflow.roomTransitionPreparationEpoch}
       gameplayInteractionSubstate={props.hostWorkflow.gameplayInteractionSubstate}
       waypointDraftCount={props.hostWorkflow.waypointDraftCount}

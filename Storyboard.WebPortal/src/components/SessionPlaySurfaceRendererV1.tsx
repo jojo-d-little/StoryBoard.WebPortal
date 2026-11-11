@@ -29,6 +29,7 @@ interface SessionPlaySurfaceRendererV1Props {
   sceneSnapshot: GameRenderSceneSnapshot | null;
   loadParticleEffectImage: (relativeLocator: string) => Promise<string | null>;
   presentationIsolationSettings: PresentationIsolationSettings;
+  diagnosticsVerbose?: boolean;
   roomTransitionPreparationEpoch: number;
   gameplayInteractionSubstate: GameplayInteractionSubstate;
   waypointDraftCount: number;
@@ -107,6 +108,7 @@ export function SessionPlaySurfaceRendererV1(props: SessionPlaySurfaceRendererV1
 
     rendererRef.current = createGameRenderer(mountRef.current, {
       presentationIsolationSettings: props.presentationIsolationSettings,
+      verboseDiagnostics: props.diagnosticsVerbose ?? false,
       loadParticleEffectImage: props.loadParticleEffectImage,
       diagnosticsSink: (event: GameRendererDiagnosticsEvent) => {
         onReportRendererDiagnosticRef.current(event);
@@ -128,6 +130,10 @@ export function SessionPlaySurfaceRendererV1(props: SessionPlaySurfaceRendererV1
   useEffect(() => {
     rendererRef.current?.setPresentationIsolationSettings(props.presentationIsolationSettings);
   }, [props.presentationIsolationSettings]);
+
+  useEffect(() => {
+    rendererRef.current?.setVerboseDiagnostics(props.diagnosticsVerbose ?? false);
+  }, [props.diagnosticsVerbose]);
 
   useEffect(() => {
     if (!rendererRef.current) {
