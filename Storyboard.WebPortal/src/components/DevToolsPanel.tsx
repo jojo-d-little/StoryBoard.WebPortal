@@ -499,7 +499,7 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                   Poll Interval (ms)
                   <input
                     type="number"
-                    min={100}
+                    min={10}
                     max={60000}
                     value={props.pollIntervalMs}
                     onChange={(e) => {

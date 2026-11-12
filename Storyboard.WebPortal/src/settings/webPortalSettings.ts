@@ -65,7 +65,7 @@ const ROOM_TRANSITION_TRAVEL_DIRECTIONS: RoomTransitionTravelDirection[] = [
 
 export const DEFAULT_WEB_PORTAL_SETTINGS: WebPortalSettings = {
   devToolsDefaults: {
-    pollIntervalMs: 750,
+    pollIntervalMs: 10,
     heartbeatEveryNPolls: 100,
     echoOutputRetentionLines: 400
   },

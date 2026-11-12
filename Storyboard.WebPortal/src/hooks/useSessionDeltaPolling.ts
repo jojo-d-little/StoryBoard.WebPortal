@@ -50,7 +50,7 @@ interface PollAnalysis {
   };
 }
 
-const MIN_POLL_INTERVAL_MS = 100;
+const MIN_POLL_INTERVAL_MS = 10;
 const MAX_POLL_INTERVAL_MS = 60000;
 const MIN_HEARTBEAT_POLLS = 1;
 const MAX_HEARTBEAT_POLLS = 500;

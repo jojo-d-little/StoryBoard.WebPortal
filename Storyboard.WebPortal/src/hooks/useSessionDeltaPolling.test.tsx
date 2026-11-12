@@ -1,7 +1,8 @@
 /* @vitest-environment jsdom */
 
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { HostApiClient } from "../hostApi/client";
 import { useSessionDeltaPolling } from "./useSessionDeltaPolling";
 
 describe("useSessionDeltaPolling", () => {
@@ -109,6 +110,163 @@ describe("useSessionDeltaPolling", () => {
       "8",
       "Medium"
     );
+  });
+
+  it("uses the 10 ms minimum and waits 10 ms after applying a data response", async () => {
+    vi.useFakeTimers();
+
+    const pollOrder: string[] = [];
+    type PollResult = Awaited<ReturnType<HostApiClient["getSessionDeltas"]>>;
+    let resolveFirstPoll!: (result: PollResult) => void;
+    const firstPoll = new Promise<PollResult>((resolve) => {
+      resolveFirstPoll = resolve;
+    });
+    const getSessionDeltas = vi.fn()
+      .mockReturnValueOnce(firstPoll)
+      .mockImplementation(async (_credential: string, _session: string, watermark: string) => {
+        pollOrder.push(`poll:${watermark}`);
+        return {
+          resultCode: "Success",
+          sessionData: {
+            sessionDeltaWatermark: watermark,
+            roomObjectChanges: [],
+            activeRoomObjectName: "",
+            activeRoomObjectSelectionCueEffectKey: "",
+            secondaryActiveRoomObjectName: "",
+            secondaryActiveRoomObjectSelectionCueEffectKey: "",
+            soundCues: [],
+            outputLines: [],
+            diagnostics: [],
+          },
+          diagnostics: []
+        };
+      });
+    const hostApiClient = {
+      getSessionDeltas,
+      getSessionBaseline: vi.fn()
+    } as unknown as HostApiClient;
+    const onSessionData = vi.fn(() => pollOrder.push("applied"));
+
+    const { unmount } = renderHook(() =>
+      useSessionDeltaPolling({
+        hostApiClient,
+        credentialHandle: "cred-1",
+        sessionId: "session-1",
+        settings: {
+          pollIntervalMs: 1,
+          heartbeatEveryNPolls: 100
+        },
+        enabled: true,
+        allowInTest: true,
+        onSessionData,
+        addDiagnostic: vi.fn()
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9);
+    });
+    expect(getSessionDeltas).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(getSessionDeltas).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    expect(getSessionDeltas).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveFirstPoll({
+        resultCode: "Success",
+        sessionData: {
+          sessionDeltaWatermark: "2",
+          roomObjectChanges: [],
+          activeRoomObjectName: "",
+          activeRoomObjectSelectionCueEffectKey: "",
+          secondaryActiveRoomObjectName: "",
+          secondaryActiveRoomObjectSelectionCueEffectKey: "",
+          soundCues: [],
+          outputLines: [],
+          diagnostics: [],
+        },
+        diagnostics: []
+      });
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9);
+    });
+    expect(getSessionDeltas).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(getSessionDeltas).toHaveBeenCalledTimes(2);
+    expect(getSessionDeltas.mock.calls[1]).toEqual(["cred-1", "session-1", "2", "Medium"]);
+    expect(pollOrder).toEqual(["applied", "poll:2", "applied"]);
+
+    unmount();
+  });
+
+  it("waits 10 ms after a no-op response before the next request", async () => {
+    vi.useFakeTimers();
+
+    const getSessionDeltas = vi.fn().mockResolvedValue({
+      resultCode: "Success",
+      sessionData: {
+        sessionDeltaWatermark: "1",
+        roomObjectChanges: [],
+        activeRoomObjectName: "",
+        activeRoomObjectSelectionCueEffectKey: "",
+        secondaryActiveRoomObjectName: "",
+        secondaryActiveRoomObjectSelectionCueEffectKey: "",
+        soundCues: [],
+        outputLines: [],
+        diagnostics: [],
+      },
+      diagnostics: []
+    });
+    const hostApiClient = {
+      getSessionDeltas,
+      getSessionBaseline: vi.fn()
+    } as unknown as HostApiClient;
+
+    const { unmount } = renderHook(() =>
+      useSessionDeltaPolling({
+        hostApiClient,
+        credentialHandle: "cred-1",
+        sessionId: "session-1",
+        initialWatermark: "1",
+        settings: {
+          pollIntervalMs: 10,
+          heartbeatEveryNPolls: 100
+        },
+        enabled: true,
+        allowInTest: true,
+        addDiagnostic: vi.fn()
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    expect(getSessionDeltas).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9);
+    });
+    expect(getSessionDeltas).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(getSessionDeltas).toHaveBeenCalledTimes(2);
+
+    unmount();
   });
 
   it("logs every data-returning poll even when it is below the heartbeat cadence", async () => {
