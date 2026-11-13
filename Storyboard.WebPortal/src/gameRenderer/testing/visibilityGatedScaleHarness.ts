@@ -32,7 +32,7 @@ const outgoing: GameRenderSceneSnapshot = {
   bounds: { width: 800, height: 600 },
   directionalOverlays: [{
     id: "source-background", slot: "Center", asset: { assetPath: svgDataUrl("#18253b", 800, 600) },
-    offsetX: 0, offsetY: 0, rotationDegrees: 0, scale: 1, zOrder: 0
+    x: 0, y: 0, rotationDegrees: 0, scale: 1, zOrder: 0
   }],
   objectsById: createSceneObjectsFromRoomObjects([{
     objectId: "source-marker", objectName: "Source Marker", asset: { assetPath: svgDataUrl("#54708d", 160, 120) },
@@ -48,7 +48,7 @@ function incoming(revision: number): GameRenderSceneSnapshot {
     bounds: { width: 800, height: 600 },
     directionalOverlays: [{
       id: "destination-background", slot: "Center", asset: { assetPath: svgDataUrl("#102d38", 800, 600) },
-      offsetX: 0, offsetY: 0, rotationDegrees: 0, scale: 1, zOrder: 0
+      x: 0, y: 0, rotationDegrees: 0, scale: 1, zOrder: 0
     }],
     objectsById: createSceneObjectsFromRoomObjects([{
       objectId: "arrival-rider", objectName: "Arrival Rider", asset: { assetPath: svgDataUrl("#ffcc33", 100, 80) },

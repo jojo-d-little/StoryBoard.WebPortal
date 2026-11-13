@@ -91,8 +91,8 @@ function buildScene(runnerX: number): GameRenderSceneSnapshot {
         id: "down",
         slot: "Down",
         asset: { assetPath: svgDataUrl("#1f2937", 800, 600, "Stress") },
-        offsetX: 0,
-        offsetY: 0,
+        x: 0,
+        y: 0,
         rotationDegrees: 0,
         scale: 1,
         zOrder: 1

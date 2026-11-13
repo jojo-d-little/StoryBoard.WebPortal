@@ -53,8 +53,8 @@
             "anchorY": 0,
             "iconOffsetX": 0,
             "iconOffsetY": 0,
-            "x": 0,
-            "y": 0,
+            "x": 800,
+            "y": 48.99999999999995,
             "rotationDegrees": 180,
             "scale": 1,
             "additionalSituationalScale": 1
@@ -68,8 +68,8 @@
             "anchorY": 0,
             "iconOffsetX": 0,
             "iconOffsetY": 0,
-            "x": 0,
-            "y": 0,
+            "x": 800,
+            "y": 600,
             "rotationDegrees": 180,
             "scale": 1,
             "additionalSituationalScale": 1
@@ -84,7 +84,7 @@
             "iconOffsetX": 0,
             "iconOffsetY": 0,
             "x": 0,
-            "y": 0,
+            "y": 551,
             "rotationDegrees": 0,
             "scale": 1,
             "additionalSituationalScale": 1
@@ -692,6 +692,12 @@
   "soundCues": [],
   "remoteRoomObjects": [],
   "outputLines": [],
-  "diagnostics": [],
+  "diagnostics": [
+    "Room image projection: room=\u0027Seasonal Shelter\u0027 id=\u00270147c843-23d4-48cd-9b6b-2065ef48d572\u0027 snapshotIndex=0 slot=Down path=\u0027assets/images/_shared/7bc4fd3cfc03a0636edeece94b6f865692f80c41fe62337c47ab48658273be87__DarkBrownWoodenFloor800x600.png\u0027 logicalAnchor=(0,0) normalizedOffset=(0,0) absolute=(0,0) rotation=0 orderSource=overlayRenderOrder\u002Bslot\u002BsourceListIndex.",
+    "Room image projection: room=\u0027Seasonal Shelter\u0027 id=\u00270147c843-23d4-48cd-9b6b-2065ef48d572\u0027 snapshotIndex=1 slot=North path=\u0027assets/images/_shared/84c8f14bc09348dea467172e1df774dd5ce4aadda9856f4ec558a97c1a40141f__LongBrickWall.png\u0027 logicalAnchor=(400,0) normalizedOffset=(400,48.99999999999995) absolute=(800,48.99999999999995) rotation=180 orderSource=overlayRenderOrder\u002Bslot\u002BsourceListIndex.",
+    "Room image projection: room=\u0027Seasonal Shelter\u0027 id=\u00270147c843-23d4-48cd-9b6b-2065ef48d572\u0027 snapshotIndex=2 slot=East path=\u0027assets/images/_shared/7ae7e8867d92162a6d3dfb8bc7de9a9bd2ae6d255eab1db7ee29cd807bd54621__ShortBrickWall.png\u0027 logicalAnchor=(800,300) normalizedOffset=(0,300) absolute=(800,600) rotation=180 orderSource=overlayRenderOrder\u002Bslot\u002BsourceListIndex.",
+    "Room image projection: room=\u0027Seasonal Shelter\u0027 id=\u00270147c843-23d4-48cd-9b6b-2065ef48d572\u0027 snapshotIndex=3 slot=South path=\u0027assets/images/_shared/84c8f14bc09348dea467172e1df774dd5ce4aadda9856f4ec558a97c1a40141f__LongBrickWall.png\u0027 logicalAnchor=(400,600) normalizedOffset=(-400,-49) absolute=(0,551) rotation=0 orderSource=overlayRenderOrder\u002Bslot\u002BsourceListIndex.",
+    "Room image projection: room=\u0027Seasonal Shelter\u0027 id=\u00270147c843-23d4-48cd-9b6b-2065ef48d572\u0027 snapshotIndex=4 slot=West path=\u0027assets/images/_shared/7ae7e8867d92162a6d3dfb8bc7de9a9bd2ae6d255eab1db7ee29cd807bd54621__ShortBrickWall.png\u0027 logicalAnchor=(0,300) normalizedOffset=(0,-300) absolute=(0,0) rotation=0 orderSource=overlayRenderOrder\u002Bslot\u002BsourceListIndex."
+  ],
   "sessionDeltaWatermark": "26"
 }

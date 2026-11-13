@@ -215,8 +215,8 @@ function makeScene(mode: FixtureMode, roomId = "lighting-compact"): GameRenderSc
       id: "room-floor",
       slot: "Down",
       asset: { assetPath: svgDataUrl("#59616a", width, height) },
-      offsetX: 0,
-      offsetY: 0,
+      x: 0,
+      y: 0,
       rotationDegrees: 0,
       scale: 1,
       zOrder: 0

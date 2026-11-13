@@ -394,16 +394,22 @@ export function mapHostPresentationToSceneSnapshot(source: HostPresentationScene
 
   const directionalOverlays = buildDirectionalOverlayScene({
     overlays: newRoom.directionalRenderableImages
-      .filter((entry) => entry.renderableImage.imagePath.trim().length > 0)
-      .map((entry, index) => ({
+      .map((entry, index) => ({ entry, index }))
+      .filter(({ entry }) => entry.renderableImage.imagePath.trim().length > 0)
+      .map(({ entry, index }) => ({
         id: `${newRoom.roomId}:${entry.slot}:${index}`,
         slot: entry.slot,
+        snapshotIndex: index,
         asset: {
           assetPath: entry.renderableImage.imagePath,
           cacheKey: entry.renderableImage.imagePath
         },
-        offsetX: entry.renderableImage.x,
-        offsetY: entry.renderableImage.y,
+        x: entry.renderableImage.x,
+        y: entry.renderableImage.y,
+        hostAnchorX: entry.renderableImage.anchorX,
+        hostAnchorY: entry.renderableImage.anchorY,
+        hostIconOffsetX: entry.renderableImage.iconOffsetX,
+        hostIconOffsetY: entry.renderableImage.iconOffsetY,
         rotationDegrees: entry.renderableImage.rotationDegrees,
         scale: Number.isFinite(entry.renderableImage.scale) && entry.renderableImage.scale > 0 ? entry.renderableImage.scale : 1,
         zOrder: index

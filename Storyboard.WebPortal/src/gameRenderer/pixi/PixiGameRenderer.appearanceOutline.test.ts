@@ -867,7 +867,7 @@ describe("PixiGameRenderer appearance outline cues", () => {
     mount.remove();
   });
 
-  it("resolves cardinal anchors for opposite rotation conventions in TheDocks and Workshop", async () => {
+  it("draws directional images at explicit room coordinates with a fixed bitmap anchor", async () => {
     const mount = document.createElement("div");
     document.body.appendChild(mount);
 
@@ -915,8 +915,8 @@ describe("PixiGameRenderer appearance outline cues", () => {
           id: "north-wall",
           slot: "North",
           asset: { assetPath: "data:image/mock;north" },
-          offsetX: 0,
-          offsetY: 0,
+          x: 12.5,
+          y: -4,
           rotationDegrees: 0,
           scale: 1,
           zOrder: 10
@@ -925,8 +925,8 @@ describe("PixiGameRenderer appearance outline cues", () => {
           id: "east-wall",
           slot: "East",
           asset: { assetPath: "data:image/mock;east" },
-          offsetX: 0,
-          offsetY: 0,
+          x: 800,
+          y: 300,
           rotationDegrees: 0,
           scale: 1,
           zOrder: 11
@@ -935,8 +935,8 @@ describe("PixiGameRenderer appearance outline cues", () => {
           id: "south-wall",
           slot: "South",
           asset: { assetPath: "data:image/mock;south" },
-          offsetX: 0,
-          offsetY: 0,
+          x: 400,
+          y: 600,
           rotationDegrees: 180,
           scale: 1,
           zOrder: 12
@@ -945,8 +945,8 @@ describe("PixiGameRenderer appearance outline cues", () => {
           id: "west-wall",
           slot: "West",
           asset: { assetPath: "data:image/mock;west" },
-          offsetX: 0,
-          offsetY: 0,
+          x: -20,
+          y: 300.25,
           rotationDegrees: 180,
           scale: 1,
           zOrder: 13
@@ -958,14 +958,21 @@ describe("PixiGameRenderer appearance outline cues", () => {
     await waitFor(() => getDirectionalSprites().length === 4, 1200);
 
     const docksByZOrder = new Map(getDirectionalSprites().map((sprite) => [sprite.zIndex, sprite]));
+    expect(docksByZOrder.get(10)?.anchor.x).toBe(0);
     expect(docksByZOrder.get(10)?.anchor.y).toBe(0);
-    expect(docksByZOrder.get(11)?.anchor.x).toBe(1);
+    expect(docksByZOrder.get(11)?.anchor.x).toBe(0);
+    expect(docksByZOrder.get(11)?.anchor.y).toBe(0);
+    expect(docksByZOrder.get(12)?.anchor.x).toBe(0);
     expect(docksByZOrder.get(12)?.anchor.y).toBe(0);
-    expect(docksByZOrder.get(13)?.anchor.x).toBe(1);
-    expect(docksByZOrder.get(10)?.position.y).toBe(0);
+    expect(docksByZOrder.get(13)?.anchor.x).toBe(0);
+    expect(docksByZOrder.get(13)?.anchor.y).toBe(0);
+    expect(docksByZOrder.get(10)?.position.x).toBe(12.5);
+    expect(docksByZOrder.get(10)?.position.y).toBe(-4);
     expect(docksByZOrder.get(11)?.position.x).toBe(800);
+    expect(docksByZOrder.get(12)?.position.x).toBe(400);
     expect(docksByZOrder.get(12)?.position.y).toBe(600);
-    expect(docksByZOrder.get(13)?.position.x).toBe(0);
+    expect(docksByZOrder.get(13)?.position.x).toBe(-20);
+    expect(docksByZOrder.get(13)?.position.y).toBe(300.25);
 
     renderer.updateScene({
       roomId: "workshop-directional-room",
@@ -977,8 +984,8 @@ describe("PixiGameRenderer appearance outline cues", () => {
           id: "north-wall",
           slot: "North",
           asset: { assetPath: "data:image/mock;north-workshop" },
-          offsetX: 0,
-          offsetY: 0,
+          x: 22,
+          y: 33,
           rotationDegrees: 180,
           scale: 1,
           zOrder: 20
@@ -987,8 +994,8 @@ describe("PixiGameRenderer appearance outline cues", () => {
           id: "east-wall",
           slot: "East",
           asset: { assetPath: "data:image/mock;east-workshop" },
-          offsetX: 0,
-          offsetY: 0,
+          x: 800,
+          y: 320,
           rotationDegrees: 180,
           scale: 1,
           zOrder: 21
@@ -997,8 +1004,8 @@ describe("PixiGameRenderer appearance outline cues", () => {
           id: "south-wall",
           slot: "South",
           asset: { assetPath: "data:image/mock;south-workshop" },
-          offsetX: 0,
-          offsetY: 0,
+          x: 405,
+          y: 600,
           rotationDegrees: 0,
           scale: 1,
           zOrder: 22
@@ -1007,8 +1014,8 @@ describe("PixiGameRenderer appearance outline cues", () => {
           id: "west-wall",
           slot: "West",
           asset: { assetPath: "data:image/mock;west-workshop" },
-          offsetX: 0,
-          offsetY: 0,
+          x: -12,
+          y: 250,
           rotationDegrees: 0,
           scale: 1,
           zOrder: 23
@@ -1024,14 +1031,21 @@ describe("PixiGameRenderer appearance outline cues", () => {
     }, 1200);
 
     const workshopByZOrder = new Map(getDirectionalSprites().map((sprite) => [sprite.zIndex, sprite]));
-    expect(workshopByZOrder.get(20)?.anchor.y).toBe(1);
+    expect(workshopByZOrder.get(20)?.anchor.x).toBe(0);
+    expect(workshopByZOrder.get(20)?.anchor.y).toBe(0);
     expect(workshopByZOrder.get(21)?.anchor.x).toBe(0);
-    expect(workshopByZOrder.get(22)?.anchor.y).toBe(1);
+    expect(workshopByZOrder.get(21)?.anchor.y).toBe(0);
+    expect(workshopByZOrder.get(22)?.anchor.x).toBe(0);
+    expect(workshopByZOrder.get(22)?.anchor.y).toBe(0);
     expect(workshopByZOrder.get(23)?.anchor.x).toBe(0);
-    expect(workshopByZOrder.get(20)?.position.y).toBe(0);
+    expect(workshopByZOrder.get(23)?.anchor.y).toBe(0);
+    expect(workshopByZOrder.get(20)?.position.x).toBe(22);
+    expect(workshopByZOrder.get(20)?.position.y).toBe(33);
     expect(workshopByZOrder.get(21)?.position.x).toBe(800);
+    expect(workshopByZOrder.get(22)?.position.x).toBe(405);
     expect(workshopByZOrder.get(22)?.position.y).toBe(600);
-    expect(workshopByZOrder.get(23)?.position.x).toBe(0);
+    expect(workshopByZOrder.get(23)?.position.x).toBe(-12);
+    expect(workshopByZOrder.get(23)?.position.y).toBe(250);
 
     renderer.dispose();
     mount.remove();
@@ -1054,8 +1068,8 @@ describe("PixiGameRenderer appearance outline cues", () => {
           id: "down-overlay",
           slot: "Down",
           asset: { assetPath: "data:image/mock;down" },
-          offsetX: 0,
-          offsetY: 0,
+          x: 0,
+          y: 0,
           rotationDegrees: 0,
           scale: 1,
           zOrder: 30

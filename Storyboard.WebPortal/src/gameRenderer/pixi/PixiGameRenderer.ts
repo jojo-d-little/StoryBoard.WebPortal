@@ -1882,58 +1882,6 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
     });
   }
 
-  function resolveSlotPlacement(slot: string): { x: number; y: number; inwardX: number; inwardY: number } {
-    const bounds = currentScene?.bounds ?? { width: 800, height: 600 };
-    const key = slot.trim().toLowerCase();
-
-    switch (key) {
-      case "down":
-        return { x: 0, y: 0, inwardX: 1, inwardY: 1 };
-      case "north":
-        return { x: bounds.width / 2, y: 0, inwardX: 0, inwardY: 1 };
-      case "northeast":
-        return { x: bounds.width, y: 0, inwardX: -1, inwardY: 1 };
-      case "east":
-        return { x: bounds.width, y: bounds.height / 2, inwardX: -1, inwardY: 0 };
-      case "southeast":
-        return { x: bounds.width, y: bounds.height, inwardX: -1, inwardY: -1 };
-      case "south":
-        return { x: bounds.width / 2, y: bounds.height, inwardX: 0, inwardY: -1 };
-      case "southwest":
-        return { x: 0, y: bounds.height, inwardX: 1, inwardY: -1 };
-      case "west":
-        return { x: 0, y: bounds.height / 2, inwardX: 1, inwardY: 0 };
-      case "northwest":
-        return { x: 0, y: 0, inwardX: 1, inwardY: 1 };
-      default:
-        return { x: bounds.width / 2, y: bounds.height / 2, inwardX: 0, inwardY: 0 };
-    }
-  }
-
-  function resolveDirectionalAnchor(
-    inwardX: number,
-    inwardY: number,
-    rotationRadians: number
-  ): { anchorX: number; anchorY: number } {
-    const cos = Math.cos(rotationRadians);
-    const sin = Math.sin(rotationRadians);
-    const localInwardX = (inwardX * cos) + (inwardY * sin);
-    const localInwardY = (-inwardX * sin) + (inwardY * cos);
-
-    function resolveAxisAnchor(component: number): number {
-      if (Math.abs(component) <= 0.0001) {
-        return 0.5;
-      }
-
-      return component > 0 ? 0 : 1;
-    }
-
-    return {
-      anchorX: resolveAxisAnchor(localInwardX),
-      anchorY: resolveAxisAnchor(localInwardY)
-    };
-  }
-
   function computeIntersectionArea(
     bounds: { x: number; y: number; width: number; height: number },
     roomWidth: number,
@@ -2323,8 +2271,13 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
       if (leftOverlay.id !== rightOverlay.id
         || leftOverlay.slot !== rightOverlay.slot
         || leftOverlay.asset.assetPath !== rightOverlay.asset.assetPath
-        || leftOverlay.offsetX !== rightOverlay.offsetX
-        || leftOverlay.offsetY !== rightOverlay.offsetY
+        || leftOverlay.snapshotIndex !== rightOverlay.snapshotIndex
+        || leftOverlay.x !== rightOverlay.x
+        || leftOverlay.y !== rightOverlay.y
+        || leftOverlay.hostAnchorX !== rightOverlay.hostAnchorX
+        || leftOverlay.hostAnchorY !== rightOverlay.hostAnchorY
+        || leftOverlay.hostIconOffsetX !== rightOverlay.hostIconOffsetX
+        || leftOverlay.hostIconOffsetY !== rightOverlay.hostIconOffsetY
         || leftOverlay.rotationDegrees !== rightOverlay.rotationDegrees
         || leftOverlay.scale !== rightOverlay.scale
         || leftOverlay.zOrder !== rightOverlay.zOrder) {
@@ -2385,7 +2338,14 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
           category: "asset",
           level: "warning",
           message: "Directional overlay skipped because image path is empty.",
-          details: { overlayId: overlay.id, slot: overlay.slot }
+          details: {
+            overlayId: overlay.id,
+            hostSnapshotIndex: overlay.snapshotIndex,
+            slot: overlay.slot,
+            assetPath: overlay.asset.assetPath,
+            roomPixelX: overlay.x,
+            roomPixelY: overlay.y
+          }
         });
         continue;
       }
@@ -2397,8 +2357,11 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
           message: "Directional overlay received a non-loadable asset URL.",
           details: {
             overlayId: overlay.id,
+            hostSnapshotIndex: overlay.snapshotIndex,
             slot: overlay.slot,
-            assetPath: overlay.asset.assetPath
+            assetPath: overlay.asset.assetPath,
+            roomPixelX: overlay.x,
+            roomPixelY: overlay.y
           }
         });
         continue;
@@ -2411,21 +2374,9 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         }
 
         const sprite = new Sprite(texture);
-        const slotPlacement = resolveSlotPlacement(overlay.slot);
         const rotationRadians = toRadians(overlay.rotationDegrees);
-        const resolvedAnchor = resolveDirectionalAnchor(
-          slotPlacement.inwardX,
-          slotPlacement.inwardY,
-          rotationRadians
-        );
-
-        const targetX = slotPlacement.x + overlay.offsetX;
-        const targetY = slotPlacement.y + overlay.offsetY;
-        const positionX = targetX;
-        const positionY = targetY;
-
-        sprite.anchor.set(resolvedAnchor.anchorX, resolvedAnchor.anchorY);
-        sprite.position.set(positionX, positionY);
+        sprite.anchor.set(0, 0);
+        sprite.position.set(overlay.x, overlay.y);
         sprite.scale.set(overlay.scale);
         sprite.rotation = rotationRadians;
         sprite.zIndex = overlay.zOrder;
@@ -2441,24 +2392,25 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
         diagnostics?.({
           category: "scene",
           level: "debug",
-          message: `Directional overlay laid out: slot=${overlay.slot}, intersection=${(intersectionRatio * 100).toFixed(1)}%.`,
+          message: `Directional overlay laid out at (${overlay.x}, ${overlay.y}) room pixels: slot=${overlay.slot}, intersection=${(intersectionRatio * 100).toFixed(1)}%.`,
           details: {
             overlayId: overlay.id,
+            hostSnapshotIndex: overlay.snapshotIndex,
             slot: overlay.slot,
+            assetPath: overlay.asset.assetPath,
             rotationDegrees: overlay.rotationDegrees,
             scale: overlay.scale,
-            anchorX: resolvedAnchor.anchorX,
-            anchorY: resolvedAnchor.anchorY,
-            targetX,
-            targetY,
-            positionX,
-            positionY,
+            roomPixelX: overlay.x,
+            roomPixelY: overlay.y,
+            textureAnchorX: 0,
+            textureAnchorY: 0,
+            hostAnchorX: overlay.hostAnchorX,
+            hostAnchorY: overlay.hostAnchorY,
+            hostIconOffsetX: overlay.hostIconOffsetX,
+            hostIconOffsetY: overlay.hostIconOffsetY,
             textureWidth: texture.width,
             textureHeight: texture.height,
-            boundsX: bounds.x,
-            boundsY: bounds.y,
-            boundsWidth: bounds.width,
-            boundsHeight: bounds.height,
+            transformedBoundsRoomPixels: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height },
             intersectionRatio
           }
         });
@@ -2469,8 +2421,13 @@ export function createGameRenderer(mountElement: HTMLElement, options: CreateGam
           message: "Directional overlay asset failed to load.",
           details: {
             overlayId: overlay.id,
+            hostSnapshotIndex: overlay.snapshotIndex,
             slot: overlay.slot,
             assetPath: overlay.asset.assetPath,
+            roomPixelX: overlay.x,
+            roomPixelY: overlay.y,
+            rotationDegrees: overlay.rotationDegrees,
+            scale: overlay.scale,
             error: error instanceof Error ? error.message : String(error)
           }
         });

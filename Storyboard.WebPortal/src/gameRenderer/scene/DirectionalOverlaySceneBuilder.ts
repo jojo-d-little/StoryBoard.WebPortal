@@ -18,10 +18,6 @@ export function buildDirectionalOverlayScene(input: BuildDirectionalOverlayScene
     return ordered;
   }
 
-  const defaultSlot = ordered.find((overlay) => overlay.slot.toLowerCase() === "default");
-  if (defaultSlot) {
-    return [defaultSlot];
-  }
-
-  return ordered.length > 0 ? [ordered[0]] : [];
+  const selected = ordered.find((overlay) => overlay.slot.toLowerCase() === "default") ?? ordered[0];
+  return selected ? ordered.filter((overlay) => overlay.slot.toLowerCase() === selected.slot.toLowerCase()) : [];
 }

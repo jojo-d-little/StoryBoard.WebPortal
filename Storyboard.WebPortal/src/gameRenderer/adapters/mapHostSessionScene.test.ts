@@ -482,8 +482,13 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     });
     expect(snapshot?.directionalOverlays[1]).toMatchObject({
       slot: "NorthEast",
-      offsetX: -20,
-      offsetY: 15,
+      snapshotIndex: 1,
+      x: -20,
+      y: 15,
+      hostAnchorX: 0,
+      hostAnchorY: 0,
+      hostIconOffsetX: 0,
+      hostIconOffsetY: 0,
       rotationDegrees: 90
     });
   });
@@ -913,6 +918,20 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
                 rotationDegrees: 0,
                 scale: 1
               }
+            },
+            {
+              slot: "Default",
+              renderableImage: {
+                imagePath: "assets/images/default-piece.png",
+                anchorX: 12,
+                anchorY: 13,
+                iconOffsetX: 14,
+                iconOffsetY: 15,
+                x: 26,
+                y: 28,
+                rotationDegrees: 90,
+                scale: 1
+              }
             }
           ]
         }
@@ -920,8 +939,9 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     }));
 
     expect(snapshot?.displayMode).toBe("independent");
-    expect(snapshot?.directionalOverlays).toHaveLength(1);
-    expect(snapshot?.directionalOverlays[0].slot).toBe("Default");
+    expect(snapshot?.directionalOverlays).toHaveLength(2);
+    expect(snapshot?.directionalOverlays.map((overlay) => overlay.slot)).toEqual(["Default", "Default"]);
+    expect(snapshot?.directionalOverlays.map((overlay) => overlay.snapshotIndex)).toEqual([1, 2]);
     expect(renderedRoomObjects(snapshot)).toHaveLength(0);
   });
 

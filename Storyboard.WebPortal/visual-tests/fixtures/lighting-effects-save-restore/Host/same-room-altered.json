@@ -269,7 +269,7 @@
             {
               "category": "Movement",
               "effectKey": "movement.speed.slow",
-              "activationId": "a9d0fe3f-d41e-4ec9-8ec5-48cfdb007919",
+              "activationId": "7547218c-2bfe-4766-9b07-6dc9b076fe5a",
               "movement": {
                 "moveDirection": "North",
                 "movementDurationMs": 5000,
@@ -807,6 +807,8 @@
   "soundCues": [],
   "remoteRoomObjects": [],
   "outputLines": [],
-  "diagnostics": [],
-  "sessionDeltaWatermark": "49"
+  "diagnostics": [
+    "Room image projection: room=\u0027Lifecycle \u0026 Restore\u0027 id=\u0027071449df-14e1-4ac9-96ba-6c002c61b07e\u0027 snapshotIndex=0 slot=Down path=\u0027assets/images/_shared/7bc4fd3cfc03a0636edeece94b6f865692f80c41fe62337c47ab48658273be87__DarkBrownWoodenFloor800x600.png\u0027 logicalAnchor=(0,0) normalizedOffset=(0,0) absolute=(0,0) rotation=0 orderSource=overlayRenderOrder\u002Bslot\u002BsourceListIndex."
+  ],
+  "sessionDeltaWatermark": "50"
 }

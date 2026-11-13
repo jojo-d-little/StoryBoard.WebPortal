@@ -60,8 +60,8 @@ const outgoing: GameRenderSceneSnapshot = {
     id: "outgoing-background",
     slot: "Down",
     asset: { assetPath: svgDataUrl("#991b1b", 800, 600) },
-    offsetX: 0,
-    offsetY: 0,
+    x: 0,
+    y: 0,
     rotationDegrees: 0,
     scale: 1,
     zOrder: 1
@@ -88,8 +88,8 @@ const incoming: GameRenderSceneSnapshot = {
     id: "incoming-background",
     slot: "Center",
     asset: { assetPath: useWideDestination ? wideDestinationRoomDataUrl() : oversizedStripedRoomDataUrl() },
-    offsetX: 0,
-    offsetY: 0,
+    x: 0,
+    y: 0,
     rotationDegrees: 0,
     scale: 1,
     zOrder: 1
