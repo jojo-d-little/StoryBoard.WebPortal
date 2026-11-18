@@ -44,13 +44,28 @@ function interpolateColor(from: string, to: string, progress: number): string {
     .toString(16).padStart(2, "0")).join("")}`;
 }
 
+function normalizeDirectionDegrees(degrees: number): number {
+  return ((degrees % 360) + 360) % 360;
+}
+
+function interpolateDirectionDegrees(from: number, to: number, progress: number): number {
+  const start = normalizeDirectionDegrees(from);
+  const end = normalizeDirectionDegrees(to);
+  const delta = ((end - start + 540) % 360) - 180;
+  return normalizeDirectionDegrees(start + (delta * progress));
+}
+
 function baselineControl(recipe: CatalogRecipe, name: string): unknown {
   if (["EmissionRateMultiplier", "LifetimeMultiplier", "SizeMultiplier", "SpawnRadiusMultiplier", "CoverageMultiplier", "OpacityMultiplier", "WindSpeedMultiplier"].includes(name)) return 1;
   if (name === "WindDirectionOffsetDegrees") return 0;
   if (name === "WindDirectionDegrees") return recipe.renderingMode === "overlay" ? recipe.windDirectionDegrees : -1;
   if (name === "WindSpeedPxPerSecond") return recipe.renderingMode === "overlay" ? recipe.windSpeedPxPerSecond : 0;
   if (name === "Tint") return recipe.renderingMode === "overlay" ? recipe.tint : undefined;
-  if (name === "DirectionDegrees") return recipe.renderingMode === "stain" ? recipe.directionDegrees : undefined;
+  if (name === "DirectionDegrees") {
+    if (recipe.renderingMode === "stain") return recipe.directionDegrees;
+    if (recipe.family === "water-fountain" || recipe.family === "electrical-arcing") return 270;
+    return undefined;
+  }
   if (name === "Colors") {
     if (recipe.renderingMode === "stain") return { primary: recipe.colors.primary, secondary: recipe.colors.secondary };
     if (recipe.renderingMode === "point" || recipe.renderingMode === "room") {
@@ -69,7 +84,9 @@ function transitionTuning(from: CatalogResolvedTuning, target: CatalogResolvedTu
   for (const name of new Set([...Object.keys(left), ...Object.keys(right)])) {
     const fromValue = left[name] ?? baselineControl(recipe, name);
     const toValue = right[name] ?? baselineControl(recipe, name);
-    if (typeof fromValue === "number" && typeof toValue === "number") {
+    if (name === "DirectionDegrees" && typeof fromValue === "number" && typeof toValue === "number") {
+      result[name] = interpolateDirectionDegrees(fromValue, toValue, progress);
+    } else if (typeof fromValue === "number" && typeof toValue === "number") {
       result[name] = fromValue + ((toValue - fromValue) * progress);
     } else if (name === "Colors" && fromValue && toValue
       && typeof fromValue === "object" && typeof toValue === "object") {

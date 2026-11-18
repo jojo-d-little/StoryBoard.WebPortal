@@ -1,8 +1,29 @@
 import { describe, expect, it, vi } from "vitest";
 import { Assets, type Texture } from "pixi.js";
-import type { TopDownEffects, CatalogParticleEffect, CatalogParticleRecipe } from "@jojo-d-little/storyboard-particles";
+import {
+  mapCatalogStreamOverrides,
+  resolveCatalogRecipe,
+  type TopDownEffects,
+  type CatalogParticleEffect,
+  type CatalogParticleRecipe,
+  type CatalogResolvedTuning
+} from "@jojo-d-little/storyboard-particles";
 import type { GameRenderSceneSnapshot } from "../../contracts/sceneTypes";
 import { ParticleEffectSceneController } from "./ParticleEffectSceneController";
+import directionalEffectsFixture from "../../../../visual-tests/fixtures/directional-water-fountain/effects.json";
+
+const directionalEffects = directionalEffectsFixture as unknown as CatalogParticleEffect[];
+const directionalControls: CatalogResolvedTuning = {
+  EmissionRateMultiplier: 1.5,
+  LifetimeMultiplier: 1.2,
+  SizeMultiplier: 1.25,
+  SpawnRadiusMultiplier: 2,
+  Colors: { primary: "#ff33aa", secondary: "#22ddff" },
+  DirectionDegrees: 0,
+  EmissionTimingJitterPercent: 50,
+  AccelerationXPxPerSecond2: -32,
+  AccelerationYPxPerSecond2: 48
+};
 
 function stream(id: string, surgeOnly = false, burstCount?: number) {
   return {
@@ -560,6 +581,218 @@ describe("ParticleEffectSceneController", () => {
       id: "object:object-1",
       tuning: { EmissionRateMultiplier: 2 }
     }));
+    now.mockRestore();
+  });
+
+  it("keeps directional emitters stable and maps all nine controls through continuous and burst paths", () => {
+    for (const definition of directionalEffects) {
+      const recipe = definition.particleEffect.recipe as CatalogParticleRecipe;
+      const continuousStream = recipe.streams.find((candidate) => candidate.surgeOnly !== true)!;
+      const surgeStream = recipe.streams.find((candidate) => candidate.surgeOnly === true)!;
+      const effective = resolveCatalogRecipe(recipe, directionalControls) as CatalogParticleRecipe;
+      const continuous = effective.streams.find((candidate) => candidate.id === continuousStream.id)!;
+      const continuousOverrides = mapCatalogStreamOverrides(recipe, effective, directionalControls);
+
+      expect(continuous.ratePerSecond).toBe(continuousStream.ratePerSecond * directionalControls.EmissionRateMultiplier!);
+      expect(continuous.lifeMinSeconds).toBeCloseTo(continuousStream.lifeMinSeconds * directionalControls.LifetimeMultiplier!);
+      expect(continuous.startWidthPx).toBe(continuousStream.startWidthPx * directionalControls.SizeMultiplier!);
+      expect(continuous.spawn.kind).toBe("point");
+      expect(continuousOverrides[continuousStream.id].spawnExtentScale).toBe(directionalControls.SpawnRadiusMultiplier);
+      expect(continuousOverrides[continuousStream.id].velocityRotationRadians).toBeCloseTo(Math.PI / 2);
+      expect(continuousOverrides[continuousStream.id].startColor).toBe(directionalControls.Colors!.primary);
+      expect(continuousOverrides[continuousStream.id].endColor).toBe(directionalControls.Colors!.secondary);
+      expect(continuousOverrides[continuousStream.id].accelerationXPxPerSecond2).toBe(-32);
+      expect(continuousOverrides[continuousStream.id].accelerationYPxPerSecond2).toBe(48);
+
+      const continuousEffects = buildEffects();
+      const continuousController = new ParticleEffectSceneController(continuousEffects);
+      let clockMs = 1000;
+      const now = vi.spyOn(performance, "now").mockImplementation(() => clockMs);
+      const objectId = `directional-${definition.effectKey}`;
+      const object = (tuning: CatalogResolvedTuning) => ({
+        objectId,
+        objectName: definition.displayName,
+        activePresentationCues: [],
+        particleEffect: { id: objectId, effectKey: definition.effectKey, enabled: true, order: 0, tuning }
+      });
+      continuousController.reconcile(scene({
+        particleEffectCatalog: [definition],
+        objectsById: { [objectId]: object(directionalControls) }
+      }));
+      continuousController.reconcile(scene({
+        particleEffectCatalog: [definition],
+        objectsById: { [objectId]: object({ ...directionalControls, EmissionTimingJitterPercent: 25 }) }
+      }));
+      clockMs += 1000;
+      continuousController.update(10);
+      const transitionedTuning = vi.mocked(continuousEffects.upsertCatalogEffect).mock.lastCall![0].tuning!;
+      expect(transitionedTuning.EmissionTimingJitterPercent).toBeGreaterThan(25);
+      expect(transitionedTuning.EmissionTimingJitterPercent).toBeLessThan(50);
+      expect(continuousEffects.upsertCatalogEffect).toHaveBeenLastCalledWith(expect.objectContaining({
+        id: `object:${objectId}`,
+        tuning: expect.objectContaining({ EmissionTimingJitterPercent: transitionedTuning.EmissionTimingJitterPercent })
+      }));
+      expect(continuousEffects.remove).not.toHaveBeenCalledWith(`object:${objectId}`);
+      continuousController.dispose();
+      now.mockRestore();
+
+      const burstEffects = buildEffects();
+      const burstController = new ParticleEffectSceneController(burstEffects);
+      const burst = {
+        id: `surge-${definition.effectKey}`,
+        sourceObjectId: `producer-${definition.effectKey}`,
+        effectKey: definition.effectKey,
+        x: 120,
+        y: 140,
+        quantityMultiplier: 1,
+        enabled: true,
+        order: 0,
+        tuning: directionalControls
+      };
+      burstController.reconcile(scene({ particleEffectCatalog: [definition], particleEffectBursts: [burst] }));
+      expect(burstEffects.emitBurst).toHaveBeenCalledTimes(1);
+      const burstRequest = vi.mocked(burstEffects.emitBurst).mock.calls[0][0];
+      expect(burstRequest.streamId).toBe(surgeStream.id);
+      expect(burstRequest.count).toBe(surgeStream.burstCount);
+      const burstOverrides = burstRequest.streamOverrides!;
+      expect(burstOverrides[continuousStream.id].ratePerSecond).toBe(continuousStream.ratePerSecond * directionalControls.EmissionRateMultiplier!);
+      expect(burstOverrides[surgeStream.id].ratePerSecond).toBe(0);
+      for (const streamId of [continuousStream.id, surgeStream.id]) {
+        expect(burstOverrides[streamId].lifetimeScale).toBe(directionalControls.LifetimeMultiplier);
+        expect(burstOverrides[streamId].sizeScale).toBe(directionalControls.SizeMultiplier);
+        expect(burstOverrides[streamId].spawnExtentScale).toBe(directionalControls.SpawnRadiusMultiplier);
+        expect(burstOverrides[streamId].velocityRotationRadians).toBeCloseTo(Math.PI / 2);
+        expect(burstOverrides[streamId].startColor).toBe(directionalControls.Colors!.primary);
+        expect(burstOverrides[streamId].endColor).toBe(directionalControls.Colors!.secondary);
+        expect(burstOverrides[streamId].accelerationXPxPerSecond2).toBe(-32);
+        expect(burstOverrides[streamId].accelerationYPxPerSecond2).toBe(48);
+        expect(burstOverrides[streamId]).not.toHaveProperty("emissionTimingJitterPercent");
+      }
+      burstController.dispose();
+    }
+  });
+
+  it("maps independent fountain acceleration for four continuous emitters and their surge streams without leakage", () => {
+    const fountain = directionalEffects.find((effect) => effect.effectKey === "particle.water-fountain")!;
+    const recipe = fountain.particleEffect.recipe as CatalogParticleRecipe;
+    const emitterControls = [
+      { DirectionDegrees: 315, AccelerationXPxPerSecond2: -45, AccelerationYPxPerSecond2: -75 },
+      { DirectionDegrees: 45, AccelerationXPxPerSecond2: 45, AccelerationYPxPerSecond2: -55 },
+      { DirectionDegrees: 225, AccelerationXPxPerSecond2: -30, AccelerationYPxPerSecond2: 70 },
+      { DirectionDegrees: 135, AccelerationXPxPerSecond2: 70, AccelerationYPxPerSecond2: 45 }
+    ] satisfies CatalogResolvedTuning[];
+    const emitters = emitterControls.map((tuning, index) => ({
+      objectId: `multi-fountain-${index}`,
+      objectName: `Fountain nozzle ${index + 1}`,
+      activePresentationCues: [],
+      particleEffect: {
+        id: `multi-fountain-${index}`,
+        effectKey: fountain.effectKey,
+        x: 100 + index * 30,
+        y: 120,
+        enabled: true,
+        order: index,
+        tuning
+      }
+    }));
+    const effects = buildEffects();
+    const controller = new ParticleEffectSceneController(effects);
+    const sceneFor = (currentEmitters: typeof emitters, bursts: GameRenderSceneSnapshot["particleEffectBursts"] = []) => scene({
+      particleEffectCatalog: [fountain],
+      objectsById: Object.fromEntries(currentEmitters.map((emitter) => [emitter.objectId, emitter])),
+      particleEffectBursts: bursts
+    });
+
+    controller.reconcile(sceneFor(emitters));
+    for (let index = 0; index < emitters.length; index += 1) {
+      const emitter = emitters[index];
+      const tuning = emitterControls[index];
+      const upsert = vi.mocked(effects.upsertCatalogEffect).mock.calls
+        .map(([request]) => request).find(({ id }) => id === `object:${emitter.objectId}`)!;
+      expect(upsert.tuning).toEqual(tuning);
+      const mapped = mapCatalogStreamOverrides(recipe, resolveCatalogRecipe(recipe, tuning), tuning);
+      for (const stream of recipe.streams) {
+        expect(mapped[stream.id].accelerationXPxPerSecond2).toBe(tuning.AccelerationXPxPerSecond2);
+        expect(mapped[stream.id].accelerationYPxPerSecond2).toBe(tuning.AccelerationYPxPerSecond2);
+      }
+    }
+
+    const retuned = emitters.map((emitter, index) => index === 1 ? {
+      ...emitter,
+      particleEffect: {
+        ...emitter.particleEffect,
+        tuning: { ...emitterControls[index], AccelerationXPxPerSecond2: 85, AccelerationYPxPerSecond2: -90 }
+      }
+    } : emitter);
+    controller.reconcile(sceneFor(retuned));
+    controller.update(20);
+    const afterRetune = vi.mocked(effects.upsertCatalogEffect).mock.calls.map(([request]) => request);
+    for (let index = 0; index < retuned.length; index += 1) {
+      const emitterRequests = afterRetune.filter(({ id }) => id === `object:${retuned[index].objectId}`);
+      const request = emitterRequests[emitterRequests.length - 1]!;
+      const expected = index === 1
+        ? { ...emitterControls[index], AccelerationXPxPerSecond2: 85, AccelerationYPxPerSecond2: -90 }
+        : emitterControls[index];
+      expect(request.tuning).toEqual(expected);
+    }
+
+    const bursts = retuned.map((emitter, index) => ({
+      id: `multi-fountain-surge-${index}`,
+      sourceObjectId: emitter.objectId,
+      effectKey: fountain.effectKey,
+      x: emitter.particleEffect.x,
+      y: emitter.particleEffect.y,
+      quantityMultiplier: 1,
+      enabled: true,
+      order: index,
+      tuning: emitter.particleEffect.tuning
+    }));
+    controller.reconcile(sceneFor(retuned, bursts));
+    const burstRequests = vi.mocked(effects.emitBurst).mock.calls.map(([request]) => request);
+    expect(burstRequests).toHaveLength(4);
+    for (let index = 0; index < bursts.length; index += 1) {
+      const burst = bursts[index];
+      const request = burstRequests.find(({ id }) => id.startsWith(`${burst.id}:`))!;
+      for (const stream of recipe.streams) {
+        expect(request.streamOverrides![stream.id].accelerationXPxPerSecond2).toBe(burst.tuning.AccelerationXPxPerSecond2);
+        expect(request.streamOverrides![stream.id].accelerationYPxPerSecond2).toBe(burst.tuning.AccelerationYPxPerSecond2);
+      }
+    }
+    controller.dispose();
+  });
+
+  it("interpolates directional heading over the shortest arc without replacing the emitter", () => {
+    const effects = buildEffects();
+    const controller = new ParticleEffectSceneController(effects);
+    let clockMs = 1000;
+    const now = vi.spyOn(performance, "now").mockImplementation(() => clockMs);
+    const fountain = directionalEffects.find((effect) => effect.effectKey === "particle.water-fountain")!;
+    const object = (direction: number) => ({
+      objectId: "fountain-heading",
+      objectName: "Fountain",
+      activePresentationCues: [],
+      particleEffect: {
+        id: "fountain-heading", effectKey: fountain.effectKey, enabled: true, order: 0,
+        tuning: { DirectionDegrees: direction }
+      }
+    });
+
+    controller.reconcile(scene({
+      particleEffectCatalog: [fountain],
+      objectsById: { fountain: object(350) }
+    }));
+    controller.reconcile(scene({
+      particleEffectCatalog: [fountain],
+      objectsById: { fountain: object(10) }
+    }));
+    clockMs += 125;
+    controller.update(3.5);
+
+    const heading = vi.mocked(effects.upsertCatalogEffect).mock.lastCall![0].tuning!.DirectionDegrees!;
+    expect(heading > 350 || heading < 10).toBe(true);
+    expect(effects.upsertCatalogEffect).toHaveBeenLastCalledWith(expect.objectContaining({ id: "object:fountain-heading" }));
+    expect(effects.remove).not.toHaveBeenCalledWith("object:fountain-heading");
+    controller.dispose();
     now.mockRestore();
   });
 
