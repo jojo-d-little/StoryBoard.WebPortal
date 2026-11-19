@@ -4,6 +4,43 @@ import { describe, expect, it, vi } from "vitest";
 import { HostApiClient } from "./client";
 
 describe("HostApiClient", () => {
+  it("preserves accepted movement segment shapes, image elevation, and omitted versus empty collections", async () => {
+    const image = {
+      imagePath: "assets/trunk.png", anchorX: 10, anchorY: 20, iconOffsetX: 2, iconOffsetY: 3,
+      x: 12, y: 23, rotationDegrees: 90, scale: 1, additionalSituationalScale: 0.8,
+      situationalScalePivotOffsetXPx: 30, situationalScalePivotOffsetYPx: 40, elevationPx: 7
+    };
+    const segment = {
+      objectId: "object-1", coordinationId: "coord-1", segmentIndex: 0, kind: "Turn",
+      sourceRoomId: "room-1", destinationRoomId: "room-1", startOffsetMs: 120, durationMs: 240,
+      fromRenderableImage: image, toRenderableImage: { ...image, rotationDegrees: 180 }, rotationDeltaDegrees: 90
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        resultCode: "Success",
+        sessionData: { roomObjectChanges: [
+          { changeKind: "Updated", objectId: "object-1", objectName: "Trunk", moveLegTelemetry: [{ targetObjectId: "object-1", targetObjectName: "Trunk", legIndex: 0, requestedDirection: "South", requestedDistanceInCells: 1, appliedDistanceInCells: 0, success: true, resultCode: "Success", travelVisualizationMode: "LegByLeg", movementSegments: [segment] }] },
+          { changeKind: "Updated", objectId: "object-2", objectName: "Case", moveLegTelemetry: [{ targetObjectId: "object-2", targetObjectName: "Case", legIndex: 0, requestedDirection: "South", requestedDistanceInCells: 1, appliedDistanceInCells: 0, success: true, resultCode: "Success", travelVisualizationMode: "Direct" }] },
+          { changeKind: "Updated", objectId: "object-3", objectName: "Empty", moveLegTelemetry: [{ targetObjectId: "object-3", targetObjectName: "Empty", legIndex: 0, requestedDirection: "South", requestedDistanceInCells: 1, appliedDistanceInCells: 0, success: true, resultCode: "Success", travelVisualizationMode: "LegByLeg", movementSegments: [] }] }
+        ] }
+      })
+    }));
+
+    try {
+      const response = await new HostApiClient({ baseUrl: "http://127.0.0.1:5199" }).getSessionDeltas("cred-1", "session-1", "0", "Medium");
+      const changes = response.sessionData!.roomObjectChanges;
+      expect(changes[0].moveLegTelemetry?.[0].movementSegments?.[0]).toMatchObject({
+        objectId: "object-1", coordinationId: "coord-1", kind: "Turn", startOffsetMs: 120,
+        fromRenderableImage: { situationalScalePivotOffsetXPx: 30, situationalScalePivotOffsetYPx: 40, elevationPx: 7 }
+      });
+      expect(changes[1].moveLegTelemetry?.[0]).not.toHaveProperty("movementSegments");
+      expect(changes[2].moveLegTelemetry?.[0].movementSegments).toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("preserves Hidden and Shown change kinds and the shown renderable payload", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: true,

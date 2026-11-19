@@ -1,4 +1,5 @@
 import type { HostMovementTravelVisualizationMode } from "./HostMovementTravelVisualizationMode";
+import type { HostMovementSegment } from "./HostMovementSegment";
 
 export interface HostCommandMoveLegTelemetry {
   targetObjectId?: string;
@@ -14,4 +15,5 @@ export interface HostCommandMoveLegTelemetry {
   toX?: number;
   toY?: number;
   travelVisualizationMode: HostMovementTravelVisualizationMode;
+  movementSegments?: HostMovementSegment[];
 }

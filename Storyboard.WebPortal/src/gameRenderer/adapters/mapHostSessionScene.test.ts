@@ -147,7 +147,8 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
         scale: 0.5,
         additionalSituationalScale: 1.5,
         situationalScalePivotOffsetXPx: 40,
-        situationalScalePivotOffsetYPx: 40
+        situationalScalePivotOffsetYPx: 40,
+        elevationPx: 13
       },
       renderZOrder: 1
     }, {
@@ -174,6 +175,7 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
       y: 235,
       scale: 0.5,
       additionalSituationalScale: 1.5,
+      elevationPx: 13,
       situationalScalePivotOffsetFromImageXPx: 30,
       situationalScalePivotOffsetFromImageYPx: 45
     }));
@@ -460,6 +462,83 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
       lightingTransitionFrom: { pointLight: { x: 132, y: 92, radiusPx: 80 } },
       movementDurationMs: 200
     });
+  });
+
+  it("does not use source-room lighting as the origin for an incoming transfer", () => {
+    const previous = mapHostSessionDataToSceneSnapshot(buildSessionData());
+    if (!previous) throw new Error("Expected the source room snapshot.");
+    const image = (x: number, y: number) => ({
+      imagePath: "assets/images/suitcase.png",
+      anchorX: x,
+      anchorY: y,
+      iconOffsetX: -18,
+      iconOffsetY: -45,
+      x: x - 18,
+      y: y - 45,
+      rotationDegrees: 0,
+      scale: 0.12
+    });
+    const sourceObject: HostCommandRenderableRoomObject = {
+      objectId: "obj-1",
+      name: "Suitcase",
+      renderableImage: image(160, 400),
+      renderZOrder: 10,
+      spatialFootprint: { cellX: 4, cellY: 10, sizeXCells: 3, sizeYCells: 2 },
+      lightOcclusion: { strength: 1 }
+    };
+    const destinationObject: HostCommandRenderableRoomObject = {
+      ...sourceObject,
+      renderableImage: image(200, 324),
+      spatialFootprint: { cellX: 5, cellY: 8, sizeXCells: 3, sizeYCells: 2 }
+    };
+    const destination = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      roomChange: {
+        newRoom: {
+          ...buildSessionData().roomChange!.newRoom!,
+          roomId: "room-2",
+          renderableRoomObjects: [destinationObject]
+        }
+      },
+      roomObjectChanges: [{
+        changeKind: "Updated",
+        objectId: "obj-1",
+        objectName: "Suitcase",
+        fromRenderableObject: sourceObject,
+        renderableRoomObject: destinationObject,
+        moveLegTelemetry: [{
+          targetObjectId: "obj-1",
+          targetObjectName: "Suitcase",
+          legIndex: 0,
+          requestedDirection: "North",
+          requestedDistanceInCells: 20,
+          appliedDistanceInCells: 11,
+          success: true,
+          resultCode: "MovedPartialDistance",
+          travelVisualizationMode: "LegByLeg",
+          movementSegments: [{
+            objectId: "obj-1",
+            coordinationId: "transfer-1",
+            segmentIndex: 2,
+            kind: "RoomTransfer",
+            sourceRoomId: "room-1",
+            destinationRoomId: "room-2",
+            startOffsetMs: 5000,
+            durationMs: 1,
+            fromRenderableImage: image(160, 0),
+            toRenderableImage: image(200, 684)
+          }]
+        }]
+      }]
+    }), previous);
+
+    expect(destination?.roomId).toBe("room-2");
+    expect(destination?.objectsById["obj-1"]).toMatchObject({
+      lighting: {
+        spatialFootprint: { cellX: 5, cellY: 8 },
+        lightOcclusion: { strength: 1 }
+      }
+    });
+    expect(destination?.objectsById["obj-1"]?.lightingTransitionFrom).toBeUndefined();
   });
 
   it("maps directional overlay room payload into a renderer snapshot", () => {
@@ -880,6 +959,44 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
       toY: 80,
       travelVisualizationMode: "LegByLeg"
     });
+  });
+
+  it("deduplicates coordinated segments per object while retaining the paired player and target", () => {
+    const image = (x: number) => ({
+      imagePath: "assets/trunk.png", anchorX: x, anchorY: 80, iconOffsetX: 0, iconOffsetY: 0,
+      x, y: 80, rotationDegrees: 0, scale: 1
+    });
+    const segment = (objectId: string) => ({
+      objectId, coordinationId: "coord-1", segmentIndex: 0, kind: "Translation" as const,
+      sourceRoomId: "room-1", destinationRoomId: "room-1", startOffsetMs: 0, durationMs: 320,
+      fromRenderableImage: image(80), toRenderableImage: image(120)
+    });
+    const makeChange = (objectId: string, name: string, segments: ReturnType<typeof segment>[]) => ({
+      changeKind: "Updated" as const,
+      objectId,
+      objectName: name,
+      moveLegTelemetry: [{
+        targetObjectId: objectId,
+        targetObjectName: name,
+        legIndex: 0,
+        requestedDirection: "East",
+        requestedDistanceInCells: 1,
+        appliedDistanceInCells: 1,
+        success: true,
+        resultCode: "Success",
+        travelVisualizationMode: "LegByLeg" as const,
+        movementSegments: segments
+      }]
+    });
+    const snapshot = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      roomObjectChanges: [
+        makeChange("player", "Player", [segment("player"), segment("player")]),
+        makeChange("trunk", "Trunk", [segment("trunk")])
+      ]
+    }));
+
+    expect(snapshot?.moveLegTelemetry?.flatMap((leg) => leg.movementSegments ?? [])
+      .map((entry) => entry.objectId)).toEqual(["player", "trunk"]);
   });
 
   it("uses independent-mode slot selection when display mode is independent", () => {

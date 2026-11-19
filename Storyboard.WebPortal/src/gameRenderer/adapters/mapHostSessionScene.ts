@@ -241,7 +241,8 @@ function mapRoomObjectsFromNewRoom(source: HostPresentationSceneSource): Record<
 
 function applyObjectChanges(
   initial: Record<string, GameRenderSceneObject>,
-  changes: HostSessionPresentationData["roomObjectChanges"]
+  changes: HostSessionPresentationData["roomObjectChanges"],
+  roomBoundary = false
 ): Record<string, GameRenderSceneObject> {
   const objectsById = { ...initial };
   for (const change of changes) {
@@ -268,7 +269,9 @@ function applyObjectChanges(
           activePresentationCues: [],
           ...resolveMovementTimingFromCues([])
         };
-    const lightingTransitionFrom = change.fromRenderableObject
+    const hasRoomTransferSegment = change.moveLegTelemetry?.some((leg) =>
+      leg.movementSegments?.some((segment) => segment.kind === "RoomTransfer")) ?? false;
+    const lightingTransitionFrom = !roomBoundary && !hasRoomTransferSegment && change.fromRenderableObject
       ? mapObjectLighting(change.fromRenderableObject)
       : undefined;
     objectsById[change.objectId] = {
@@ -341,6 +344,7 @@ function mapRenderableRoomObject(
     scale: Number.isFinite(roomObject.renderableImage.scale) && roomObject.renderableImage.scale > 0
       ? roomObject.renderableImage.scale
       : 1,
+    ...(Number.isFinite(roomObject.renderableImage.elevationPx) ? { elevationPx: roomObject.renderableImage.elevationPx } : {}),
     ...(Number.isFinite(roomObject.imageTransparency)
       ? { imageTransparency: Math.min(1, Math.max(0, roomObject.imageTransparency!)) }
       : {}),
@@ -372,7 +376,8 @@ function mapMoveLegTelemetry(entries: HostCommandMoveLegTelemetry[]): GameRender
     fromY: entry.fromY,
     toX: entry.toX,
     toY: entry.toY,
-    travelVisualizationMode: entry.travelVisualizationMode
+    travelVisualizationMode: entry.travelVisualizationMode,
+    ...(entry.movementSegments === undefined ? {} : { movementSegments: entry.movementSegments.map((segment) => ({ ...segment })) })
   }));
 }
 
@@ -381,9 +386,21 @@ function collectMoveLegTelemetry(changes: HostSessionPresentationData["roomObjec
     return [];
   }
 
-  return changes.flatMap((change) => change.changeKind === "Added" || change.changeKind === "Updated"
+  const mapped = changes.flatMap((change) => change.changeKind === "Added" || change.changeKind === "Updated"
     ? mapMoveLegTelemetry(change.moveLegTelemetry ?? [])
     : []);
+  const seenSegments = new Set<string>();
+  return mapped.map((leg) => ({
+    ...leg,
+    ...(leg.movementSegments === undefined ? {} : {
+      movementSegments: leg.movementSegments.filter((segment) => {
+        const identity = `${segment.objectId.toLowerCase()}\u0000${segment.coordinationId.toLowerCase()}\u0000${segment.segmentIndex}`;
+        if (seenSegments.has(identity)) return false;
+        seenSegments.add(identity);
+        return true;
+      })
+    })
+  }));
 }
 
 export function mapHostPresentationToSceneSnapshot(source: HostPresentationSceneSource): GameRenderSceneSnapshot | null {
@@ -447,6 +464,7 @@ export function mapHostSessionDataToSceneSnapshot(
     const baselineLighting = baselineSnapshot.lighting!;
     const baselineObjects = baselineSnapshot.objectsById;
     const previousLighting = previousSnapshot?.lighting;
+    const roomBoundary = previousSnapshot != null && previousSnapshot.roomId !== baselineSnapshot.roomId;
     const roomLightingWithRetainedSessionSettings = sessionData.sessionPresentationSettings === undefined && previousLighting
       ? {
           ...baselineLighting,
@@ -457,7 +475,7 @@ export function mapHostSessionDataToSceneSnapshot(
     return {
       ...baselineSnapshot,
       moveLegTelemetry: collectMoveLegTelemetry(sessionData.roomObjectChanges),
-      objectsById: applyObjectChanges(baselineObjects, sessionData.roomObjectChanges),
+      objectsById: applyObjectChanges(baselineObjects, sessionData.roomObjectChanges, roomBoundary),
       lighting: {
         ...applyLightingSessionSettings(roomLightingWithRetainedSessionSettings, sessionData.sessionPresentationSettings),
       },

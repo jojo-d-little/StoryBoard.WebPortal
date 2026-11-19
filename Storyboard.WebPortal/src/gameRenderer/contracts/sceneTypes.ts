@@ -36,6 +36,7 @@ export type {
 export type { GameRenderRoomObject } from "./sceneTypes/GameRenderRoomObject";
 export type { GameRenderSceneObject, GameRenderSpriteComponent } from "./sceneTypes/GameRenderSceneObject";
 export type { GameRenderMoveLegTelemetry } from "./sceneTypes/GameRenderMoveLegTelemetry";
+export type { GameRenderMovementSegment } from "./sceneTypes/GameRenderMovementSegment";
 export type { GameRenderHudOverlayEntry } from "./sceneTypes/GameRenderHudOverlayEntry";
 export type {
   GameRenderAmbientLighting,

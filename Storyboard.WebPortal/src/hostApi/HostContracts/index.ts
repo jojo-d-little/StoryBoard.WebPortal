@@ -110,6 +110,7 @@ export type { HostCommandActiveObjectPresentationCue } from "./HostCommandActive
 export type { HostCommandActiveObjectMovementPayload } from "./HostCommandActiveObjectMovementPayload";
 export type { HostCommandPresentationCueText } from "./HostCommandPresentationCueText";
 export type { HostCommandRenderableImage } from "./HostCommandRenderableImage";
+export type { HostMovementSegment } from "./HostMovementSegment";
 export type { HostCommandRoomDirectionalImage } from "./HostCommandRoomDirectionalImage";
 export type { HostCommandRenderableRoomObject } from "./HostCommandRenderableRoomObject";
 export type { HostObjectPointLight } from "./HostObjectPointLight";

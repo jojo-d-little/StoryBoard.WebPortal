@@ -1165,6 +1165,7 @@ export class HostApiClient {
     const entries = this.readArray(source, ["moveLegTelemetry", "MoveLegTelemetry"]);
     return entries.map((entry) => {
       const leg = this.asRecord(entry);
+      const movementSegments = this.readMovementSegments(leg);
 
       return {
         targetObjectId: this.readOptionalGuidString(leg, ["targetObjectId", "TargetObjectId"]),
@@ -1179,7 +1180,32 @@ export class HostApiClient {
         fromY: this.readOptionalFiniteNumber(leg, ["fromY", "FromY"]),
         toX: this.readOptionalFiniteNumber(leg, ["toX", "ToX"]),
         toY: this.readOptionalFiniteNumber(leg, ["toY", "ToY"]),
-        travelVisualizationMode: this.readTravelVisualizationMode(leg)
+        travelVisualizationMode: this.readTravelVisualizationMode(leg),
+        ...(movementSegments === undefined ? {} : { movementSegments })
+      };
+    });
+  }
+
+  private readMovementSegments(source: Record<string, unknown>): HostCommandMoveLegTelemetry["movementSegments"] {
+    const raw = source.movementSegments ?? source.MovementSegments;
+    if (!Array.isArray(raw)) {
+      return undefined;
+    }
+
+    return raw.map((entry) => {
+      const segment = this.asRecord(entry);
+      return {
+        objectId: this.readString(segment, ["objectId", "ObjectId"]),
+        coordinationId: this.readString(segment, ["coordinationId", "CoordinationId"]),
+        segmentIndex: this.readOptionalNonNegativeInt(segment, ["segmentIndex", "SegmentIndex"]) ?? 0,
+        kind: this.readString(segment, ["kind", "Kind"]) as "Turn" | "Translation" | "RoomTransfer",
+        sourceRoomId: this.readString(segment, ["sourceRoomId", "SourceRoomId"]),
+        destinationRoomId: this.readString(segment, ["destinationRoomId", "DestinationRoomId"]),
+        startOffsetMs: this.readOptionalFiniteNumber(segment, ["startOffsetMs", "StartOffsetMs"]) ?? 0,
+        durationMs: this.readOptionalFiniteNumber(segment, ["durationMs", "DurationMs"]) ?? 0,
+        fromRenderableImage: this.readRenderableImage(this.readObject(segment, ["fromRenderableImage", "FromRenderableImage"])),
+        toRenderableImage: this.readRenderableImage(this.readObject(segment, ["toRenderableImage", "ToRenderableImage"])),
+        rotationDeltaDegrees: this.readOptionalFiniteNumber(segment, ["rotationDeltaDegrees", "RotationDeltaDegrees"])
       };
     });
   }
@@ -1998,6 +2024,7 @@ export class HostApiClient {
       y: this.readNumber(source, ["y", "Y"]),
       rotationDegrees: this.readNumber(source, ["rotationDegrees", "RotationDegrees"]),
       scale: this.readNumber(source, ["scale", "Scale"]),
+      elevationPx: this.readOptionalFiniteNumber(source, ["elevationPx", "ElevationPx"]),
       ...(additionalSituationalScale === undefined ? {} : { additionalSituationalScale }),
       ...(hasSituationalScalePivot ? { situationalScalePivotOffsetXPx, situationalScalePivotOffsetYPx } : {})
     };

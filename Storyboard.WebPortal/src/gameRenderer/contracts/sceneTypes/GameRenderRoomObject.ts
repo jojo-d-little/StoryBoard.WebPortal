@@ -15,6 +15,8 @@ export interface GameRenderRoomObject {
   scale: number;
   imageTransparency?: number;
   additionalSituationalScale?: number;
+  /** Absolute image-pixel base elevation from Host state; it does not shift screen Y. */
+  elevationPx?: number;
   /** Paired room-axis pivot vector from the image draw origin, resolved by the Host adapter. */
   situationalScalePivotOffsetFromImageXPx?: number;
   situationalScalePivotOffsetFromImageYPx?: number;

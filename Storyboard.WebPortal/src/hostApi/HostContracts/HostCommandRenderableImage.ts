@@ -11,4 +11,5 @@ export interface HostCommandRenderableImage {
   rotationDegrees: number;
   scale: number;
   additionalSituationalScale?: number;
+  elevationPx?: number;
 }

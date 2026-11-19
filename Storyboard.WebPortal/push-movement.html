@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coordinated Push Movement Validation</title>
+  <style>
+    body { margin: 0; padding: 24px; background: #111827; color: #e5e7eb; font: 14px Segoe UI, sans-serif; }
+    main { display: grid; grid-template-columns: repeat(2, 620px); gap: 18px; }
+    #transfer { grid-column: 1 / span 2; }
+    figure { margin: 0; padding: 10px; border: 1px solid #475569; background: #1f2937; }
+    figcaption { margin-bottom: 8px; font-weight: 600; }
+    .mount { width: 600px; height: 400px; background: #e9e1ce; }
+    #transfer-mount { height: 800px; }
+  </style>
+</head>
+<body>
+  <main>
+    <figure><figcaption>Direct: preserve Turn, collapse contiguous translations</figcaption><div class="mount" id="direct"></div></figure>
+    <figure><figcaption>LegByLeg: render each accepted segment</figcaption><div class="mount" id="leg-by-leg"></div></figure>
+    <figure id="transfer"><figcaption>RoomTransfer: accept player and child in destination room</figcaption><div class="mount" id="transfer-mount"></div></figure>
+  </main>
+  <script type="module" src="/src/gameRenderer/testing/pushMovementHarness.ts"></script>
+</body>
+</html>

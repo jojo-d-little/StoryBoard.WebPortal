@@ -107,4 +107,31 @@ describe("lightingMovementProjection", () => {
     expect(projected.spatialFootprint).toMatchObject({ cellX: 1, cellY: 2, xPx: 95.25, yPx: 195.5, sizeXCells: 1, sizeYCells: 1 });
     expect(projected.lightOcclusion).toEqual(fromLighting.lightOcclusion);
   });
+
+  it("keeps an incoming suitcase blocker with its destination-room arrival image", () => {
+    const destinationLighting = {
+      spatialFootprint: {
+        cellX: 5,
+        cellY: 8,
+        sizeXCells: 3,
+        sizeYCells: 2,
+        footprintCenterXpx: 260,
+        footprintCenterYpx: 360
+      },
+      lightOcclusion: { strength: 1 }
+    };
+    const projectAt = (spriteY: number, progress: number) => projectSpriteAnchoredBlocker(destinationLighting, undefined, {
+      spriteX: 182,
+      spriteY,
+      fromSpriteX: 182,
+      fromSpriteY: 639,
+      toSpriteX: 182,
+      toSpriteY: 279,
+      progress
+    }, 40);
+
+    expect(projectAt(639, 0).spatialFootprint).toMatchObject({ xPx: 200, yPx: 680 });
+    expect(projectAt(459, 0.5).spatialFootprint).toMatchObject({ xPx: 200, yPx: 500 });
+    expect(projectAt(279, 1).spatialFootprint).toMatchObject({ xPx: 200, yPx: 320 });
+  });
 });
