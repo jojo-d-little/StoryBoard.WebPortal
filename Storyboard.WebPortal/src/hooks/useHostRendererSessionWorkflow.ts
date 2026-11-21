@@ -171,6 +171,10 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   const [sessionDeltaRevision, setSessionDeltaRevision] = useState<number>(0);
   const sceneHydrationGenerationRef = useRef<number>(0);
   const rendererSceneSnapshotRef = useRef<GameRenderSceneSnapshot | null>(options.rendererSceneSnapshot);
+  // Accepted Host state advances synchronously, independently of the slower displayed React snapshot.
+  const acceptedSceneSnapshotRef = useRef<GameRenderSceneSnapshot | null>(options.rendererSceneSnapshot);
+  const pendingMoveLegTelemetryRef = useRef<NonNullable<GameRenderSceneSnapshot["moveLegTelemetry"]>>([]);
+  const pendingParticleBurstsRef = useRef<NonNullable<GameRenderSceneSnapshot["particleEffectBursts"]>>([]);
   const setRendererSceneSnapshotRef = useRef(options.setRendererSceneSnapshot);
   setRendererSceneSnapshotRef.current = options.setRendererSceneSnapshot;
   const applyPresentationCuesRef = useRef(options.applyPresentationCues);
@@ -371,6 +375,13 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   useEffect(() => {
     rendererSceneSnapshotRef.current = options.rendererSceneSnapshot;
   }, [options.rendererSceneSnapshot]);
+
+  useEffect(() => {
+    acceptedSceneSnapshotRef.current = null;
+    pendingMoveLegTelemetryRef.current = [];
+    pendingParticleBurstsRef.current = [];
+    sceneHydrationGenerationRef.current += 1;
+  }, [options.activeSessionId, options.sessionDeltaResetEpoch]);
 
   useEffect(() => {
     applyPresentationCuesRef.current = options.applyPresentationCues;
@@ -751,6 +762,13 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     source: "baseline" | "delta"
   ): Promise<void> => {
     const generation = ++sceneHydrationGenerationRef.current;
+    const commitScene = (snapshot: GameRenderSceneSnapshot): void => {
+      options.setRendererSceneSnapshot(snapshot);
+      if (generation === sceneHydrationGenerationRef.current) {
+        pendingMoveLegTelemetryRef.current = [];
+        pendingParticleBurstsRef.current = [];
+      }
+    };
     if (options.particleAssetWarmupEnabled) {
       void warmDiscoveredParticleAssets(scene).catch((error) => {
         addDiagnosticRef.current("warn", "asset-discovery", "Particle asset warm-up failed; continuing with the room scene and packaged particle art.", {
@@ -771,7 +789,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     ));
 
     if (uniqueAssetPaths.length === 0) {
-      options.setRendererSceneSnapshot({
+      commitScene({
         ...sceneWithCatalog,
         hudOverlayEntries: getHudOverlayEntriesRef.current()
       });
@@ -779,7 +797,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     }
 
     if (!options.credentialHandle) {
-      options.setRendererSceneSnapshot({
+      commitScene({
         ...sceneWithCatalog,
         hudOverlayEntries: getHudOverlayEntriesRef.current()
       });
@@ -792,7 +810,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     }
 
     if (!options.selectedGameId && !options.selectedGameKey) {
-      options.setRendererSceneSnapshot({
+      commitScene({
         ...sceneWithCatalog,
         hudOverlayEntries: getHudOverlayEntriesRef.current()
       });
@@ -919,7 +937,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       };
     });
 
-    options.setRendererSceneSnapshot({
+    commitScene({
       ...hydratedScene,
       hudOverlayEntries: getHudOverlayEntriesRef.current()
     });
@@ -997,6 +1015,9 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     }
 
     if (!baselineSnapshot) {
+      acceptedSceneSnapshotRef.current = null;
+      pendingMoveLegTelemetryRef.current = [];
+      pendingParticleBurstsRef.current = [];
       setRendererSceneSnapshotRef.current(null);
       addDiagnosticRef.current("warn", "session-render", "Session baseline did not include a room scene payload.", {
         source,
@@ -1010,6 +1031,13 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       ...applyPresentationCuesRef.current(baselineSnapshot),
       particleEffectCatalog: buildParticleEffectCatalog(startupCatalog)
     };
+    acceptedSceneSnapshotRef.current = {
+      ...resolvedSnapshot,
+      moveLegTelemetry: [],
+      particleEffectBursts: []
+    };
+    pendingMoveLegTelemetryRef.current = [];
+    pendingParticleBurstsRef.current = [];
     addDiagnosticRef.current("info", "session-render", "Prepared particle effect instances for baseline scene hydration.", {
       source,
       roomId: resolvedSnapshot.roomId,
@@ -1102,7 +1130,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   const handleSessionDataUpdate = useCallback((sessionData: HostSessionPresentationData): void => {
     setSessionDeltaRevision((revision) => revision + 1);
     const hasRoomUpdate = Boolean(sessionData.roomChange);
-    const previousSnapshot = rendererSceneSnapshotRef.current;
+    const previousSnapshot = acceptedSceneSnapshotRef.current ?? rendererSceneSnapshotRef.current;
     const previousRoomId = previousSnapshot?.roomId?.trim() ?? "";
     const reportedRoomId = sessionData.roomChange?.newRoom?.roomId?.trim()
       || sessionData.roomChange?.currentRoom?.roomId?.trim()
@@ -1165,7 +1193,29 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       });
     }
     if (nextSnapshot) {
-      const resolvedSnapshot = applyPresentationCuesRef.current(nextSnapshot);
+      if (previousSnapshot && previousSnapshot.roomId !== nextSnapshot.roomId) {
+        pendingMoveLegTelemetryRef.current = [];
+        pendingParticleBurstsRef.current = [];
+      }
+      pendingMoveLegTelemetryRef.current = [
+        ...pendingMoveLegTelemetryRef.current,
+        ...(nextSnapshot.moveLegTelemetry ?? [])
+      ];
+      pendingParticleBurstsRef.current = [
+        ...pendingParticleBurstsRef.current,
+        ...(nextSnapshot.particleEffectBursts ?? [])
+      ];
+      const acceptedSnapshot = {
+        ...nextSnapshot,
+        moveLegTelemetry: [],
+        particleEffectBursts: []
+      };
+      acceptedSceneSnapshotRef.current = acceptedSnapshot;
+      const resolvedSnapshot = applyPresentationCuesRef.current({
+        ...acceptedSnapshot,
+        moveLegTelemetry: pendingMoveLegTelemetryRef.current,
+        particleEffectBursts: pendingParticleBurstsRef.current
+      });
       emitMovementCueResolutionDiagnostics("delta", previousSnapshot, resolvedSnapshot, sessionData);
       emitAppearanceCueResolutionDiagnostics("delta", resolvedSnapshot, sessionData);
       emitRoomTransitionCueResolutionDiagnostics("delta", resolvedSnapshot, sessionData);

@@ -185,6 +185,74 @@ describe("useHostRendererSessionWorkflow reconnect sync", () => {
     expect(addDiagnostic.mock.calls.some(([, , message]) => message === "Movement cue resolution summary for session delta.")).toBe(false);
   });
 
+  it("retains accepted object updates when a later delta arrives during asset hydration", async () => {
+    const deferredDoorAssets: Array<(value: string | null) => void> = [];
+    const hostApiClient = {
+      getSessionBaseline: vi.fn().mockResolvedValue({
+        sessionDeltaWatermark: "1",
+        soundCues: [],
+        roomChange: {
+          newRoom: {
+            roomId: "room-1", name: "Opening", roomDisplayMode: "Overlay",
+            renderableRoomObjects: [
+              { objectId: "door", name: "Door_W", renderableImage: { imagePath: "data:image/png;base64,closed", anchorX: 0, anchorY: 0, iconOffsetX: 0, iconOffsetY: 0, x: 10, y: 20, rotationDegrees: 0, scale: 1 }, renderZOrder: 1 },
+              { objectId: "window", name: "WindowPanes", renderableImage: { imagePath: "data:image/png;base64,window", anchorX: 0, anchorY: 0, iconOffsetX: 0, iconOffsetY: 0, x: 30, y: 40, rotationDegrees: 0, scale: 1 }, renderZOrder: 2 }
+            ],
+            directionalRenderableImages: []
+          }
+        }
+      }),
+      getSessionDeltas: vi.fn(),
+      getAssetPreviewDataUrl: vi.fn((_credential: string, path: string) => path.includes("DoorOpen")
+        ? new Promise<string | null>((resolve) => deferredDoorAssets.push(resolve))
+        : Promise.resolve("data:image/png;base64,lightning"))
+    } as unknown as HostApiClient;
+    const { result } = renderHook(() => {
+      const [scene, setScene] = useState<GameRenderSceneSnapshot | null>(null);
+      useHostRendererSessionWorkflow({
+        hostApiClient, credentialHandle: "cred-1", activeSessionId: "session-1", selectedGameId: "game-1", selectedGameKey: "game-key",
+        presentationCueCatalogRevision: 0, rendererSceneSnapshot: scene, setRendererSceneSnapshot: setScene,
+        applyPresentationCues: (snapshot) => snapshot, getCurrentPresentationCueCatalog: () => null,
+        ensurePresentationCueCatalogReady: async () => ({ effects: [] }), presentationCueCatalogSource: "none", getHudOverlayEntries: () => [],
+        pollIntervalMs: 100, heartbeatEveryNPolls: 100, sessionDeltaResetEpoch: 0,
+        consumeSessionDeltaPhasePresentation: vi.fn(), consumeSessionDeltaEcho: vi.fn(), consumeSessionDeltaSoundCues: vi.fn(),
+        refreshCacheStats: vi.fn(), addDiagnostic: vi.fn()
+      });
+      return scene;
+    });
+
+    await waitForBaselineSyncReady();
+    await waitFor(() => expect(result.current?.roomId).toBe("room-1"));
+    const onSessionData = () => (useSessionDeltaPollingMock.mock.calls[useSessionDeltaPollingMock.mock.calls.length - 1]?.[0] as {
+      onSessionData: (data: HostSessionPresentationData) => void;
+    }).onSessionData;
+    const objectUpdate = (objectId: string, name: string, imagePath: string, watermark: string): HostSessionPresentationData => ({
+      sessionDeltaWatermark: watermark,
+      roomObjectChanges: [{
+        changeKind: "Updated", objectId, objectName: name,
+        ...(watermark === "2" ? { moveLegTelemetry: [{
+          targetObjectId: objectId, targetObjectName: name, legIndex: 0, requestedDirection: "East",
+          requestedDistanceInCells: 1, appliedDistanceInCells: 1, success: true, resultCode: "Success",
+          travelVisualizationMode: "LegByLeg" as const, fromX: 10, fromY: 20, toX: 30, toY: 40
+        }] } : {}),
+        renderableRoomObject: { objectId, name, renderableImage: { imagePath, anchorX: 0, anchorY: 0, iconOffsetX: 0, iconOffsetY: 0, x: 10, y: 20, rotationDegrees: 0, scale: 1 }, renderZOrder: 1 }
+      }],
+      soundCues: [], outputLines: [], diagnostics: [], activeRoomObjectName: "", activeRoomObjectSelectionCueEffectKey: "",
+      secondaryActiveRoomObjectName: "", secondaryActiveRoomObjectSelectionCueEffectKey: ""
+    });
+
+    act(() => onSessionData()(objectUpdate("door", "Door_W", "assets/DoorOpen.png", "2")));
+    await waitFor(() => expect(deferredDoorAssets).toHaveLength(1));
+    act(() => onSessionData()(objectUpdate("window", "WindowPanes", "data:image/png;base64,lit", "3")));
+    await waitFor(() => expect(deferredDoorAssets).toHaveLength(2));
+    await act(async () => {
+      deferredDoorAssets.forEach((resolve) => resolve("data:image/png;base64,open"));
+    });
+    await waitFor(() => expect(result.current?.objectsById.door?.sprite?.asset.assetPath).toBe("data:image/png;base64,open"));
+    expect(result.current?.objectsById.window?.sprite?.asset.assetPath).toBe("data:image/png;base64,lit");
+    expect(result.current?.moveLegTelemetry).toHaveLength(1);
+  });
+
   it("warms discovered custom particle images when the session warm-up switch is enabled", async () => {
     const discoverAssets = vi.fn().mockResolvedValue({
       result: { success: true },
