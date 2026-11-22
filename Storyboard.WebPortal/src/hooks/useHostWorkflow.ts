@@ -641,6 +641,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     lastCommandResult,
     submitCommand,
     submitClarificationAnswer,
+    consumeDelayedClarificationPrompt,
     clearPendingCommandState,
     resetCommandWorkflowState
   } = useHostCommandWorkflow({
@@ -740,6 +741,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     sessionDeltaResetEpoch,
     onGameplayChange: sessionRecording.refreshOnGameplayChange,
     consumeSessionDeltaPhasePresentation,
+    consumeSessionDeltaClarification: consumeDelayedClarificationPrompt,
     consumeSessionDeltaEcho,
     consumeSessionDeltaSoundCues,
     refreshCacheStats,

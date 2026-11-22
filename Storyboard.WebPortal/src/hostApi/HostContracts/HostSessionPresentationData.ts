@@ -1,4 +1,5 @@
 import type { HostCommandPhaseChangeData } from "./HostCommandPhaseChangeData";
+import type { HostCommandClarificationPrompt } from "./HostCommandClarificationPrompt";
 import type { HostCommandRemoteRoomObject } from "./HostCommandRemoteRoomObject";
 import type { HostCommandRoomChangeData } from "./HostCommandRoomChangeData";
 import type { HostCommandRoomObjectChange } from "./HostCommandRoomObjectChange";
@@ -10,6 +11,7 @@ export interface HostSessionPresentationData {
   sessionPresentationSettings?: HostSessionPresentationSettings | null;
   roomChange?: HostCommandRoomChangeData | null;
   phaseChange?: HostCommandPhaseChangeData | null;
+  clarificationPrompt?: HostCommandClarificationPrompt | null;
   roomObjectChanges: HostCommandRoomObjectChange[];
   activeRoomObjectId?: string | null;
   activeRoomObjectName: string;

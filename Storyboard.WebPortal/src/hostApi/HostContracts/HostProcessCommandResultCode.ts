@@ -6,4 +6,5 @@ export type HostProcessCommandResultCode =
   | "ClarificationAnswerMismatch"
   | "ClarificationStateStale"
   | "DuplicateCorrelationId"
+  | "Started"
   | "Failure";

@@ -4,7 +4,8 @@ import type {
   HostPendingClarificationRequest,
   HostProcessCommandResult,
   HostClarificationAnswer,
-  HostGameDiagnosticsLevel
+  HostGameDiagnosticsLevel,
+  HostSessionPresentationData
 } from "../hostApi/HostContracts";
 import type { DiagnosticsLevel } from "../components/DiagnosticsConsole";
 import { ensureSignedInSessionContext } from "./hostWorkflowGuards";
@@ -58,6 +59,7 @@ interface UseHostCommandWorkflowResult {
   lastCommandResult: HostProcessCommandResult | null;
   submitCommand: (rawCommandText: string, options?: { suppressClientEcho?: boolean }) => Promise<HostProcessCommandResult | null>;
   submitClarificationAnswer: (selectedObjectScopeNodeId: string) => Promise<void>;
+  consumeDelayedClarificationPrompt: (sessionData: HostSessionPresentationData) => void;
   clearPendingCommandState: () => void;
   resetCommandWorkflowState: () => void;
 }
@@ -74,6 +76,11 @@ interface CommandResponseHandlingContext {
   fallbackRawCommandText: string;
   statusPrefix: string;
   diagnosticsMessage: string;
+  isClarificationAnswer?: boolean;
+}
+
+interface PendingCommandContext {
+  rawCommandText: string;
 }
 
 export function useHostCommandWorkflow(options: UseHostCommandWorkflowOptions): UseHostCommandWorkflowResult {
@@ -82,11 +89,15 @@ export function useHostCommandWorkflow(options: UseHostCommandWorkflowOptions): 
   const nextCommandCorrelationIdRef = useRef<number>(createInitialCommandCorrelationId());
   const pendingCommandCorrelationIdRef = useRef<number | null>(null);
   const pendingRawCommandTextRef = useRef<string>("");
+  const commandContextsRef = useRef<Map<number, PendingCommandContext>>(new Map());
+  const handledClarificationPromptsRef = useRef<Set<string>>(new Set());
 
   function clearPendingCommandState(): void {
     setPendingCommandClarification(null);
     pendingCommandCorrelationIdRef.current = null;
     pendingRawCommandTextRef.current = "";
+    commandContextsRef.current.clear();
+    handledClarificationPromptsRef.current.clear();
   }
 
   function resetCommandWorkflowState(): void {
@@ -116,13 +127,30 @@ export function useHostCommandWorkflow(options: UseHostCommandWorkflowOptions): 
     context: CommandResponseHandlingContext
   ): void {
     setLastCommandResult(response);
+    const commandCorrelationId = response.commandCorrelationId || context.fallbackCommandCorrelationId;
+    const rawCommandText = response.rawCommandText || context.fallbackRawCommandText;
 
     if (response.clarificationRequired && response.pendingClarification) {
+      commandContextsRef.current.set(commandCorrelationId, { rawCommandText });
       setPendingCommandClarification(response.pendingClarification);
-      pendingCommandCorrelationIdRef.current = response.commandCorrelationId || context.fallbackCommandCorrelationId;
-      pendingRawCommandTextRef.current = response.rawCommandText || context.fallbackRawCommandText;
+      pendingCommandCorrelationIdRef.current = commandCorrelationId;
+      pendingRawCommandTextRef.current = rawCommandText;
+    } else if (response.resultCode === "Started") {
+      // The accepted-start response ends this HTTP operation, but its command may
+      // still publish a clarification prompt through a later session delta.
+      commandContextsRef.current.set(commandCorrelationId, { rawCommandText });
+      if (context.isClarificationAnswer && pendingCommandCorrelationIdRef.current === commandCorrelationId) {
+        setPendingCommandClarification(null);
+        pendingCommandCorrelationIdRef.current = null;
+        pendingRawCommandTextRef.current = "";
+      }
     } else {
-      clearPendingCommandState();
+      commandContextsRef.current.delete(commandCorrelationId);
+      if (pendingCommandCorrelationIdRef.current === commandCorrelationId) {
+        setPendingCommandClarification(null);
+        pendingCommandCorrelationIdRef.current = null;
+        pendingRawCommandTextRef.current = "";
+      }
     }
 
     if (response.diagnostics.length > 0) {
@@ -137,6 +165,46 @@ export function useHostCommandWorkflow(options: UseHostCommandWorkflowOptions): 
 
     options.setHostStatus(`${context.statusPrefix}: ${response.resultCode}`);
     options.completeHostOperation("command");
+  }
+
+  function consumeDelayedClarificationPrompt(sessionData: HostSessionPresentationData): void {
+    const envelope = sessionData.clarificationPrompt;
+    if (!envelope) {
+      return;
+    }
+
+    const commandCorrelationId = envelope.commandCorrelationId;
+    const pendingClarification = envelope.pendingClarification;
+    const commandContext = commandContextsRef.current.get(commandCorrelationId);
+    if (!Number.isSafeInteger(commandCorrelationId) || commandCorrelationId <= 0
+      || !commandContext || !pendingClarification?.slotId?.trim()
+      || !Array.isArray(pendingClarification.candidates) || pendingClarification.candidates.length === 0
+      || pendingClarification.candidates.some((candidate) => !candidate.objectScopeNodeId?.trim())) {
+      options.addDiagnostic("warn", "command", "Ignored stale or invalid delayed clarification prompt.", {
+        commandCorrelationId,
+        sessionId: options.activeSessionId,
+        hasCommandContext: Boolean(commandContext),
+        slotId: pendingClarification?.slotId ?? ""
+      });
+      return;
+    }
+
+    const promptKey = `${commandCorrelationId}|${pendingClarification.slotId}|${pendingClarification.promptText}|${pendingClarification.candidates.map((candidate) => candidate.objectScopeNodeId).join(",")}`;
+    if (handledClarificationPromptsRef.current.has(promptKey)) {
+      return;
+    }
+
+    handledClarificationPromptsRef.current.add(promptKey);
+    setPendingCommandClarification(pendingClarification);
+    pendingCommandCorrelationIdRef.current = commandCorrelationId;
+    pendingRawCommandTextRef.current = commandContext.rawCommandText;
+    options.addDiagnostic("info", "command", "Accepted delayed command clarification prompt.", {
+      commandCorrelationId,
+      rawCommandText: commandContext.rawCommandText,
+      slotId: pendingClarification.slotId,
+      sessionId: options.activeSessionId,
+      watermark: sessionData.sessionDeltaWatermark || "(none)"
+    });
   }
 
   async function submitCommand(rawCommandText: string, submitOptions?: { suppressClientEcho?: boolean }): Promise<HostProcessCommandResult | null> {
@@ -156,6 +224,7 @@ export function useHostCommandWorkflow(options: UseHostCommandWorkflowOptions): 
     }
 
     const initialCommandCorrelationId = reserveCommandCorrelationId();
+    commandContextsRef.current.set(initialCommandCorrelationId, { rawCommandText: commandText });
     options.addDiagnostic("info", "command", MSG_COMMAND_SUBMITTED, {
       commandText,
       commandCorrelationId: initialCommandCorrelationId,
@@ -176,7 +245,9 @@ export function useHostCommandWorkflow(options: UseHostCommandWorkflowOptions): 
       let effectiveCommandCorrelationId = initialCommandCorrelationId;
 
       if (response.resultCode === "DuplicateCorrelationId") {
+        commandContextsRef.current.delete(initialCommandCorrelationId);
         const retryCommandCorrelationId = reserveCommandCorrelationId();
+        commandContextsRef.current.set(retryCommandCorrelationId, { rawCommandText: commandText });
         options.addDiagnostic("warn", "command", MSG_DUPLICATE_CORRELATION_RETRY, {
           initialCommandCorrelationId,
           retryCommandCorrelationId,
@@ -232,7 +303,7 @@ export function useHostCommandWorkflow(options: UseHostCommandWorkflowOptions): 
 
     const commandCorrelationId = pendingCommandCorrelationIdRef.current;
     const rawCommandText = pendingRawCommandTextRef.current;
-    if (!commandCorrelationId || !rawCommandText) {
+    if (!commandCorrelationId || !rawCommandText || !commandContextsRef.current.has(commandCorrelationId)) {
       options.failHostOperation("command", MSG_CLARIFICATION_STATE_MISSING);
       return;
     }
@@ -252,7 +323,8 @@ export function useHostCommandWorkflow(options: UseHostCommandWorkflowOptions): 
         fallbackCommandCorrelationId: commandCorrelationId,
         fallbackRawCommandText: rawCommandText,
         statusPrefix: STATUS_PREFIX_COMMAND_CLARIFIED,
-        diagnosticsMessage: MSG_DIAGNOSTICS_CLARIFICATION
+        diagnosticsMessage: MSG_DIAGNOSTICS_CLARIFICATION,
+        isClarificationAnswer: true
       });
     } catch (err) {
       options.failHostOperation("command", `Clarification error: ${err instanceof Error ? err.message : String(err)}`);
@@ -264,6 +336,7 @@ export function useHostCommandWorkflow(options: UseHostCommandWorkflowOptions): 
     lastCommandResult,
     submitCommand,
     submitClarificationAnswer,
+    consumeDelayedClarificationPrompt,
     clearPendingCommandState,
     resetCommandWorkflowState
   };

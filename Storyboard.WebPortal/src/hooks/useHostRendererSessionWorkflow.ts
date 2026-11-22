@@ -84,6 +84,7 @@ interface UseHostRendererSessionWorkflowOptions {
   sessionDeltaResetEpoch: number;
   onGameplayChange?: () => void;
   consumeSessionDeltaPhasePresentation: (sessionData: HostSessionPresentationData) => void;
+  consumeSessionDeltaClarification?: (sessionData: HostSessionPresentationData) => void;
   consumeSessionDeltaEcho: (sessionData: HostSessionPresentationData) => void;
   consumeSessionDeltaSoundCues: (sessionData: HostSessionPresentationData, isBaseline?: boolean) => void;
   refreshCacheStats: () => void;
@@ -182,6 +183,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   const presentationCueCatalogSourceRef = useRef(options.presentationCueCatalogSource);
   const getHudOverlayEntriesRef = useRef(options.getHudOverlayEntries);
   const consumeSessionDeltaPhasePresentationRef = useRef(options.consumeSessionDeltaPhasePresentation);
+  const consumeSessionDeltaClarificationRef = useRef(options.consumeSessionDeltaClarification ?? (() => undefined));
   const consumeSessionDeltaEchoRef = useRef(options.consumeSessionDeltaEcho);
   const consumeSessionDeltaSoundCuesRef = useRef(options.consumeSessionDeltaSoundCues);
   const addDiagnosticRef = useRef(options.addDiagnostic);
@@ -406,6 +408,10 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   useEffect(() => {
     consumeSessionDeltaEchoRef.current = options.consumeSessionDeltaEcho;
   }, [options.consumeSessionDeltaEcho]);
+
+  useEffect(() => {
+    consumeSessionDeltaClarificationRef.current = options.consumeSessionDeltaClarification ?? (() => undefined);
+  }, [options.consumeSessionDeltaClarification]);
 
   useEffect(() => {
     consumeSessionDeltaSoundCuesRef.current = options.consumeSessionDeltaSoundCues;
@@ -1129,6 +1135,7 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
 
   const handleSessionDataUpdate = useCallback((sessionData: HostSessionPresentationData): void => {
     setSessionDeltaRevision((revision) => revision + 1);
+    consumeSessionDeltaClarificationRef.current(sessionData);
     const hasRoomUpdate = Boolean(sessionData.roomChange);
     const previousSnapshot = acceptedSceneSnapshotRef.current ?? rendererSceneSnapshotRef.current;
     const previousRoomId = previousSnapshot?.roomId?.trim() ?? "";

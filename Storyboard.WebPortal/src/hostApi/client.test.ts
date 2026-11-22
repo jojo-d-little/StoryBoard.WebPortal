@@ -4,6 +4,53 @@ import { describe, expect, it, vi } from "vitest";
 import { HostApiClient } from "./client";
 
 describe("HostApiClient", () => {
+  it("decodes delayed clarification prompts from ordered session updates", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        resultCode: "Success",
+        sessionData: {
+          sessionDeltaWatermark: "12",
+          clarificationPrompt: {
+            commandCorrelationId: 42,
+            pendingClarification: {
+              slotId: "exit",
+              ambiguousPhraseText: "south",
+              promptText: "Which exit?",
+              candidates: [{
+                objectScopeNodeId: "exit-1",
+                displayNameInGame: "South passage",
+                candidateScopeParentName: "Room",
+                contextLabel: ""
+              }]
+            }
+          }
+        }
+      })
+    }));
+
+    try {
+      const response = await new HostApiClient({ baseUrl: "http://127.0.0.1:5199" })
+        .getSessionDeltas("cred-1", "session-1", "11", "Medium");
+      expect(response.sessionData?.clarificationPrompt).toEqual({
+        commandCorrelationId: 42,
+        pendingClarification: {
+          slotId: "exit",
+          ambiguousPhraseText: "south",
+          promptText: "Which exit?",
+          candidates: [{
+            objectScopeNodeId: "exit-1",
+            displayNameInGame: "South passage",
+            candidateScopeParentName: "Room",
+            contextLabel: ""
+          }]
+        }
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("preserves accepted movement segment shapes, image elevation, and omitted versus empty collections", async () => {
     const image = {
       imagePath: "assets/trunk.png", anchorX: 10, anchorY: 20, iconOffsetX: 2, iconOffsetY: 3,

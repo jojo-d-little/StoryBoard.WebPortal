@@ -1143,6 +1143,7 @@ export class HostApiClient {
       sessionPresentationSettings: this.readSessionPresentationSettings(source),
       roomChange: this.readRoomChangeData(source),
       phaseChange: this.readPhaseChangeData(source),
+      clarificationPrompt: this.readDelayedClarificationPrompt(source),
       roomObjectChanges: this.readRoomObjectChanges(source),
       activeRoomObjectId: activeRoomObjectId ?? null,
       activeRoomObjectName: this.readString(source, ["activeRoomObjectName", "ActiveRoomObjectName"]),
@@ -2066,6 +2067,23 @@ export class HostApiClient {
     };
   }
 
+  private readDelayedClarificationPrompt(input: Record<string, unknown>): HostSessionPresentationData["clarificationPrompt"] {
+    const prompt = this.readObject(input, ["clarificationPrompt", "ClarificationPrompt"]);
+    if (Object.keys(prompt).length === 0) {
+      return null;
+    }
+
+    const pendingClarification = this.readPendingClarification(prompt);
+    if (!pendingClarification) {
+      return null;
+    }
+
+    return {
+      commandCorrelationId: this.readNumber(prompt, ["commandCorrelationId", "CommandCorrelationId"]),
+      pendingClarification
+    };
+  }
+
   private readClarificationCandidate(input: unknown): HostClarificationCandidate {
     const candidate = this.asRecord(input);
     return {
@@ -2085,6 +2103,7 @@ export class HostApiClient {
       || raw === "ClarificationAnswerMismatch"
       || raw === "ClarificationStateStale"
       || raw === "DuplicateCorrelationId"
+      || raw === "Started"
       || raw === "Failure"
     ) {
       return raw;
