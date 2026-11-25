@@ -132,6 +132,113 @@ describe("mapLightingFrameInput", () => {
     ]);
   });
 
+  it("maps authored shadow onset values unchanged, including supported endpoints", () => {
+    const result = mapLightingFrameInput(scene({
+      objectsById: {
+        moderate: {
+          objectId: "moderate",
+          objectName: "Moderate blocker",
+          activePresentationCues: [],
+          lighting: {
+            spatialFootprint: { cellX: 1, cellY: 2 },
+            lightOcclusion: { strength: 0.75, shadowStartDistancePx: 64.5, shadowStartSoftness: 0.35 }
+          }
+        },
+        highEndpoint: {
+          objectId: "highEndpoint",
+          objectName: "High endpoint blocker",
+          activePresentationCues: [],
+          lighting: {
+            spatialFootprint: { cellX: 3, cellY: 4 },
+            lightOcclusion: { shadowStartDistancePx: 200, shadowStartSoftness: 1 }
+          }
+        },
+        lowEndpoint: {
+          objectId: "lowEndpoint",
+          objectName: "Low endpoint blocker",
+          activePresentationCues: [],
+          lighting: {
+            spatialFootprint: { cellX: 5, cellY: 6 },
+            lightOcclusion: { shadowStartDistancePx: 0, shadowStartSoftness: 0 }
+          }
+        }
+      }
+    }));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.frame.blockers).toEqual([
+      { xPx: 120, yPx: 160, sizeXCells: 1, sizeYCells: 1, cornerStyle: "square", shadowStartDistancePx: 200, shadowStartSoftness: 1 },
+      { xPx: 200, yPx: 240, sizeXCells: 1, sizeYCells: 1, cornerStyle: "square", shadowStartDistancePx: 0, shadowStartSoftness: 0 },
+      { xPx: 40, yPx: 80, sizeXCells: 1, sizeYCells: 1, cornerStyle: "square", strength: 0.75, shadowStartDistancePx: 64.5, shadowStartSoftness: 0.35 }
+    ]);
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it("omits invalid shadow onset values independently and reports focused diagnostics", () => {
+    const result = mapLightingFrameInput(scene({
+      objectsById: {
+        invalidDistance: {
+          objectId: "invalidDistance",
+          objectName: "Invalid distance",
+          activePresentationCues: [],
+          lighting: {
+            spatialFootprint: { cellX: 1, cellY: 2 },
+            lightOcclusion: { shadowStartDistancePx: 201, shadowStartSoftness: 0.4 }
+          }
+        },
+        invalidNonFinite: {
+          objectId: "invalidNonFinite",
+          objectName: "Non-finite onset",
+          activePresentationCues: [],
+          lighting: {
+            spatialFootprint: { cellX: 3, cellY: 4 },
+            lightOcclusion: { shadowStartDistancePx: Number.NaN, shadowStartSoftness: Number.POSITIVE_INFINITY }
+          }
+        },
+        invalidSoftness: {
+          objectId: "invalidSoftness",
+          objectName: "Invalid softness",
+          activePresentationCues: [],
+          lighting: {
+            spatialFootprint: { cellX: 5, cellY: 6 },
+            lightOcclusion: { shadowStartDistancePx: 32, shadowStartSoftness: 1.1 }
+          }
+        }
+      }
+    }));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.frame.blockers).toEqual([
+      { xPx: 40, yPx: 80, sizeXCells: 1, sizeYCells: 1, cornerStyle: "square", shadowStartSoftness: 0.4 },
+      { xPx: 120, yPx: 160, sizeXCells: 1, sizeYCells: 1, cornerStyle: "square" },
+      { xPx: 200, yPx: 240, sizeXCells: 1, sizeYCells: 1, cornerStyle: "square", shadowStartDistancePx: 32 }
+    ]);
+    expect(result.diagnostics).toEqual([
+      {
+        capability: "blocker",
+        objectId: "invalidDistance",
+        reason: "Ignoring shadowStartDistancePx outside the supported range 0..200; the package default will be used."
+      },
+      {
+        capability: "blocker",
+        objectId: "invalidNonFinite",
+        reason: "Ignoring shadowStartDistancePx outside the supported range 0..200; the package default will be used."
+      },
+      {
+        capability: "blocker",
+        objectId: "invalidNonFinite",
+        reason: "Ignoring shadowStartSoftness outside the supported range 0..1; the package default will be used."
+      },
+      {
+        capability: "blocker",
+        objectId: "invalidSoftness",
+        reason: "Ignoring shadowStartSoftness outside the supported range 0..1; the package default will be used."
+      }
+    ]);
+  });
+
   it("passes sway styles through for individual lights and point-light defaults", () => {
     const result = mapLightingFrameInput(scene({
       lighting: {

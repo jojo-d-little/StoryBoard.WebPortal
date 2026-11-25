@@ -76,7 +76,8 @@ describe("RoomLightingController", () => {
     expect(pipeline.submitFrame).toHaveBeenCalledWith({
       roomLighting: { ambient: 0, ambientColor: "#FFFFFF" },
       pointLights: [],
-      blockers: []
+      blockers: [],
+      pipeline: { shadowStartElevationScale: 0.5 }
     });
     expect(pipeline.renderFrame).toHaveBeenCalledWith(12.5);
     expect(sprite.visible).toBe(true);
@@ -85,6 +86,57 @@ describe("RoomLightingController", () => {
     expect(sprite.visible).toBe(false);
     controller.dispose();
     expect(pipeline.dispose).toHaveBeenCalledOnce();
+  });
+
+  it("submits blocker onset fields and the Portal elevation quality setting together", () => {
+    const { controller, pipeline, onDiagnostic } = createTestController();
+    controller.setEnabled(true);
+
+    controller.render(new Container(), scene({
+      objectsById: {
+        crate: {
+          objectId: "crate",
+          objectName: "Crate",
+          activePresentationCues: [],
+          lighting: {
+            spatialFootprint: { cellX: 2, cellY: 3, elevationCells: 1 },
+            lightOcclusion: { strength: 0.8, shadowStartDistancePx: 48, shadowStartSoftness: 0.6 }
+          }
+        }
+      }
+    }), 2);
+
+    expect(pipeline.submitFrame).toHaveBeenCalledWith(expect.objectContaining({
+      blockers: [{
+        xPx: 80,
+        yPx: 120,
+        sizeXCells: 1,
+        sizeYCells: 1,
+        cornerStyle: "square",
+        elevationCells: 1,
+        strength: 0.8,
+        shadowStartDistancePx: 48,
+        shadowStartSoftness: 0.6
+      }],
+      pipeline: { shadowStartElevationScale: 0.5 }
+    }));
+    expect(onDiagnostic).toHaveBeenCalledWith(expect.objectContaining({
+      category: "frame",
+      level: "info",
+      message: "Submitted shadow-onset settings to the Lighting pipeline.",
+      details: {
+        roomId: "room-1",
+        configuredBlockerCount: 1,
+        shadowOnsetBlockerCount: 1,
+        shadowStartElevationScale: 0.5,
+        blockers: [{
+          shadowStartDistancePx: 48,
+          shadowStartSoftness: 0.6,
+          elevationCells: 1
+        }]
+      }
+    }));
+    controller.dispose();
   });
 
   it("interpolates ambient intensity and color from controlled frame time", () => {
@@ -203,8 +255,10 @@ describe("RoomLightingController", () => {
     expect(controller.presentationSprite.visible).toBe(false);
     expect(controller.render(new Container(), scene(), 2)).toBe(false);
     expect(pipeline.renderFrame).toHaveBeenCalledOnce();
-    expect(onDiagnostic).toHaveBeenCalledOnce();
-    expect(onDiagnostic.mock.calls[0]?.[0].message).toContain("fallen back to the raw room surface");
+    expect(onDiagnostic.mock.calls.map(([event]) => event.message)).toEqual([
+      "Submitted shadow-onset settings to the Lighting pipeline.",
+      "Room lighting failed and has fallen back to the raw room surface."
+    ]);
     controller.dispose();
   });
 });

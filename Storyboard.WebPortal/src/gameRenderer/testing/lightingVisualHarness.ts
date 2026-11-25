@@ -5,7 +5,7 @@ import {
   type PresentationIsolationSettings
 } from "../index";
 
-type FixtureMode = "compact" | "workshop" | "supply-closet" | "stress" | "ambient-only" | "phase-high" | "removed" | "zero" | "legacy";
+type FixtureMode = "compact" | "workshop" | "supply-closet" | "stress" | "ambient-only" | "phase-high" | "removed" | "zero" | "legacy" | "shadow-onset-hard" | "shadow-onset-soft";
 
 interface LightingVisualHarness {
   setLightingEnabled: (enabled: boolean) => void;
@@ -53,10 +53,12 @@ function makeScene(mode: FixtureMode, roomId = "lighting-compact"): GameRenderSc
   const workshop = mode === "workshop";
   const supplyCloset = mode === "supply-closet";
   const stress = mode === "stress";
+  const shadowOnset = mode === "shadow-onset-hard" || mode === "shadow-onset-soft";
+  const shadowOnsetSoftness = mode === "shadow-onset-soft" ? 0.65 : 0;
   const width = stress ? 1600 : 800;
   const height = stress ? 1200 : 600;
   const cellSizePx = 40;
-  const ambient = mode === "phase-high" ? 0.68 : workshop || supplyCloset ? 0.7 : stress ? 0.26 : 0.2;
+  const ambient = mode === "phase-high" ? 0.68 : workshop || supplyCloset ? 0.7 : stress ? 0.26 : shadowOnset ? 0.12 : 0.2;
   const objectsById: GameRenderSceneSnapshot["objectsById"] = {};
 
   if (workshop) {
@@ -109,6 +111,96 @@ function makeScene(mode: FixtureMode, roomId = "lighting-compact"): GameRenderSc
         lightOcclusion: { strength: 0 }
       }
     };
+  } else if (shadowOnset) {
+    const blocker = (
+      objectId: string,
+      objectName: string,
+      x: number,
+      y: number,
+      elevationCells: number,
+      shadowStartDistancePx: number,
+      fill: string
+    ): GameRenderSceneSnapshot["objectsById"][string] => ({
+      objectId,
+      objectName,
+      activePresentationCues: [],
+      sprite: {
+        asset: { assetPath: svgDataUrl(fill, 80, 80, objectId === "crate" ? "C" : "") },
+        x,
+        y,
+        rotationDegrees: 0,
+        scale: 1,
+        zOrder: 20
+      },
+      lighting: {
+        spatialFootprint: {
+          cellX: Math.floor(x / cellSizePx),
+          cellY: Math.floor(y / cellSizePx),
+          sizeXCells: 2,
+          sizeYCells: 2,
+          elevationCells
+        },
+        lightOcclusion: {
+          strength: 1,
+          shadowStartDistancePx,
+          shadowStartSoftness: shadowOnsetSoftness
+        }
+      }
+    });
+    objectsById.lowLight = {
+      objectId: "lowLight",
+      objectName: "Low-elevation light",
+      activePresentationCues: [],
+      lighting: {
+        pointLight: {
+          x: 160,
+          y: 160,
+          radiusPx: 280,
+          intensityScale: 1.2,
+          lightHeightCells: 1,
+          color: "#ffe2a5"
+        }
+      }
+    };
+    objectsById.highLight = {
+      objectId: "highLight",
+      objectName: "High-elevation light",
+      activePresentationCues: [],
+      lighting: {
+        pointLight: {
+          x: 630,
+          y: 170,
+          radiusPx: 320,
+          intensityScale: 1.2,
+          lightHeightCells: 6,
+          color: "#a8d7ff"
+        }
+      }
+    };
+    const crate = blocker("crate", "Single low blocker", 200, 200, 0, 52, "#a94f25");
+    const crateFootprint = crate.lighting?.spatialFootprint;
+    const crateLighting = crate.lighting;
+    if (!crateFootprint || !crateLighting) {
+      throw new Error("Shadow onset fixture crate must be a blocker.");
+    }
+    objectsById.crate = {
+      ...crate,
+      lighting: {
+        ...crateLighting,
+        pointLight: {
+          x: 240,
+          y: 235,
+          radiusPx: 220,
+          intensityScale: 1.1,
+          lightHeightCells: 1,
+          color: "#ffd078"
+        }
+      }
+    };
+    objectsById.highLightLowBlocker = blocker("highLightLowBlocker", "High light / low blocker", 560, 220, 0, 36, "#8058a8");
+    objectsById.lowLightHighBlocker = blocker("lowLightHighBlocker", "Low light / high blocker", 100, 430, 3, 44, "#5074a8");
+    objectsById.overlapLow = blocker("overlapLow", "Overlapping low blocker", 500, 410, 0, 32, "#5d7551");
+    objectsById.overlapHigh = blocker("overlapHigh", "Overlapping high blocker", 540, 430, 3, 68, "#9a7640");
   } else if (stress) {
     for (let index = 0; index < 32; index += 1) {
       const column = index % 8;
@@ -206,7 +298,9 @@ function makeScene(mode: FixtureMode, roomId = "lighting-compact"): GameRenderSc
 
   const scene: GameRenderSceneSnapshot = {
     roomId,
-    roomLabel: workshop
+    roomLabel: shadowOnset
+      ? "Shadow onset elevation and overlap matrix"
+      : workshop
       ? "WorkshopTutorial Atrium light fixture"
       : supplyCloset ? "WorkshopTutorial Supply Closet light fixture" : stress ? "Lighting stress workload" : "Compact lighting fixture",
     displayMode: "composed",
@@ -268,7 +362,7 @@ function setGridEnabled(enabled: boolean): void {
 
 function setMode(mode: FixtureMode): void {
   currentMode = mode;
-  if (mode === "workshop" || mode === "supply-closet" || mode === "stress") currentRoomId = `lighting-${mode}`;
+  if (mode === "workshop" || mode === "supply-closet" || mode === "stress" || mode === "shadow-onset-hard" || mode === "shadow-onset-soft") currentRoomId = `lighting-${mode}`;
   else if (currentRoomId !== "lighting-compact") currentRoomId = "lighting-compact";
   fixtureName!.value = mode;
   currentScene = makeScene(mode, currentRoomId);

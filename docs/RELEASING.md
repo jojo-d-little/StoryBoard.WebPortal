@@ -15,6 +15,17 @@ npm run build
 
 Use the next intended version instead of `0.1.1`. For a prerelease, use a valid version such as `0.1.1-experimental.1`. The version command updates both `package.json` and `package-lock.json`.
 
+## Browser visual tests
+
+From `Storyboard.WebPortal`, run `npm ci` to install the versions pinned by the lockfile, then run:
+
+```powershell
+npm run test:visual:install
+npm run test:visual
+```
+
+The install command downloads the Chromium revision expected by the locked Playwright version into Playwright's per-user browser cache (`%LOCALAPPDATA%\ms-playwright` on Windows). The cache is reused by later test runs. Repeat the install command after changing the Playwright lockfile version or clearing the browser cache.
+
 `Storyboard.WebPortal/package.json` is the single editable version source. Do not edit a version in the NuGet project. To pack the NuGet output locally after building the WebPortal, run:
 
 ```powershell

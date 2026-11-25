@@ -321,7 +321,7 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
       const revisionBeforeCommand = deltaRevisionRef.current;
       const result = await props.submitCommand(step.command);
       if (sequenceRunRef.current !== runId) return;
-      if (!result || result.resultCode !== "Success") {
+      if (!result || (result.resultCode !== "Success" && result.resultCode !== "Started")) {
         throw new Error(`Command on line ${step.lineNumber} did not complete successfully${result ? ` (${result.resultCode})` : ""}.`);
       }
 
@@ -336,8 +336,11 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
       }
 
       setCommandSequenceIndex(stepIndex + 1);
+      const commandStatus = result.resultCode === "Started"
+        ? `Command ${stepIndex + 1} accepted.`
+        : `Command ${stepIndex + 1} complete.`;
       setCommandSequenceStatus(formatCommandSequenceAction(
-        `Command ${stepIndex + 1} complete. ${stepIndex + 1 < commandSequence.length ? "Click Next Command when ready." : "Sequence complete."}`,
+        `${commandStatus} ${stepIndex + 1 < commandSequence.length ? "Click Next Command when ready." : "Sequence complete."}`,
         stepIndex + 1
       ));
     } catch (error) {
@@ -370,7 +373,7 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
         const revisionBeforeCommand = deltaRevisionRef.current;
         const result = await props.submitCommand(step.command);
         if (sequenceRunRef.current !== runId) return;
-        if (!result || result.resultCode !== "Success") {
+        if (!result || (result.resultCode !== "Success" && result.resultCode !== "Started")) {
           throw new Error(`Command on line ${step.lineNumber} did not complete successfully${result ? ` (${result.resultCode})` : ""}.`);
         }
 
@@ -394,7 +397,7 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
           if (sequenceRunRef.current !== runId) return;
         }
       }
-      setCommandSequenceStatus(formatCommandSequenceAction(`Completed ${commandSequence.length} commands.`, commandSequence.length));
+      setCommandSequenceStatus(formatCommandSequenceAction(`Finished sending ${commandSequence.length} commands.`, commandSequence.length));
     } catch (error) {
       setCommandSequenceError(error instanceof Error ? error.message : String(error));
     } finally {

@@ -42,7 +42,9 @@ function sameOcclusion(
   left: GameRenderObjectLighting["lightOcclusion"],
   right: GameRenderObjectLighting["lightOcclusion"]
 ): boolean {
-  return left?.strength === right?.strength;
+  return left?.strength === right?.strength
+    && left?.shadowStartDistancePx === right?.shadowStartDistancePx
+    && left?.shadowStartSoftness === right?.shadowStartSoftness;
 }
 
 export function createLightingMovementTween(

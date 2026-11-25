@@ -183,7 +183,7 @@ describe("HostApiClient", () => {
                 renderZOrder: 0,
                 pointLight: { x: 0, y: 0, radiusPx: 0, intensityScale: 0, color: "#ffffff" },
                 spatialFootprint: { cellX: 0, cellY: 1, sizeXCells: 0, cornerStyle: "rounded", elevationCells: 0 },
-                lightOcclusion: { strength: 0 },
+                lightOcclusion: { strength: 1, shadowStartDistancePx: 16, shadowStartSoftness: 0.5 },
                 activePresentationCues: []
               },
             }
@@ -232,7 +232,7 @@ describe("HostApiClient", () => {
     expect(sessionData?.roomObjectChanges[0].renderableRoomObject).toMatchObject({
       pointLight: { x: 0, y: 0, radiusPx: 0, intensityScale: 0, color: "#ffffff" },
       spatialFootprint: { cellX: 0, cellY: 1, sizeXCells: 0, cornerStyle: "rounded", elevationCells: 0 },
-      lightOcclusion: { strength: 0 },
+      lightOcclusion: { strength: 1, shadowStartDistancePx: 16, shadowStartSoftness: 0.5 },
       activePresentationCues: []
     });
 

@@ -433,7 +433,9 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
               scale: 1
             },
             renderZOrder: 1002,
-            pointLight: { x: 132, y: 92, radiusPx: 80 }
+            pointLight: { x: 132, y: 92, radiusPx: 80 },
+            spatialFootprint: { cellX: 3, cellY: 2, elevationCells: 1 },
+            lightOcclusion: { strength: 1, shadowStartDistancePx: 24, shadowStartSoftness: 0.2 }
           },
           renderableRoomObject: {
             objectId: "obj-1",
@@ -451,6 +453,8 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
             },
             renderZOrder: 1002,
             pointLight: { x: 172, y: 92, radiusPx: 80 },
+            spatialFootprint: { cellX: 4, cellY: 2, elevationCells: 1 },
+            lightOcclusion: { strength: 1, shadowStartDistancePx: 64, shadowStartSoftness: 0.7 },
             activePresentationCues: [{ category: "Movement", effectKey: "movement.walk", activationId: "movement-walk-1", movement: { moveDirection: "East", movementDurationMs: 200, movementFrames: 5 } }]
           },
         }
@@ -458,8 +462,16 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
     }), baseline);
 
     expect(updated?.objectsById["obj-1"]).toMatchObject({
-      lighting: { pointLight: { x: 172, y: 92, radiusPx: 80 } },
-      lightingTransitionFrom: { pointLight: { x: 132, y: 92, radiusPx: 80 } },
+      lighting: {
+        pointLight: { x: 172, y: 92, radiusPx: 80 },
+        spatialFootprint: { cellX: 4, cellY: 2, elevationCells: 1 },
+        lightOcclusion: { strength: 1, shadowStartDistancePx: 64, shadowStartSoftness: 0.7 }
+      },
+      lightingTransitionFrom: {
+        pointLight: { x: 132, y: 92, radiusPx: 80 },
+        spatialFootprint: { cellX: 3, cellY: 2, elevationCells: 1 },
+        lightOcclusion: { strength: 1, shadowStartDistancePx: 24, shadowStartSoftness: 0.2 }
+      },
       movementDurationMs: 200
     });
   });
@@ -653,6 +665,64 @@ describe("mapHostSessionDataToSceneSnapshot", () => {
         activePresentationCues: []
       }
     });
+  });
+
+  it("forwards authored shadow onset values from Host baseline objects into Lighting frames", () => {
+    const baseline = buildSessionData();
+    const roomChange = baseline.roomChange!;
+    const room = roomChange.newRoom!;
+    const hostObject = room.renderableRoomObjects[0]!;
+    const snapshot = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      roomChange: {
+        ...roomChange,
+        newRoom: {
+          ...room,
+          renderableRoomObjects: [{
+            ...hostObject,
+            spatialFootprint: { cellX: 2, cellY: 3, sizeXCells: 2, elevationCells: 1 },
+            lightOcclusion: { strength: 0.75, shadowStartDistancePx: 64.5, shadowStartSoftness: 0.35 }
+          }]
+        }
+      },
+      sessionPresentationSettings: { cellSizePx: 40 }
+    }));
+
+    expect(snapshot?.objectsById["obj-1"]?.lighting?.lightOcclusion).toEqual({
+      strength: 0.75,
+      shadowStartDistancePx: 64.5,
+      shadowStartSoftness: 0.35
+    });
+    expect(snapshot).not.toBeNull();
+    if (!snapshot) return;
+    const mapped = mapLightingFrameInput(snapshot);
+    expect(mapped.ok).toBe(true);
+    if (!mapped.ok) return;
+    expect(mapped.frame.blockers).toContainEqual(expect.objectContaining({
+      xPx: 80,
+      yPx: 120,
+      sizeXCells: 2,
+      elevationCells: 1,
+      strength: 0.75,
+      shadowStartDistancePx: 64.5,
+      shadowStartSoftness: 0.35
+    }));
+
+    const replaced = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      roomChange: undefined,
+      roomObjectChanges: [{
+        changeKind: "Updated",
+        objectId: "obj-1",
+        objectName: hostObject.name,
+        renderableRoomObject: { ...hostObject }
+      }]
+    }), snapshot);
+    expect(replaced?.objectsById["obj-1"]?.lighting?.lightOcclusion).toBeUndefined();
+
+    const removed = mapHostSessionDataToSceneSnapshot(buildSessionData({
+      roomChange: undefined,
+      roomObjectChanges: [{ changeKind: "Removed", objectId: "obj-1", objectName: hostObject.name }]
+    }), replaced);
+    expect(removed?.objectsById["obj-1"]).toBeUndefined();
   });
 
   it("retains session settings on ordinary deltas and replaces room/object lighting completely", () => {

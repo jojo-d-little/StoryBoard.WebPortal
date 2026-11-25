@@ -10,6 +10,7 @@
     "verify:contracts": "node tools/verify-contract-package.mjs",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:visual:install": "playwright install chromium",
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots"
   },

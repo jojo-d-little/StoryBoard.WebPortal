@@ -1413,7 +1413,11 @@ export class HostApiClient {
   }
 
   private readLightOcclusion(source: Record<string, unknown>): HostObjectLightOcclusion {
-    return { strength: this.readOptionalFiniteNumber(source, ["strength", "Strength"]) };
+    return {
+      strength: this.readOptionalFiniteNumber(source, ["strength", "Strength"]),
+      shadowStartDistancePx: this.readOptionalFiniteNumber(source, ["shadowStartDistancePx", "ShadowStartDistancePx"]),
+      shadowStartSoftness: this.readOptionalFiniteNumber(source, ["shadowStartSoftness", "ShadowStartSoftness"])
+    };
   }
 
   private readRoomAmbientLighting(source: Record<string, unknown>): HostRoomAmbientLighting {

@@ -8,7 +8,7 @@ declare global {
   interface Window {
     __lightingHarness?: {
       setLightingEnabled: (enabled: boolean) => void;
-      setMode: (mode: "compact" | "workshop" | "stress") => void;
+      setMode: (mode: "compact" | "workshop" | "supply-closet" | "stress" | "ambient-only" | "phase-high" | "removed" | "zero" | "legacy" | "shadow-onset-hard" | "shadow-onset-soft") => void;
     };
     __lightingReady?: boolean;
   }

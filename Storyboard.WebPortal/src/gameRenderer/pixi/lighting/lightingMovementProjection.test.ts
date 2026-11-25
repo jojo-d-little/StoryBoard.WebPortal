@@ -11,7 +11,7 @@ import {
 const fromLighting = {
   pointLight: { x: 20, y: 30, radiusPx: 100 },
   spatialFootprint: { cellX: 1, cellY: 2, sizeXCells: 1, sizeYCells: 1 },
-  lightOcclusion: { strength: 1 }
+  lightOcclusion: { strength: 1, shadowStartDistancePx: 20, shadowStartSoftness: 0.25 }
 };
 
 function scene(): GameRenderSceneSnapshot {
@@ -28,7 +28,7 @@ function scene(): GameRenderSceneSnapshot {
         lighting: {
           pointLight: { x: 120, y: 130, radiusPx: 200 },
           spatialFootprint: { cellX: 4, cellY: 5, sizeXCells: 2, sizeYCells: 1 },
-          lightOcclusion: { strength: 0.5 }
+          lightOcclusion: { strength: 0.5, shadowStartDistancePx: 60, shadowStartSoftness: 0.75 }
         }
       }
     },
@@ -106,6 +106,29 @@ describe("lightingMovementProjection", () => {
 
     expect(projected.spatialFootprint).toMatchObject({ cellX: 1, cellY: 2, xPx: 95.25, yPx: 195.5, sizeXCells: 1, sizeYCells: 1 });
     expect(projected.lightOcclusion).toEqual(fromLighting.lightOcclusion);
+  });
+
+  it("treats shadow onset changes as blocker changes and preserves from/to values across movement", () => {
+    const snapshot = scene();
+    const target = snapshot.objectsById.crate!.lighting!;
+    const tween = createLightingMovementTween(fromLighting, target, 100);
+    expect(tween).toBeDefined();
+    if (!tween) return;
+
+    const tweens = new Map([["crate", tween]]);
+    advanceLightingMovementTweens(tweens, 50);
+    expect(projectLightingMovement(snapshot, tweens).objectsById.crate?.lighting?.lightOcclusion).toEqual({
+      strength: 1,
+      shadowStartDistancePx: 20,
+      shadowStartSoftness: 0.25
+    });
+
+    advanceLightingMovementTweens(tweens, 50);
+    expect(projectLightingMovement(snapshot, tweens).objectsById.crate?.lighting?.lightOcclusion).toEqual({
+      strength: 0.5,
+      shadowStartDistancePx: 60,
+      shadowStartSoftness: 0.75
+    });
   });
 
   it("keeps an incoming suitcase blocker with its destination-room arrival image", () => {

@@ -59,6 +59,8 @@ export interface GameRenderSpatialFootprint {
 
 export interface GameRenderLightOcclusion {
   strength?: number;
+  shadowStartDistancePx?: number;
+  shadowStartSoftness?: number;
 }
 
 export interface GameRenderObjectLighting {

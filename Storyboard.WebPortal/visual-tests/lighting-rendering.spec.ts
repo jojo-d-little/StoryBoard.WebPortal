@@ -5,7 +5,7 @@ declare global {
     __lightingHarness?: {
       setLightingEnabled: (enabled: boolean) => void;
       setGridEnabled: (enabled: boolean) => void;
-      setMode: (mode: "compact" | "workshop" | "supply-closet" | "stress" | "ambient-only" | "phase-high" | "removed" | "zero" | "legacy") => void;
+      setMode: (mode: "compact" | "workshop" | "supply-closet" | "stress" | "ambient-only" | "phase-high" | "removed" | "zero" | "legacy" | "shadow-onset-hard" | "shadow-onset-soft") => void;
       moveCrate: () => void;
       resize: (width: number, height: number) => void;
     };
@@ -89,6 +89,33 @@ test("sprite-attached lighting follows the rendered sprite during a move", async
 
   expect(Buffer.compare(startingFrame, movingFrame)).not.toBe(0);
   expect(Buffer.compare(movingFrame, settledFrame)).not.toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test("shadow onset hard/soft matrix renders overlaps, elevations, and blocker movement", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await openFixture(page);
+
+  const mount = page.locator("#mount");
+  await page.evaluate(() => window.__lightingHarness?.setMode("shadow-onset-hard"));
+  await page.waitForTimeout(200);
+  const hardOnsetFrame = await mount.screenshot();
+
+  await page.evaluate(() => window.__lightingHarness?.setMode("shadow-onset-soft"));
+  await page.waitForTimeout(200);
+  const softOnsetFrame = await mount.screenshot();
+  expect(Buffer.compare(hardOnsetFrame, softOnsetFrame)).not.toBe(0);
+
+  await page.evaluate(() => window.__lightingHarness?.setMode("shadow-onset-hard"));
+  await page.waitForTimeout(100);
+  await page.evaluate(() => window.__lightingHarness?.moveCrate());
+  await page.waitForTimeout(400);
+  const movingFrame = await mount.screenshot();
+  await page.waitForTimeout(1300);
+  const settledFrame = await mount.screenshot();
+  expect(Buffer.compare(hardOnsetFrame, movingFrame)).not.toBe(0);
+  expect(Buffer.compare(hardOnsetFrame, settledFrame)).not.toBe(0);
   expect(errors).toEqual([]);
 });
 

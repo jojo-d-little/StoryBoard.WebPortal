@@ -39,6 +39,8 @@ export interface GameRenderLightingBlockerInput {
   cornerStyle?: "square" | "round";
   elevationCells?: number;
   strength?: number;
+  shadowStartDistancePx?: number;
+  shadowStartSoftness?: number;
 }
 
 export interface GameRenderLightingFrameInput {
@@ -64,4 +66,7 @@ export interface GameRenderLightingFrameInput {
   };
   pointLights: GameRenderLightingPointLightInput[];
   blockers: GameRenderLightingBlockerInput[];
+  pipeline?: {
+    shadowStartElevationScale?: number;
+  };
 }

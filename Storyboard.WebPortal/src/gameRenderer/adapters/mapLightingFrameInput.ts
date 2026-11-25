@@ -162,9 +162,29 @@ function mapBlocker(
   const sizeYCells = footprint.sizeYCells ?? 1;
   const elevationCells = footprint.elevationCells;
   const strength = occlusion.strength;
+  const shadowStartDistancePx = occlusion.shadowStartDistancePx;
+  const shadowStartSoftness = occlusion.shadowStartSoftness;
   const cornerStyle = footprint.cornerStyle;
   const xPx = footprint.xPx ?? footprint.cellX * cellSizePx;
   const yPx = footprint.yPx ?? footprint.cellY * cellSizePx;
+  const validShadowStartDistance = shadowStartDistancePx === undefined
+    || (Number.isFinite(shadowStartDistancePx) && shadowStartDistancePx >= 0 && shadowStartDistancePx <= 200);
+  const validShadowStartSoftness = shadowStartSoftness === undefined
+    || (Number.isFinite(shadowStartSoftness) && shadowStartSoftness >= 0 && shadowStartSoftness <= 1);
+  if (!validShadowStartDistance) {
+    diagnostics.push({
+      capability: "blocker",
+      objectId,
+      reason: "Ignoring shadowStartDistancePx outside the supported range 0..200; the package default will be used."
+    });
+  }
+  if (!validShadowStartSoftness) {
+    diagnostics.push({
+      capability: "blocker",
+      objectId,
+      reason: "Ignoring shadowStartSoftness outside the supported range 0..1; the package default will be used."
+    });
+  }
   const valid = Number.isInteger(footprint.cellX)
     && Number.isInteger(footprint.cellY)
     && Number.isFinite(xPx)
@@ -186,7 +206,9 @@ function mapBlocker(
     sizeYCells,
     cornerStyle: cornerStyle === "rounded" ? "round" : "square",
     ...(elevationCells === undefined ? {} : { elevationCells }),
-    ...(strength === undefined ? {} : { strength })
+    ...(strength === undefined ? {} : { strength }),
+    ...(validShadowStartDistance && shadowStartDistancePx !== undefined ? { shadowStartDistancePx } : {}),
+    ...(validShadowStartSoftness && shadowStartSoftness !== undefined ? { shadowStartSoftness } : {})
   };
 }
 

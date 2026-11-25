@@ -46,6 +46,8 @@ interface AmbientLightingValues {
   ambientColor: string;
 }
 
+const SHADOW_START_ELEVATION_SCALE = 0.5;
+
 function parseHexColor(color: string): [number, number, number] | null {
   if (!/^#[0-9a-fA-F]{6}$/.test(color)) return null;
   return [
@@ -111,6 +113,7 @@ export class RoomLightingController {
   private faulted = false;
   private lastDiagnosticKey = "";
   private readonly reportedLightingFrameKeys = new Set<string>();
+  private readonly reportedShadowOnsetFrameKeys = new Set<string>();
   private displayedAmbientLighting: AmbientLightingValues | null = null;
   private ambientTransitionTarget: AmbientLightingValues | null = null;
   private ambientTransitionFrom: AmbientLightingValues | null = null;
@@ -185,7 +188,44 @@ export class RoomLightingController {
       }
 
       this.renderSurface(this.renderer, surface, sourceTexture);
-      this.pipeline.submitFrame(mapped.frame);
+      const pipelineFrame: GameRenderLightingFrameInput = {
+        ...mapped.frame,
+        pipeline: {
+          ...mapped.frame.pipeline,
+          shadowStartElevationScale: SHADOW_START_ELEVATION_SCALE
+        }
+      };
+      this.pipeline.submitFrame(pipelineFrame);
+      const configuredShadowOnsetBlockers = pipelineFrame.blockers.filter((blocker) =>
+        (blocker.shadowStartDistancePx ?? 0) > 0 || (blocker.shadowStartSoftness ?? 0) > 0
+      );
+      const shadowOnsetFrameKey = `${scene.roomId ?? "(unknown)"}:${JSON.stringify({
+        elevationScale: SHADOW_START_ELEVATION_SCALE,
+        blockers: configuredShadowOnsetBlockers.map((blocker) => ({
+          shadowStartDistancePx: blocker.shadowStartDistancePx ?? 0,
+          shadowStartSoftness: blocker.shadowStartSoftness ?? 0,
+          elevationCells: blocker.elevationCells ?? 0
+        }))
+      })}`;
+      if (!this.reportedShadowOnsetFrameKeys.has(shadowOnsetFrameKey)) {
+        this.reportedShadowOnsetFrameKeys.add(shadowOnsetFrameKey);
+        this.diagnostics?.({
+          category: "frame",
+          level: "info",
+          message: "Submitted shadow-onset settings to the Lighting pipeline.",
+          details: {
+            roomId: scene.roomId ?? "(unknown)",
+            configuredBlockerCount: pipelineFrame.blockers.length,
+            shadowOnsetBlockerCount: configuredShadowOnsetBlockers.length,
+            shadowStartElevationScale: SHADOW_START_ELEVATION_SCALE,
+            blockers: configuredShadowOnsetBlockers.slice(0, 8).map((blocker) => ({
+              shadowStartDistancePx: blocker.shadowStartDistancePx ?? 0,
+              shadowStartSoftness: blocker.shadowStartSoftness ?? 0,
+              elevationCells: blocker.elevationCells ?? 0
+            }))
+          }
+        });
+      }
       this.pipeline.renderFrame(timeSeconds);
       const output = this.pipeline.getOutputs();
       if (!output) {
