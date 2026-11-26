@@ -35,6 +35,7 @@ import { useSessionRecordingWorkflow } from "./useSessionRecordingWorkflow";
 import { useGameScopeDumpWorkflow } from "./useGameScopeDumpWorkflow";
 import { resolveHostTextPresentationCue } from "../gameRenderer/presentationCue/presentationCueCatalog";
 import { submitCommandDuringRoomTransition } from "./roomTransitionCommandSubmission";
+import { CommandOutcomeChannel } from "../utils/commandCompletionTracking";
 import {
   useSessionPhasePresentationWorkflow,
   type HudOverlayEntry
@@ -217,6 +218,8 @@ export interface HostWorkflowState {
   roomTransitionPreparationEpoch: number;
   loadParticleEffectImage: (relativeLocator: string) => Promise<string | null>;
   sessionDeltaRevision: number;
+  /** Ordered command-outcome events used by completion-based command-sequence playback. */
+  commandOutcomeChannel: CommandOutcomeChannel;
   sessionOutputLines: string[];
   pendingCommandClarification: HostPendingClarificationRequest | null;
   lastCommandResult: HostProcessCommandResult | null;
@@ -370,6 +373,7 @@ function formatDiagnostics(messages: string[]): string {
 
 export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowState {
   const addDiagnosticRef = useRef(options.addDiagnostic);
+  const commandOutcomeChannelRef = useRef<CommandOutcomeChannel>(new CommandOutcomeChannel());
   addDiagnosticRef.current = options.addDiagnostic;
 
   const echoOutputRetentionLines = normalizeEchoOutputRetentionLines(options.echoOutputRetentionLines);
@@ -653,7 +657,8 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     failHostOperation,
     setHostStatus,
     appendClientCommandEcho,
-    addDiagnostic: options.addDiagnostic
+    addDiagnostic: options.addDiagnostic,
+    commandOutcomeChannel: commandOutcomeChannelRef.current
   });
 
   const {
@@ -745,7 +750,8 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     consumeSessionDeltaEcho,
     consumeSessionDeltaSoundCues,
     refreshCacheStats,
-    addDiagnostic: options.addDiagnostic
+    addDiagnostic: options.addDiagnostic,
+    commandOutcomeChannel: commandOutcomeChannelRef.current
   });
 
   const submitCommandWhenRendererReady = useCallback(async (
@@ -1187,6 +1193,7 @@ export function useHostWorkflow(options: UseHostWorkflowOptions): HostWorkflowSt
     loadParticleEffectImage,
     roomTransitionPreparationEpoch,
     sessionDeltaRevision,
+    commandOutcomeChannel: commandOutcomeChannelRef.current,
     sessionOutputLines,
     pendingCommandClarification,
     lastCommandResult,

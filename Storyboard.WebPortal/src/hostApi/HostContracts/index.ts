@@ -55,6 +55,7 @@ export type { HostClarificationAnswer } from "./HostClarificationAnswer";
 export type { HostClarificationCandidate } from "./HostClarificationCandidate";
 export type { HostPendingClarificationRequest } from "./HostPendingClarificationRequest";
 export type { HostCommandClarificationPrompt } from "./HostCommandClarificationPrompt";
+export type { HostCommandCompletion } from "./HostCommandCompletion";
 
 export type { HostAuthenticateRequest } from "./HostAuthenticateRequest";
 export type { HostAuthenticateResult } from "./HostAuthenticateResult";

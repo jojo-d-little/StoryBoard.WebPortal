@@ -1,6 +1,7 @@
 import type {
   HostAuthenticateRequest,
   HostAuthenticateResult,
+  HostCommandCompletion,
   HostCommandMoveLegTelemetry,
   HostCommandActiveObjectPresentationCue,
   HostCommandActiveObjectSoundCue,
@@ -1139,6 +1140,7 @@ export class HostApiClient {
     const activeRoomObjectId = this.readOptionalGuidString(source, ["activeRoomObjectId", "ActiveRoomObjectId"]);
     const secondaryActiveRoomObjectId = this.readOptionalGuidString(source, ["secondaryActiveRoomObjectId", "SecondaryActiveRoomObjectId"]);
     const sessionDeltaWatermark = this.readOptionalString(source, ["sessionDeltaWatermark", "SessionDeltaWatermark"]);
+    const commandCompletions = this.readOptionalCommandCompletions(source);
     return {
       sessionPresentationSettings: this.readSessionPresentationSettings(source),
       roomChange: this.readRoomChangeData(source),
@@ -1158,8 +1160,41 @@ export class HostApiClient {
       remoteRoomObjects: this.readOptionalRemoteRoomObjects(source),
       outputLines: this.readArray(source, ["outputLines", "OutputLines"]).map(String),
       diagnostics: this.readArray(source, ["diagnostics", "Diagnostics"]).map(String),
+      ...(commandCompletions === undefined ? {} : { commandCompletions }),
       ...(sessionDeltaWatermark === undefined ? {} : { sessionDeltaWatermark })
     };
+  }
+
+  /**
+   * Reads terminal command completions. An omitted field stays omitted. An entry without a
+   * positive integer correlation id or a terminal Success/Failure code is dropped rather than
+   * guessed, so a malformed occurrence can never be mistaken for completion.
+   */
+  private readOptionalCommandCompletions(source: Record<string, unknown>): HostCommandCompletion[] | undefined {
+    const raw = source.commandCompletions ?? source.CommandCompletions;
+    if (!Array.isArray(raw)) {
+      return undefined;
+    }
+
+    const completions: HostCommandCompletion[] = [];
+    for (const entry of raw) {
+      const record = this.asRecord(entry);
+      const commandCorrelationId = this.readNumber(record, ["commandCorrelationId", "CommandCorrelationId"]);
+      const resultCode = this.readString(record, ["resultCode", "ResultCode"]);
+      if (!Number.isSafeInteger(commandCorrelationId) || commandCorrelationId <= 0
+        || (resultCode !== "Success" && resultCode !== "Failure")) {
+        continue;
+      }
+
+      const failureMessage = this.readOptionalString(record, ["failureMessage", "FailureMessage"]);
+      completions.push({
+        commandCorrelationId,
+        resultCode,
+        ...(failureMessage === undefined ? {} : { failureMessage })
+      });
+    }
+
+    return completions;
   }
 
   private readMoveLegTelemetry(source: Record<string, unknown>): HostCommandMoveLegTelemetry[] {

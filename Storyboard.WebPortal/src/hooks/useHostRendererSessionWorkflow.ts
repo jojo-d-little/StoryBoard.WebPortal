@@ -6,6 +6,7 @@ import type { DiagnosticsLevel } from "../components/DiagnosticsConsole";
 import { HostApiClient } from "../hostApi/client";
 import type { HostCommandSoundCue, HostSessionPresentationData } from "../hostApi/HostContracts";
 import { useSessionDeltaPolling } from "./useSessionDeltaPolling";
+import type { CommandOutcomeChannel } from "../utils/commandCompletionTracking";
 import { buildAssetCacheKey, webPortalAssetCache } from "../cache/webPortalAssetCache";
 import type { PresentationCueCatalogDocument } from "../gameRenderer/contracts/presentationEffects";
 
@@ -89,6 +90,8 @@ interface UseHostRendererSessionWorkflowOptions {
   consumeSessionDeltaSoundCues: (sessionData: HostSessionPresentationData, isBaseline?: boolean) => void;
   refreshCacheStats: () => void;
   addDiagnostic: AddDiagnostic;
+  /** Receives command completions (after their update is applied) and delivery-continuity loss. */
+  commandOutcomeChannel?: CommandOutcomeChannel;
 }
 
 function extractContentTypeFromDataUrl(dataUrl: string): string {
@@ -185,6 +188,9 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
   const consumeSessionDeltaPhasePresentationRef = useRef(options.consumeSessionDeltaPhasePresentation);
   const consumeSessionDeltaClarificationRef = useRef(options.consumeSessionDeltaClarification ?? (() => undefined));
   const consumeSessionDeltaEchoRef = useRef(options.consumeSessionDeltaEcho);
+  const commandOutcomeChannelRef = useRef(options.commandOutcomeChannel);
+  commandOutcomeChannelRef.current = options.commandOutcomeChannel;
+  const activeSessionIdRef = useRef(options.activeSessionId);
   const consumeSessionDeltaSoundCuesRef = useRef(options.consumeSessionDeltaSoundCues);
   const addDiagnosticRef = useRef(options.addDiagnostic);
   const ensurePresentationCueCatalogReadyRef = useRef(options.ensurePresentationCueCatalogReady);
@@ -383,6 +389,21 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     pendingMoveLegTelemetryRef.current = [];
     pendingParticleBurstsRef.current = [];
     sceneHydrationGenerationRef.current += 1;
+  }, [options.activeSessionId, options.sessionDeltaResetEpoch]);
+
+  // A session change, end or reset breaks delivery continuity for outcomes still pending in the
+  // previous session/epoch. The cleanup runs with the values the effect captured.
+  useEffect(() => {
+    const sessionId = options.activeSessionId;
+    activeSessionIdRef.current = sessionId;
+    return () => {
+      if (!sessionId) return;
+      commandOutcomeChannelRef.current?.publish({
+        kind: "outcomeLost",
+        sessionId,
+        reason: "The session changed, ended or was reset."
+      });
+    };
   }, [options.activeSessionId, options.sessionDeltaResetEpoch]);
 
   useEffect(() => {
@@ -1240,6 +1261,14 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
       releaseRoomTransitionPollingPause("room-change-without-renderable-scene");
     }
     consumeSessionDeltaEchoRef.current(sessionData);
+    // Completions are published last so the same update's final state is accepted first.
+    for (const completion of sessionData.commandCompletions ?? []) {
+      commandOutcomeChannelRef.current?.publish({
+        kind: "completion",
+        sessionId: activeSessionIdRef.current,
+        completion
+      });
+    }
   }, [
     emitAppearanceCueResolutionDiagnostics,
     assertRoomTransitionPollingPause,
@@ -1265,6 +1294,11 @@ export function useHostRendererSessionWorkflow(options: UseHostRendererSessionWo
     onSessionData: handleSessionDataUpdate,
     onGameplayChange: options.onGameplayChange,
     onResyncBaseline: async (baseline) => {
+      commandOutcomeChannelRef.current?.publish({
+        kind: "outcomeLost",
+        sessionId: activeSessionIdRef.current,
+        reason: "Session history was lost and a baseline resync was required."
+      });
       await applySessionBaseline(baseline, "resync");
     },
     addDiagnostic: options.addDiagnostic

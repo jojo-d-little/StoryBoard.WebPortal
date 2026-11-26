@@ -10,6 +10,8 @@ import { DiagnosticsWorkspace, type DiagnosticsWorkspaceProps } from "./Diagnost
 import type { SessionRecordingWorkflow } from "../hooks/useSessionRecordingWorkflow";
 import type { GameScopeDumpWorkflow } from "../hooks/useGameScopeDumpWorkflow";
 import { parseCommandSequence, type CommandSequenceStep } from "../utils/commandSequence";
+import { armCommandCompletionWatch, type CommandOutcomeChannel } from "../utils/commandCompletionTracking";
+import type { HostProcessCommandResult } from "../hostApi/HostContracts";
 
 type SlotModeOverrides = Record<string, SlotMode>;
 type SlotTechnicalDetailsOverrides = Record<string, boolean>;
@@ -218,8 +220,19 @@ interface DevToolsPanelProps {
   sessionRecording: SessionRecordingWorkflow;
   activeSessionId: string;
   selectedGameId: string;
-  submitCommand: (command: string) => Promise<{ resultCode: string } | null>;
+  submitCommand: (command: string) => Promise<Pick<HostProcessCommandResult, "resultCode" | "commandCorrelationId"> | null>;
   sessionDeltaRevision: number;
+  /** Ordered command outcomes; required for `command | complete` lines. */
+  commandOutcomeChannel?: CommandOutcomeChannel;
+  /** Bound on waiting for one command's completion (default 120 s); exceeding it stops as unknown. */
+  commandCompletionTimeoutMs?: number;
+}
+
+const DEFAULT_COMMAND_COMPLETION_TIMEOUT_MS = 120_000;
+
+function asSentence(text: string): string {
+  const trimmed = text.trim();
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
 }
 
 export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
@@ -236,7 +249,24 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
   const [commandSequenceBusy, setCommandSequenceBusy] = useState<boolean>(false);
   const deltaRevisionRef = useRef(props.sessionDeltaRevision);
   const sequenceRunRef = useRef(0);
+  const activeCompletionWaitRef = useRef<AbortController | null>(null);
   deltaRevisionRef.current = props.sessionDeltaRevision;
+  useEffect(() => {
+    // A pending outcome cannot be established once the session changes or ends.
+    const sessionId = props.activeSessionId;
+    const channel = props.commandOutcomeChannel;
+    return () => {
+      if (sessionId && channel) {
+        channel.publish({ kind: "outcomeLost", sessionId, reason: "The session changed or ended." });
+      }
+    };
+  }, [props.activeSessionId, props.commandOutcomeChannel]);
+  useEffect(() => () => {
+    // Unmount ends any run and removes a pending completion wait's subscription.
+    sequenceRunRef.current += 1;
+    activeCompletionWaitRef.current?.abort();
+    activeCompletionWaitRef.current = null;
+  }, []);
   useEffect(() => {
     if (props.sessionRecording.playbackStatus?.mode === "Timed") {
       setPlaybackSpeed(props.sessionRecording.playbackStatus.speedMultiplier);
@@ -292,14 +322,69 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
 
   function cancelCommandSequence(): void {
     sequenceRunRef.current += 1;
+    activeCompletionWaitRef.current?.abort();
+    activeCompletionWaitRef.current = null;
     setCommandSequenceBusy(false);
     setCommandSequenceStatus("Playback stopped.");
   }
 
   function formatNextCommand(step: CommandSequenceStep | undefined): string {
     if (!step) return "No next command.";
-    const pause = commandSequenceMode === "manual" ? ` (recommended pause: ${step.pauseMs} ms)` : "";
-    return `Next command: ${step.command}${pause}`;
+    const hint = commandSequenceMode !== "manual"
+      ? ""
+      : step.advance === "complete"
+        ? " (advances when complete)"
+        : ` (recommended pause: ${step.pauseMs} ms)`;
+    return `Next command: ${step.command}${hint}`;
+  }
+
+  /**
+   * Sends a `complete` line and resolves true once that command has completed successfully.
+   * Resolves false when playback was stopped. Throws on failure or unknown outcome, never advancing.
+   * The watch is armed before submission so an update that arrives ahead of the response is kept.
+   */
+  async function sendAndAwaitCompletion(step: CommandSequenceStep, stepIndex: number, runId: number): Promise<boolean> {
+    const position = `${stepIndex + 1} of ${commandSequence.length}`;
+    const channel = props.commandOutcomeChannel;
+    if (!channel) {
+      throw new Error(`Line ${step.lineNumber}: command completion tracking is unavailable. Playback stopped.`);
+    }
+
+    const watch = armCommandCompletionWatch(channel, props.activeSessionId);
+    const abort = new AbortController();
+    activeCompletionWaitRef.current = abort;
+    try {
+      setCommandSequenceStatus(formatCommandSequenceAction(`Sending ${position}: ${step.command}.`, stepIndex + 1));
+      const result = await props.submitCommand(step.command);
+      if (sequenceRunRef.current !== runId) return false;
+      if (!result) {
+        throw new Error(`Command on line ${step.lineNumber} could not be submitted, or its response was lost. Playback stopped.`);
+      }
+
+      const outcome = await watch.waitForTerminal({
+        initial: result,
+        timeoutMs: props.commandCompletionTimeoutMs ?? DEFAULT_COMMAND_COMPLETION_TIMEOUT_MS,
+        signal: abort.signal,
+        onPhase: (phase, commandCorrelationId) => {
+          if (sequenceRunRef.current !== runId) return;
+          setCommandSequenceStatus(formatCommandSequenceAction(phase === "awaitingCompletion"
+            ? `Waiting for command ${position} to complete (line ${step.lineNumber}, correlation ${commandCorrelationId}).`
+            : `Waiting for a clarification answer for command ${position} (line ${step.lineNumber}). Answer the prompt to continue.`,
+          stepIndex + 1));
+        }
+      });
+      if (sequenceRunRef.current !== runId || outcome.kind === "cancelled") return false;
+      if (outcome.kind === "failure") {
+        throw new Error(`Command on line ${step.lineNumber} failed: ${asSentence(outcome.message)} Playback stopped.`);
+      }
+      if (outcome.kind === "unknown") {
+        throw new Error(`Command on line ${step.lineNumber}: ${asSentence(outcome.message)} Playback stopped; inspect the game state before restarting.`);
+      }
+      return true;
+    } finally {
+      watch.dispose();
+      if (activeCompletionWaitRef.current === abort) activeCompletionWaitRef.current = null;
+    }
   }
 
   function formatCommandSequenceAction(action: string, nextIndex: number): string {
@@ -314,6 +399,16 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
     setCommandSequenceBusy(true);
     setCommandSequenceError("");
     try {
+      if (step.advance === "complete") {
+        if (!await sendAndAwaitCompletion(step, stepIndex, runId)) return;
+        setCommandSequenceIndex(stepIndex + 1);
+        setCommandSequenceStatus(formatCommandSequenceAction(
+          `Command ${stepIndex + 1} complete. ${stepIndex + 1 < commandSequence.length ? "Click Next Command when ready." : "Sequence complete."}`,
+          stepIndex + 1
+        ));
+        return;
+      }
+
       setCommandSequenceStatus(formatCommandSequenceAction(
         `Sending ${stepIndex + 1} of ${commandSequence.length}: ${step.command}.`,
         stepIndex + 1
@@ -336,11 +431,14 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
       }
 
       setCommandSequenceIndex(stepIndex + 1);
-      const commandStatus = result.resultCode === "Started"
+      const accepted = result.resultCode === "Started";
+      const commandStatus = accepted
         ? `Command ${stepIndex + 1} accepted.`
         : `Command ${stepIndex + 1} complete.`;
+      // A Started command is only accepted, so the final line does not claim the sequence is complete.
+      const sequenceEnd = accepted ? "All commands sent." : "Sequence complete.";
       setCommandSequenceStatus(formatCommandSequenceAction(
-        `${commandStatus} ${stepIndex + 1 < commandSequence.length ? "Click Next Command when ready." : "Sequence complete."}`,
+        `${commandStatus} ${stepIndex + 1 < commandSequence.length ? "Click Next Command when ready." : sequenceEnd}`,
         stepIndex + 1
       ));
     } catch (error) {
@@ -366,6 +464,11 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
       for (let index = 0; index < commandSequence.length; index += 1) {
         if (sequenceRunRef.current !== runId) return;
         const step = commandSequence[index];
+        if (step.advance === "complete") {
+          if (!await sendAndAwaitCompletion(step, index, runId)) return;
+          continue;
+        }
+
         setCommandSequenceStatus(formatCommandSequenceAction(
           `Sending ${index + 1} of ${commandSequence.length}: ${step.command}.`,
           index + 1
@@ -397,7 +500,10 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
           if (sequenceRunRef.current !== runId) return;
         }
       }
-      setCommandSequenceStatus(formatCommandSequenceAction(`Finished sending ${commandSequence.length} commands.`, commandSequence.length));
+      const lastStep = commandSequence[commandSequence.length - 1];
+      setCommandSequenceStatus(formatCommandSequenceAction(lastStep?.advance === "complete"
+        ? `Finished: ${commandSequence.length} commands sent and the last command completed.`
+        : `Finished sending ${commandSequence.length} commands.`, commandSequence.length));
     } catch (error) {
       setCommandSequenceError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -797,7 +903,7 @@ export function DevToolsPanel(props: DevToolsPanelProps): JSX.Element {
                       onChange={(event) => setCommandSequenceMode(event.target.value as "automatic" | "manual")}
                       disabled={commandSequenceBusy}
                     >
-                      <option value="automatic">Automatic, use file pauses</option>
+                      <option value="automatic">Automatic, use file pauses or completion</option>
                       <option value="manual">Manual, advance one command at a time</option>
                     </select>
                   </label>

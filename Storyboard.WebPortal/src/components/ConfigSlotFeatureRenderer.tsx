@@ -238,6 +238,7 @@ export function ConfigSlotFeatureRenderer(props: ConfigSlotFeatureRendererProps)
         selectedGameId={hostWorkflow.selectedGameId}
         submitCommand={hostWorkflow.submitCommand}
         sessionDeltaRevision={hostWorkflow.sessionDeltaRevision}
+        commandOutcomeChannel={hostWorkflow.commandOutcomeChannel}
         diagnosticsEnabled={diagnosticsEnabled}
         hostApiBaseUrlOverride={hostApiBaseUrlOverride}
         maxDiagnosticsEntries={maxDiagnosticsEntries}

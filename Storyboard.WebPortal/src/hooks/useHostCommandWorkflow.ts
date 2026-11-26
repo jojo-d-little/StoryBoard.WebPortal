@@ -9,6 +9,7 @@ import type {
 } from "../hostApi/HostContracts";
 import type { DiagnosticsLevel } from "../components/DiagnosticsConsole";
 import { ensureSignedInSessionContext } from "./hostWorkflowGuards";
+import type { CommandOutcomeChannel } from "../utils/commandCompletionTracking";
 
 type AddDiagnostic = (level: DiagnosticsLevel, category: string, message: string, details?: unknown) => void;
 
@@ -52,6 +53,8 @@ interface UseHostCommandWorkflowOptions {
   setHostStatus: (value: string) => void;
   appendClientCommandEcho: (commandText: string) => void;
   addDiagnostic: AddDiagnostic;
+  /** Receives clarification prompt/answer outcomes for command-completion waits. */
+  commandOutcomeChannel?: CommandOutcomeChannel;
 }
 
 interface UseHostCommandWorkflowResult {
@@ -198,6 +201,7 @@ export function useHostCommandWorkflow(options: UseHostCommandWorkflowOptions): 
     setPendingCommandClarification(pendingClarification);
     pendingCommandCorrelationIdRef.current = commandCorrelationId;
     pendingRawCommandTextRef.current = commandContext.rawCommandText;
+    options.commandOutcomeChannel?.publish({ kind: "clarificationPrompt", sessionId: options.activeSessionId, commandCorrelationId });
     options.addDiagnostic("info", "command", "Accepted delayed command clarification prompt.", {
       commandCorrelationId,
       rawCommandText: commandContext.rawCommandText,
@@ -325,6 +329,12 @@ export function useHostCommandWorkflow(options: UseHostCommandWorkflowOptions): 
         statusPrefix: STATUS_PREFIX_COMMAND_CLARIFIED,
         diagnosticsMessage: MSG_DIAGNOSTICS_CLARIFICATION,
         isClarificationAnswer: true
+      });
+      options.commandOutcomeChannel?.publish({
+        kind: "clarificationResponse",
+        sessionId: options.activeSessionId,
+        commandCorrelationId: response.commandCorrelationId || commandCorrelationId,
+        response
       });
     } catch (err) {
       options.failHostOperation("command", `Clarification error: ${err instanceof Error ? err.message : String(err)}`);

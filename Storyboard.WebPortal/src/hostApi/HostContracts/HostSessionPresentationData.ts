@@ -1,5 +1,6 @@
 import type { HostCommandPhaseChangeData } from "./HostCommandPhaseChangeData";
 import type { HostCommandClarificationPrompt } from "./HostCommandClarificationPrompt";
+import type { HostCommandCompletion } from "./HostCommandCompletion";
 import type { HostCommandRemoteRoomObject } from "./HostCommandRemoteRoomObject";
 import type { HostCommandRoomChangeData } from "./HostCommandRoomChangeData";
 import type { HostCommandRoomObjectChange } from "./HostCommandRoomObjectChange";
@@ -26,5 +27,7 @@ export interface HostSessionPresentationData {
   remoteRoomObjects?: HostCommandRemoteRoomObject[];
   outputLines: string[];
   diagnostics: string[];
+  /** Terminal outcomes of Started root commands, in delivery order; omitted or empty means none. */
+  commandCompletions?: HostCommandCompletion[];
   sessionDeltaWatermark?: string | null;
 }

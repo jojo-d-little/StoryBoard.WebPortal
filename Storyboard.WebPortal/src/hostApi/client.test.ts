@@ -4,6 +4,48 @@ import { describe, expect, it, vi } from "vitest";
 import { HostApiClient } from "./client";
 
 describe("HostApiClient", () => {
+  it("decodes ordered terminal command completions, omits an absent field and drops nonterminal entries", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          resultCode: "Success",
+          sessionData: {
+            sessionDeltaWatermark: "20",
+            commandCompletions: [
+              { commandCorrelationId: 561, resultCode: "Success" },
+              { commandCorrelationId: 562, resultCode: "Failure", failureMessage: "It does not fit." },
+              { commandCorrelationId: 561, resultCode: "Success" },
+              { commandCorrelationId: 563, resultCode: "Started" },
+              { commandCorrelationId: 0, resultCode: "Success" },
+              { CommandCorrelationId: 564, ResultCode: "Failure" }
+            ]
+          }
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ resultCode: "Success", sessionData: { sessionDeltaWatermark: "21", outputLines: ["x"] } })
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const client = new HostApiClient({ baseUrl: "http://127.0.0.1:5199" });
+      const withCompletions = await client.getSessionDeltas("cred-1", "session-1", "19", "Medium");
+      expect(withCompletions.sessionData?.commandCompletions).toEqual([
+        { commandCorrelationId: 561, resultCode: "Success" },
+        { commandCorrelationId: 562, resultCode: "Failure", failureMessage: "It does not fit." },
+        { commandCorrelationId: 561, resultCode: "Success" },
+        { commandCorrelationId: 564, resultCode: "Failure" }
+      ]);
+
+      const legacy = await client.getSessionDeltas("cred-1", "session-1", "20", "Medium");
+      expect(legacy.sessionData).not.toHaveProperty("commandCompletions");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("decodes delayed clarification prompts from ordered session updates", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: true,
